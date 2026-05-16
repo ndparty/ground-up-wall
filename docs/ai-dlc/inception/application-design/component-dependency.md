@@ -226,7 +226,7 @@ Component → AuthComponent → Repository → Session Store
 
 ## Environment-Specific Dependencies
 
-### Local Development
+### Phase 1 — Local Development (MVP)
 
 | Component | Local Dependency | Configuration |
 |-----------|------------------|---------------|
@@ -234,7 +234,7 @@ Component → AuthComponent → Repository → Session Store
 | StorageService | Filesystem (./uploads) | `STORAGE_PATH=./uploads` |
 | RealtimeService | In-memory event emitter | `REALTIME_PROVIDER=memory` |
 
-### Production (Deno Deploy + Supabase)
+### Phase 2 — Production (Deno Deploy + Supabase)
 
 | Component | Production Dependency | Configuration |
 |-----------|-----------------------|---------------|
@@ -254,6 +254,47 @@ Component → AuthComponent → Repository → Session Store
 | AdminComponent | InstagramService | Configure hashtag settings |
 | Repository | InstagramService | Store Instagram source data |
 | ModerationComponent | InstagramService | Display source indicator |
+
+### Phase 1 Abstraction Design
+
+Phase 1 defines abstract interfaces for all infrastructure dependencies, with local-only implementations. This design ensures that Phase 2 (cloud deployment) requires only new implementations of the same interfaces — no code changes to business logic.
+
+```typescript
+// Defined in Phase 1 — implemented locally
+interface Repository {
+  createSubmission(data: SubmissionData): Promise<Submission>
+  getPendingSubmissions(): Promise<Submission[]>
+  getApprovedSubmissions(): Promise<Submission[]>
+  updateSubmissionStatus(id: string, status: string): Promise<Submission>
+  deleteSubmission(id: string): Promise<void>
+  authenticateUser(username: string, password: string): Promise<User | null>
+  createUser(data: CreateUserData): Promise<User>
+  changePassword(userId: string, current: string, newPassword: string): Promise<void>
+  createModerator(username: string, password: string): Promise<void>
+  listModerators(): Promise<Moderator[]>
+  resetModeratorPassword(id: string, newPassword: string): Promise<void>
+}
+
+interface StorageService {
+  uploadImage(file: File, path: string): Promise<string>
+  deleteImage(path: string): Promise<void>
+}
+
+interface RealtimeService {
+  publish(event: string, data: any): void
+  subscribe(event: string, callback: (data: any) => void): UnsubscribeFn
+}
+
+// Phase 1 implementations (local)
+class PostgresRepository implements Repository { /* local Postgres */ }
+class FileStorageService implements StorageService { /* local filesystem */ }
+class MemoryRealtimeService implements RealtimeService { /* in-memory events */ }
+
+// Phase 2 implementations (cloud) — no business logic changes needed
+class SupabaseRepository implements Repository { /* Supabase Postgres */ }
+class SupabaseStorageService implements StorageService { /* Supabase Storage */ }
+class SupabaseRealtimeService implements RealtimeService { /* Supabase Realtime */ }
+```
 
 ### Instagram Integration Flow
 

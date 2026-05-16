@@ -41,8 +41,8 @@ Central orchestrator for all photo wall operations. Coordinates between UI compo
 
 5. **Environment Coordination**
    - Detect execution environment (local vs production)
-   - Route operations to appropriate backend services
-   - Handle configuration differences transparently
+   - Route operations to appropriate backend services via abstracted interfaces
+   - Handle configuration differences transparently via environment-based dependency injection
 
 ### Service Interfaces
 
@@ -194,7 +194,7 @@ DisplayComponent
 
 ## Environment Configuration
 
-### Local Development
+### Phase 1 — Local Development (MVP)
 
 ```typescript
 // Environment: local
@@ -212,9 +212,22 @@ const config = {
     provider: 'memory'
   }
 }
+
+// Phase 1 service implementations (local only)
+const services = {
+  repository: new PostgresRepository(config.postgres),
+  storage: new FileStorageService(config.filesystem),
+  realtime: new MemoryRealtimeService()
+}
+
+const photoWallService = new PhotoWallService(
+  services.repository,
+  services.storage,
+  services.realtime
+)
 ```
 
-### Production (Deno Deploy + Supabase)
+### Phase 2 — Production (Deno Deploy + Supabase)
 
 ```typescript
 // Environment: production
@@ -231,6 +244,42 @@ const config = {
   realtime: {
     provider: 'supabase',
     url: Deno.env.get('SUPABASE_URL')
+  }
+}
+
+// Phase 2 implementations — same interface, different backend
+const services = {
+  repository: new SupabaseRepository(config.supabase),
+  storage: new SupabaseStorageService(config.supabase),
+  realtime: new SupabaseRealtimeService(config.supabase)
+}
+```
+
+### Phase 3 — Instagram Integration (extends Phase 2 config)
+
+```typescript
+// Environment: production + instagram
+const config = {
+  database: {
+    /* same as Phase 2 */
+    provider: 'supabase',
+    url: Deno.env.get('SUPABASE_URL'),
+    key: Deno.env.get('SUPABASE_ANON_KEY')
+  },
+  storage: {
+    /* same as Phase 2 */
+    provider: 'supabase',
+    bucket: 'submissions'
+  },
+  realtime: {
+    /* same as Phase 2 */
+    provider: 'supabase',
+    url: Deno.env.get('SUPABASE_URL')
+  },
+  instagram: {
+    hashtag: Deno.env.get('INSTAGRAM_HASHTAG'),
+    apiKey: Deno.env.get('INSTAGRAM_API_KEY'),
+    pollInterval: 300000  // 5 minutes
   }
 }
 ```
@@ -280,13 +329,28 @@ interface InstagramService {
 │  │   (Data Access)  │  │   (Images)       │  │  Service  │ │
 │  └──────────────────┘  └──────────────────┘  └───────────┘ │
 │                                                             │
-│  Environment-aware implementations:                         │
-│  - PostgresRepository / SupabaseRepository                 │
-│  - FileStorageService / SupabaseStorageService             │
-│  - MemoryRealtimeService / SupabaseRealtimeService         │
+│  Phase 1 (local) implementations:                           │
+│  - PostgresRepository                                       │
+│  - FileStorageService                                       │
+│  - MemoryRealtimeService                                    │
+│                                                             │
+│  Phase 2 (cloud) implementations (same interfaces):         │
+│  - SupabaseRepository                                       │
+│  - SupabaseStorageService                                   │
+│  - SupabaseRealtimeService                                  │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+## Phase Delivery Summary
+
+| Service | Phase 1 (Local MVP) | Phase 2 (Cloud) | Phase 3 (Instagram) |
+|---------|---------------------|-----------------|---------------------|
+| Repository | PostgresRepository (interface) | SupabaseRepository (same interface) | Same as Phase 2 |
+| StorageService | FileStorageService (interface) | SupabaseStorageService (same interface) | Same as Phase 2 |
+| RealtimeService | MemoryRealtimeService (interface) | SupabaseRealtimeService (same interface) | Same as Phase 2 |
+| InstagramService | — | — | New: interface + implementation |
+| Business Logic | All features (FR-01–FR-24) | Same as Phase 1 (no changes) | Same + Instagram source handling |
 
 ---
 
