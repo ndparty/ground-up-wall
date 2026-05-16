@@ -130,6 +130,19 @@ This document maps all functional requirements (FR), non-functional requirements
 
 > **Note**: FR-26 (run locally with Deno + Postgres) is implicitly satisfied by Phase 1 — Phase 1 builds the entire app against local Postgres, filesystem storage, and in-memory events. NFR-18 (repository pattern) and NFR-19 (storage abstraction) are Phase 1 design requirements — the abstract interfaces are defined and implemented locally in Phase 1, then re-implemented against Supabase in Phase 2.
 
+### Cross-Phase Testing Strategy
+
+The interface abstractions (Repository, StorageService, RealtimeService) create a natural seam for **contract testing**:
+
+1. **Phase 1**: Write contract tests against each interface that verify:
+   - All required methods exist with correct signatures
+   - Local implementations (PostgresRepository, FileStorageService, MemoryRealtimeService) satisfy the contracts
+   - Error cases are handled consistently (connection failures, invalid inputs, etc.)
+
+2. **Phase 2**: Run the same contract tests against the Supabase implementations (SupabaseRepository, SupabaseStorageService, SupabaseRealtimeService). If all contract tests pass, the "no code changes needed" claim is validated automatically.
+
+3. **Phase 3**: The InstagramService should have a test double (mock/fake) that implements the same interface, allowing the moderation pipeline to be tested independently of Instagram API availability.
+
 ### Phase 3: Instagram Integration
 
 | Requirement | Description | Technical Strategy | Components | Verification |

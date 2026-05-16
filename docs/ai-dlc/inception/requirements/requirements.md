@@ -6,7 +6,7 @@
 - **Request Type**: New Project (Greenfield)
 - **Scope Estimate**: Multiple Components (upload app, display wall, admin panel, backend)
 - **Complexity Estimate**: Moderate
-- **Tech Stack**: Deno Fresh + Deno Deploy + Supabase (Postgres + Storage)
+- **Tech Stack**: Deno Fresh + Postgres (Phase 1 local; Phase 2 with Deno Deploy + Supabase)
 
 ---
 
@@ -149,6 +149,7 @@ Admin → inherits → Photo Moderator → inherits → Participant
 | R-02 | Admin panel access method | RESOLVED: Password-based login with username and password (not secret URL) |
 | R-03 | Real-time mechanism | Supabase Realtime (websockets) is available on free tier — preferred approach for live wall updates |
 | R-04 | QR code generation | Static QR code pointing to the app URL — can be generated externally before the event |
+| R-05 | Instagram API feasibility | Instagram's public hashtag API (Basic Display API) has been restricted since 2020. Phase 3 may require Meta's Graph API with Business Verification, App Review, and an Instagram Business/Creator account — timeline uncertain for a single-event app. A fallback (manual CSV import) should be considered. |
 
 ---
 
@@ -166,6 +167,14 @@ This project will be delivered in three phases, each producing a testable, worki
 - **Abstraction pattern**: Repository, StorageService, and RealtimeService interfaces with local implementations (Postgres, filesystem, in-memory event emitter)
 
 **Testable Deliverable**: Fully functional photowall system running on localhost with Deno + Postgres + filesystem storage. All features (upload, moderation, admin, display wall, password management) work end-to-end without internet connectivity or cloud accounts.
+
+**Phase 1 Exit Criteria**:
+1. All FR-01 to FR-24 pass end-to-end testing against local Postgres + filesystem storage
+2. NFR-03 (60fps animation) confirmed on target laptop/display hardware
+3. NFR-04 (real-time updates within 30s) verified with local real-time mechanism
+4. Organiser sign-off on upload, moderation, and display workflows
+5. All user stories US-01 through US-11 pass their Gherkin acceptance criteria
+6. Contract tests written for Repository, StorageService, and RealtimeService interfaces (reusable in Phase 2)
 
 ### Phase 2: Cloud Deployment (Deno Deploy + Supabase)
 **Goal**: Deploy the Phase 1 application to Deno Deploy with Supabase as the backend, using environment-based configuration to switch between local and production environments seamlessly.

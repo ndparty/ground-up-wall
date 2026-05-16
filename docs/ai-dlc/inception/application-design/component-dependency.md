@@ -255,7 +255,58 @@ Component → AuthComponent → Repository → Session Store
 | Repository | InstagramService | Store Instagram source data |
 | ModerationComponent | InstagramService | Display source indicator |
 
-### Phase 1 Abstraction Design
+## Data Model
+
+### Submissions Table
+
+```typescript
+interface Submission {
+  id: string                    // UUID, primary key
+  image_url: string             // Path to stored image (filesystem or Supabase Storage)
+  message: string               // Max 50 characters
+  submitter_name: string        // Required
+  social_handle: string | null  // Optional
+  status: 'pending' | 'approved' | 'rejected'
+  source: 'manual_upload'       // Extended in Phase 3 with 'instagram'
+  source_metadata: object | null  // e.g. { instagram_post_id, instagram_username } in Phase 3
+  created_at: timestamp
+  approved_at: timestamp | null
+  approved_by: string | null    // User ID of moderator
+}
+```
+
+### Users Table
+
+```typescript
+interface User {
+  id: string                    // UUID, primary key
+  username: string              // Unique
+  password_hash: string         // Bcrypt hash
+  role: 'admin' | 'moderator'
+  created_at: timestamp
+  created_by: string | null     // Admin user ID who created this account
+}
+```
+
+---
+
+## Real-Time Mechanism (Local Development)
+
+In Phase 1, the real-time service uses an in-memory event emitter within the Deno server process. This works well when the display wall and moderation panel are served from the same Deno instance.
+
+**For cross-tab scenarios** (e.g., developer opens display wall and moderation panel in separate browser tabs):
+- The Deno server maintains a single `EventEmitter` instance
+- Server-Sent Events (SSE) push events to connected browser tabs
+- Tabs subscribe via the `RealtimeService` interface, which translates in-memory events to SSE streams
+- No WebSocket or Postgres `LISTEN/NOTIFY` needed in Phase 1
+
+**For Phase 2**: Supabase Realtime (WebSocket-based) replaces the in-memory emitter — same interface, different transport.
+
+**Fallback strategy**: If SSE is unavailable, the DisplayComponent polls `GET /api/submissions/approved` every 10 seconds, which still satisfies NFR-04 (30-second window).
+
+---
+
+## Phase 1 Abstraction Design
 
 Phase 1 defines abstract interfaces for all infrastructure dependencies, with local-only implementations. This design ensures that Phase 2 (cloud deployment) requires only new implementations of the same interfaces — no code changes to business logic.
 
