@@ -15,7 +15,7 @@ Planned tech stack:
 
 ## docs/ai-dlc/
 
-This folder contains the shared AI-DLC (AI-Driven Development Lifecycle) artifacts — the requirements, user stories, and design documents produced during the inception phase. These are team-shared artifacts, referenced by each developer's personal SDD (Software Development Diary) repository.
+This folder contains the shared AI-DLC (AI-Driven Development Lifecycle) artifacts — the requirements, user stories, and design documents produced during the inception phase. These are team-shared artifacts, referenced by each developer's personal SDD (Spec-Driven Development) session repository.
 
 ### Current Contents
 
