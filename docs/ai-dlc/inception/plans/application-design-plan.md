@@ -161,7 +161,7 @@ Please fill in the [Answer]: tags above with your design decisions. These decisi
 | Q3: Database Schema | Option A (Single table) | `submissions` table with status field |
 | Q4: Real-time | Option A (Supabase Realtime) | Must work locally with Postgres too; offline dev first |
 | Q5: Image Processing | Option A (Client-side) | Light compression, refine after testing |
-| Q6: Abstraction Timing | Local-first approach | Work locally first, then external platforms; Instagram in Phase 3 |
+| Q6: Abstraction Timing | Local-first approach | **Phase 1**: Local Deno app (local Postgres, filesystem, in-memory events). **Phase 2**: Cloud deployment (Deno Deploy + Supabase). **Phase 3**: Instagram integration. |
 
 
 ---

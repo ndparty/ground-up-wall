@@ -6,7 +6,7 @@
 - **Request Type**: New Project (Greenfield)
 - **Scope Estimate**: Multiple Components (upload app, display wall, admin panel, backend)
 - **Complexity Estimate**: Moderate
-- **Tech Stack**: Deno Fresh + Deno Deploy + Supabase (Postgres + Storage)
+- **Tech Stack**: Deno Fresh + Postgres (Phase 1 local; Phase 2 with Deno Deploy + Supabase)
 
 ---
 
@@ -149,6 +149,7 @@ Admin → inherits → Photo Moderator → inherits → Participant
 | R-02 | Admin panel access method | RESOLVED: Password-based login with username and password (not secret URL) |
 | R-03 | Real-time mechanism | Supabase Realtime (websockets) is available on free tier — preferred approach for live wall updates |
 | R-04 | QR code generation | Static QR code pointing to the app URL — can be generated externally before the event |
+| R-05 | Instagram API feasibility | Instagram's public hashtag API (Basic Display API) has been restricted since 2020. Phase 3 may require Meta's Graph API with Business Verification, App Review, and an Instagram Business/Creator account — timeline uncertain for a single-event app. A fallback (manual CSV import) should be considered. |
 
 ---
 
@@ -156,28 +157,38 @@ Admin → inherits → Photo Moderator → inherits → Participant
 
 This project will be delivered in three phases, each producing a testable, working product. The architecture is designed to evolve without major rewrites between phases.
 
-### Phase 1: MVP — Manual Upload + Moderation + Display Wall
-**Goal**: Core functionality for the National Day event — participants upload photos manually, Photo Moderators moderate, Admin manages users, display wall shows approved submissions.
+### Phase 1: MVP — Local Deno Application
+**Goal**: Core functionality running entirely locally on the developer's machine — participants upload photos manually, Photo Moderators moderate, Admin manages users, display wall shows approved submissions. Demos are run from the local machine with no cloud dependencies.
 
 **Included Requirements**:
-- **Functional**: FR-01 through FR-24 (all Phase 1 requirements)
+- **Functional**: FR-01 through FR-24 (all core features, implemented with local backends)
 - **Non-Functional**: NFR-01 through NFR-16
 - **Design**: DR-01, DR-02, DR-03
-- **Constraints**: C-01 through C-06
+- **Abstraction pattern**: Repository, StorageService, and RealtimeService interfaces with local implementations (Postgres, filesystem, in-memory event emitter)
 
-**Testable Deliverable**: Fully functional photowall system with manual upload, multi-role moderation (Moderator + Admin), password management, and SMRT train display — deployable to Deno Deploy + Supabase.
+**Testable Deliverable**: Fully functional photowall system running on localhost with Deno + Postgres + filesystem storage. All features (upload, moderation, admin, display wall, password management) work end-to-end without internet connectivity or cloud accounts.
 
-### Phase 2: Local Development Flexibility
-**Goal**: Enable local development and testing with Deno + Postgres, with environment-based configuration for seamless deployment to production.
+**Phase 1 Exit Criteria**:
+1. All FR-01 to FR-24 pass end-to-end testing against local Postgres + filesystem storage
+2. NFR-03 (60fps animation) confirmed on target laptop/display hardware
+3. NFR-04 (real-time updates within 30s) verified with local real-time mechanism
+4. Organiser sign-off on upload, moderation, and display workflows
+5. All user stories US-01 through US-11 pass their Gherkin acceptance criteria
+6. Contract tests written for Repository, StorageService, and RealtimeService interfaces (reusable in Phase 2)
 
-**New/Modified Requirements**:
+### Phase 2: Cloud Deployment (Deno Deploy + Supabase)
+**Goal**: Deploy the Phase 1 application to Deno Deploy with Supabase as the backend, using environment-based configuration to switch between local and production environments seamlessly.
+
+**New Requirements**:
 - **FR-25**: The system shall support environment-based configuration (local.env, production.env) for database connection, storage backend, and deployment target.
-- **FR-26**: The system shall run entirely locally using Deno and Postgres without requiring Supabase or Deno Deploy during development.
 - **NFR-17**: Switching between local and production environments shall require only configuration changes (environment variables), with no code modifications.
-- **NFR-18**: The system shall use a repository pattern to abstract data access, allowing the same business logic to work with local Postgres and Supabase Postgres.
-- **NFR-19**: The system shall use a storage abstraction layer to support both local filesystem storage (development) and Supabase Storage (production).
 
-**Testable Deliverable**: Development environment that runs locally with full functionality, with documented configuration for switching to production deployment.
+**New Implementations (reusing Phase 1 abstraction interfaces)**:
+- SupabaseRepository (implements Repository interface against Supabase Postgres)
+- SupabaseStorageService (implements StorageService interface against Supabase Storage)
+- SupabaseRealtimeService (implements RealtimeService interface against Supabase Realtime)
+
+**Testable Deliverable**: The same application deployed to Deno Deploy + Supabase, with documented environment variables for switching between local development and production deployment. No code changes needed — only config changes.
 
 ### Phase 3: Instagram Integration
 **Goal**: Aggregate photos and messages from Instagram using a configurable hashtag, automatically including them in the display wall rotation.
@@ -197,17 +208,18 @@ This project will be delivered in three phases, each producing a testable, worki
 
 | Concern | Phase 1 | Phase 2 | Phase 3 |
 |---------|---------|---------|---------|
-| Database | Supabase Postgres | Abstracted repository pattern | Same as Phase 2 |
-| Storage | Supabase Storage | Abstracted storage layer | Same as Phase 2 |
-| Config | Environment variables | Structured .env files | Same as Phase 2 + Instagram settings |
+| Database | Local Postgres (via abstracted Repository interface) | Supabase Postgres (SupabaseRepository impl) | Same as Phase 2 |
+| Storage | Local filesystem (via abstracted StorageService interface) | Supabase Storage (SupabaseStorageService impl) | Same as Phase 2 |
+| Realtime | In-memory event emitter (via abstracted RealtimeService interface) | Supabase Realtime (SupabaseRealtimeService impl) | Same as Phase 2 |
+| Config | Environment variables (local.env) | Environment-based switching (local.env / production.env) | Same as Phase 2 + Instagram settings |
 | User Roles | Participant, Photo Moderator, Admin | Same as Phase 1 | Same as Phase 1 |
 | Content Sources | Manual upload only | Same as Phase 1 | Content source abstraction + Instagram |
-| Deployment | Deno Deploy | Same + local dev support | Same as Phase 2 |
+| Deployment | Local Deno (demo from laptop) | Deno Deploy | Same as Phase 2 |
 
 ### Phase Dependencies
 
-- **Phase 2** can be developed in parallel with Phase 1 if the abstraction layers are designed upfront, or implemented after Phase 1 as a refactoring pass.
-- **Phase 3** depends on the moderation queue and display wall from Phase 1 being stable, but does not require Phase 2 (Instagram integration can be developed against Supabase directly).
+- **Phase 2 depends on the abstraction interfaces built in Phase 1.** Phase 1 must design and implement Repository, StorageService, and RealtimeService interfaces with local implementations. Phase 2 then adds Supabase-specific implementations for each interface.
+- **Phase 3 depends on the moderation queue and display wall from Phase 1 being stable.** Instagram submissions flow through the same moderation pipeline. Phase 3 may leverage the content source abstraction pattern established in Phase 2.
 - Each phase delivers an independently testable and deployable product.
 
 ---
@@ -216,4 +228,5 @@ This project will be delivered in three phases, each producing a testable, worki
 
 | Date | Change |
 |------|--------|
+| 2026-05-17 | Reordered phased delivery plan: Phase 1 is now local-only MVP (no cloud dependency), Phase 2 adds cloud deployment (Deno Deploy + Supabase), Phase 3 remains Instagram integration. FR-26 (local-only requirement) implicitly satisfied by Phase 1. NFR-18 and NFR-19 (abstraction patterns) are now Phase 1 design requirements rather than Phase 2 additions. Architecture evolution table updated to reflect local-first progression. |
 | 2026-05-11 | Restructured FRs to align with 3-persona model: split "Organiser Admin Panel" into Photo Moderation Panel (1.2), Password Management (1.3), Admin User Management (1.4). Renumbered FRs (was 18, now 24 Phase 1 FRs). Added FR-11 through FR-16 for password management and user management. Updated Phase 1 to include all 24 FRs. Updated Phase 2/3 FR numbering (was FR-19/FR-20, now FR-25/FR-26; was FR-21/FR-25, now FR-27/FR-31). Added Persona Model section. Updated Architecture Evolution table. Updated Phased Delivery Plan descriptions. |

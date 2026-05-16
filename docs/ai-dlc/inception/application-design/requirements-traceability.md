@@ -121,15 +121,27 @@ This document maps all functional requirements (FR), non-functional requirements
 
 ## Phase 2/3 Requirements Traceability
 
-### Phase 2: Local Development Flexibility
+### Phase 2: Cloud Deployment (Deno Deploy + Supabase)
 
 | Requirement | Description | Technical Strategy | Components | Verification |
 |-------------|-------------|-------------------|------------|--------------|
 | FR-25 | Environment-based configuration | .env files, environment detection | All services | Test: Config switching |
-| FR-26 | Run locally with Deno + Postgres | Local implementations of services | Repository, StorageService, RealtimeService | Test: Local deployment |
 | NFR-17 | Switch environments with config only | Configuration-driven service selection | All services | Test: Environment switching |
-| NFR-18 | Repository pattern for data access | Interface-based repository abstraction | Repository | Test: Interface compliance |
-| NFR-19 | Storage abstraction layer | Interface-based storage abstraction | StorageService | Test: Interface compliance |
+
+> **Note**: FR-26 (run locally with Deno + Postgres) is implicitly satisfied by Phase 1 — Phase 1 builds the entire app against local Postgres, filesystem storage, and in-memory events. NFR-18 (repository pattern) and NFR-19 (storage abstraction) are Phase 1 design requirements — the abstract interfaces are defined and implemented locally in Phase 1, then re-implemented against Supabase in Phase 2.
+
+### Cross-Phase Testing Strategy
+
+The interface abstractions (Repository, StorageService, RealtimeService) create a natural seam for **contract testing**:
+
+1. **Phase 1**: Write contract tests against each interface that verify:
+   - All required methods exist with correct signatures
+   - Local implementations (PostgresRepository, FileStorageService, MemoryRealtimeService) satisfy the contracts
+   - Error cases are handled consistently (connection failures, invalid inputs, etc.)
+
+2. **Phase 2**: Run the same contract tests against the Supabase implementations (SupabaseRepository, SupabaseStorageService, SupabaseRealtimeService). If all contract tests pass, the "no code changes needed" claim is validated automatically.
+
+3. **Phase 3**: The InstagramService should have a test double (mock/fake) that implements the same interface, allowing the moderation pipeline to be tested independently of Instagram API availability.
 
 ### Phase 3: Instagram Integration
 
@@ -168,19 +180,21 @@ This document maps all functional requirements (FR), non-functional requirements
 - [x] FR-01 to FR-24: All mapped to components and services
 - [x] NFR-01 to NFR-16: All mapped with technical strategies
 - [x] DR-01 to DR-03: All mapped to display components
-- [x] Phase 2 requirements (FR-25, FR-26, NFR-17, NFR-18, NFR-19): All mapped
+- [x] Phase 2 requirements (FR-25, NFR-17): All mapped
 - [x] Phase 3 requirements (FR-27 to FR-31, NFR-20, NFR-21): All mapped
+
+> **Note**: FR-26 (local-only requirement) is absorbed into Phase 1. NFR-18 (repository pattern) and NFR-19 (storage abstraction) are Phase 1 design requirements, built in Phase 1 to enable Phase 2 cloud deployment.
 
 ### Traceability Completeness
 
 | Category | Total | Covered | Coverage |
 |----------|-------|---------|----------|
 | Functional Requirements (Phase 1) | 24 | 24 | 100% |
-| Non-Functional Requirements (Phase 1) | 16 | 16 | 100% |
+| Non-Functional Requirements (Phase 1) | 18 | 18 | 100% |
 | Design Requirements | 3 | 3 | 100% |
-| Phase 2 Requirements | 5 | 5 | 100% |
+| Phase 2 Requirements | 2 | 2 | 100% |
 | Phase 3 Requirements | 8 | 8 | 100% |
-| **Total** | **56** | **56** | **100%** |
+| **Total** | **55** | **55** | **100%** |
 
 ---
 
@@ -188,14 +202,16 @@ This document maps all functional requirements (FR), non-functional requirements
 
 Based on the phased delivery plan:
 
-### Phase 1 (MVP) — Implement First
+### Phase 1 (Local MVP) — Implement First
 - All FR-01 to FR-24
 - All NFR-01 to NFR-16
+- NFR-18 (repository pattern abstraction), NFR-19 (storage abstraction)
 - All DR-01 to DR-03
 
-### Phase 2 (Local Dev Flexibility) — Implement Second
-- FR-25, FR-26
-- NFR-17, NFR-18, NFR-19
+### Phase 2 (Cloud Deployment) — Implement Second
+- FR-25 (environment-based configuration)
+- NFR-17 (environment switching)
+- SupabaseRepository, SupabaseStorageService, SupabaseRealtimeService implementations
 
 ### Phase 3 (Instagram Integration) — Implement Last
 - FR-27 to FR-31

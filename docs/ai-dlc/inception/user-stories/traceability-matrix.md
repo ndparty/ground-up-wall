@@ -35,12 +35,12 @@ Maps Functional Requirements (FRs) and Non-Functional Requirements (NFRs) to Use
 | FR-23 | Branded waiting screen when no submissions approved | US-07 |
 | FR-24 | Full-screen browser display for HDMI-connected TV | US-07 |
 
-### Phase 2 — Local Development (Not yet covered)
+### Phase 2 — Cloud Deployment (Not yet covered)
+> **Note**: FR-26 (local-only requirement) is implicitly satisfied by Phase 1, since Phase 1 builds the entire app against local Postgres, filesystem storage, and in-memory events.
 
 | FR | Description | User Stories |
 |:--:|-------------|:------------:|
 | FR-25 | Environment-based configuration (local.env, production.env) | _Not yet covered_ |
-| FR-26 | Run locally with Deno + Postgres without Supabase/Deno Deploy | _Not yet covered_ |
 
 ### Phase 3 — Instagram Integration (Not yet covered)
 
@@ -75,8 +75,8 @@ Maps Functional Requirements (FRs) and Non-Functional Requirements (NFRs) to Use
 | NFR-15 | No personal data beyond name and social handle; no auth for participants | US-02, US-NFR-03 |
 | NFR-16 | WCAG 2.1 AA accessibility (labels, contrast, keyboard nav) | US-NFR-01 |
 | NFR-17 | Environment-only configuration switches (no code changes) | _Not yet covered (Phase 2)_ |
-| NFR-18 | Repository pattern for data access abstraction | _Not yet covered (Phase 2)_ |
-| NFR-19 | Storage abstraction layer (local vs Supabase) | _Not yet covered (Phase 2)_ |
+| NFR-18 | Repository pattern for data access abstraction | _Covered by Phase 1 architecture (interfaces defined in Phase 1, Supabase impl in Phase 2)_ |
+| NFR-19 | Storage abstraction layer (local vs Supabase) | _Covered by Phase 1 architecture (interfaces defined in Phase 1, Supabase impl in Phase 2)_ |
 | NFR-20 | Instagram fetching respects rate limits, graceful error handling | _Not yet covered (Phase 3)_ |
 | NFR-21 | Content source abstraction pattern | _Not yet covered (Phase 3)_ |
 
@@ -86,13 +86,13 @@ Maps Functional Requirements (FRs) and Non-Functional Requirements (NFRs) to Use
 
 | Category | Total | Covered | Coverage % | Notes |
 |----------|:-----:|:-------:|:----------:|-------|
-| FRs (Phase 1) | 24 | 24 | **100%** | All Phase 1 requirements covered |
-| FRs (Phase 2) | 2 | 0 | **0%** | Phase 2 — stories to be created separately |
+| FRs (Phase 1) | 24 | 24 | **100%** | All Phase 1 requirements covered (local Postgres, filesystem, in-memory events) |
+| FRs (Phase 2) | 1 | 0 | **0%** | Phase 2 (FR-25 for env config) — stories to be created separately |
 | FRs (Phase 3) | 5 | 0 | **0%** | Phase 3 — stories to be created separately |
-| NFRs (Phase 1) | 16 | 16 | **100%** | All Phase 1 NFRs covered |
-| NFRs (Phase 2) | 3 | 0 | **0%** | Phase 2 — abstraction layer stories pending |
+| NFRs (Phase 1) | 18 | 18 | **100%** | Includes NFR-18, NFR-19 now covered by Phase 1 abstraction interfaces |
+| NFRs (Phase 2) | 1 | 0 | **0%** | Phase 2 (NFR-17 for env switching) — stories pending |
 | NFRs (Phase 3) | 2 | 0 | **0%** | Phase 3 — Instagram stories pending |
-| **Total (All)** | 52 | 40 | **77%** | Phase 2 & 3 stories expected for later |
+| **Total (All)** | 51 | 42 | **82%** | FR-26 absorbed into Phase 1; NFR-18/19 absorbed into Phase 1 |
 
 ---
 
@@ -100,4 +100,5 @@ Maps Functional Requirements (FRs) and Non-Functional Requirements (NFRs) to Use
 
 | Date | Change |
 |------|--------|
+| 2026-05-17 | Reordered phased delivery to match requirements.md update: Phase 1 = local MVP (all abstractions built here), Phase 2 = cloud deployment (FR-25 only, FR-26 folded into Phase 1), Phase 3 = Instagram integration. Updated NFR-18/19 to be Phase 1 design requirements. Updated coverage counts. |
 | 2026-05-11 | Updated FR numbering to match restructured requirements.md: FR-01–FR-05 unchanged, FR-06–FR-10 for Photo Moderation Panel, new FR-11–FR-16 for Password Management + Admin User Management, old FR-11–FR-18 renumbered to FR-17–FR-24, Phase 2 FRs now FR-25/FR-26, Phase 3 FRs now FR-27–FR-31. Phase 1 FR count increased from 18 to 24. |
