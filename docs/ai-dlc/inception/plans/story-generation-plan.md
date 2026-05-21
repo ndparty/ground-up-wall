@@ -5,7 +5,7 @@
 **Project**: ground-up-wall (Photowall Webapp for Singapore National Day)
 **Source Document**: `aidlc-docs/inception/requirements/requirements.md`
 
-This plan will convert the requirements document (18 FRs, 16 NFRs, 3 DRs) into user stories organized by personas, with acceptance criteria for each story.
+This plan will convert the requirements document (originally 24 Phase 1 FRs, later updated to 30 with Update 01) into user stories organized by personas, with acceptance criteria for each story.
 
 ---
 

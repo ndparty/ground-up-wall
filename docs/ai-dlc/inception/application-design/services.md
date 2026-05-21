@@ -1,4 +1,4 @@
-# Services — ground-up-wall
+# Services — ground-up-wall (Updated for Update 01)
 
 ## Service Layer Architecture
 
@@ -11,7 +11,7 @@
 
 ### Purpose
 
-Central orchestrator for all photo wall operations. Coordinates between UI components, data access, storage, and real-time services.
+Central orchestrator for all photo wall operations. Coordinates between UI components, data access, storage, real-time, audit, and auto-moderator services.
 
 ### Responsibilities
 
@@ -19,27 +19,36 @@ Central orchestrator for all photo wall operations. Coordinates between UI compo
    - Accept new submissions from UploadComponent
    - Coordinate image compression and storage
    - Create submission records in database
+   - Run auto-moderator content check on submission messages
    - Publish events for real-time updates
 
 2. **Moderation Workflow**
    - Provide pending submissions to ModerationComponent
    - Process approval/rejection decisions
+   - Edit submission content (with audit trail)
    - Update submission status in database
-   - Notify display wall of approved submissions
+   - Notify display wall of approved/edited/deleted submissions
 
 3. **Display Wall Operations**
    - Serve approved submissions to DisplayComponent
    - Maintain chronological ordering
-   - Handle real-time updates for new approvals
-   - Support cabin transition timing
+   - Handle real-time updates for new approvals, edits, and deletions
+   - Pause/play/jump train controls (moderator/admin only)
+   - Support cabin transition timing via system parameters
 
 4. **User Management**
-   - Authenticate moderators and admins
+   - Authenticate moderators and admins (check disabled accounts)
    - Manage user sessions
    - Handle password changes
    - Enforce role-based access control
 
-5. **Environment Coordination**
+5. **Admin Operations**
+   - List, create, disable, enable, delete moderator accounts
+   - Reset moderator passwords
+   - Read and update system parameters (dwell time, prompt text, word list)
+   - View and filter audit log
+
+6. **Environment Coordination**
    - Detect execution environment (local vs production)
    - Route operations to appropriate backend services via abstracted interfaces
    - Handle configuration differences transparently via environment-based dependency injection
@@ -51,25 +60,43 @@ Central orchestrator for all photo wall operations. Coordinates between UI compo
 interface PhotoWallService {
   // Submission operations
   submitSubmission(data: SubmissionData): Promise<Submission>
+  editSubmission(id: string, data: SubmissionEditData, moderatorId: string): Promise<Submission>  // Update 01
   getPendingSubmissions(): Promise<Submission[]>
   getApprovedSubmissions(): Promise<Submission[]>
-  approveSubmission(id: string): Promise<Submission>
-  rejectSubmission(id: string, reason?: string): Promise<Submission>
-  deleteSubmission(id: string): Promise<void>
+  approveSubmission(id: string, moderatorId: string): Promise<Submission>
+  rejectSubmission(id: string, moderatorId: string, reason?: string): Promise<Submission>
+  deleteSubmission(id: string, moderatorId: string): Promise<void>
   
   // Real-time operations
   publishNewSubmission(submission: Submission): void
   subscribeToApproved(callback: (submission: Submission) => void): UnsubscribeFn
+  publishTrainCommand(command: TrainCommand): void                                     // Update 01
+  subscribeToTrainCommands(callback: (command: TrainCommand) => void): UnsubscribeFn   // Update 01
   
   // User operations
   authenticateUser(username: string, password: string): Promise<User | null>
   createUser(data: CreateUserData): Promise<User>
   changePassword(userId: string, currentPassword: string, newPassword: string): Promise<void>
   
-  // Admin operations
+  // Admin — Moderator management (Update 01 extensions)
   listModerators(): Promise<Moderator[]>
-  createModerator(username: string, initialPassword: string): Promise<void>
-  resetModeratorPassword(moderatorId: string, newPassword: string): Promise<void>
+  createModerator(username: string, initialPassword: string, adminId: string): Promise<void>
+  resetModeratorPassword(moderatorId: string, newPassword: string, adminId: string): Promise<void>
+  disableModerator(moderatorId: string, adminId: string): Promise<void>                // Update 01
+  enableModerator(moderatorId: string, adminId: string): Promise<void>                 // Update 01
+  deleteModerator(moderatorId: string, adminId: string): Promise<void>                 // Update 01
+
+  // Admin — System parameters (Update 01)
+  getSystemParameters(): Promise<SystemConfig[]>
+  updateSystemParameter(key: string, value: string, adminId: string): Promise<void>
+  resetSystemParameterToDefault(key: string, adminId: string): Promise<void>
+
+  // Admin — Audit log (Update 01)
+  getAuditLog(filters: AuditFilter): Promise<AuditEntry[]>
+
+  // Admin — Display wall visibility (Update 01)
+  getDisplayWallVisibility(): Promise<boolean>
+  setDisplayWallVisibility(enabled: boolean, adminId: string): Promise<void>
 }
 ```
 
@@ -83,7 +110,9 @@ interface PhotoWallService {
 
 **Responsibilities**:
 - CRUD operations for submissions
-- User authentication and management
+- User authentication and management (including disable/delete)
+- Audit log CRUD (append-only)
+- System config CRUD
 - Query optimization
 - Environment-aware data access (local Postgres vs Supabase)
 
@@ -120,7 +149,9 @@ interface PhotoWallService {
 **Purpose**: Environment-adaptive real-time event system
 
 **Responsibilities**:
-- Publish events (submission created, approved, rejected)
+- Publish events (submission created, approved, rejected, edited, deleted)
+- Publish train control commands (pause, play, jump)
+- Publish system config changes
 - Subscribe to events
 - Handle reconnection and error recovery
 - Environment-aware event distribution
@@ -129,6 +160,50 @@ interface PhotoWallService {
 - Local: In-memory event emitter
 - Production: Supabase Realtime (websockets)
 - Automatic environment detection
+
+**Events (Extended for Update 01)**:
+- `submission_created` → New submission available for moderation
+- `submission_approved` → Submission added to display rotation
+- `submission_rejected` → Submission removed from queue
+- `submission_edited` → Submission content updated on display
+- `submission_deleted` → Submission removed from display
+- `train_paused` → Display wall freezes on current cabin
+- `train_resumed` → Display wall resumes normal transition
+- `train_jump` → Display wall jumps to specified cabin
+- `system_config_changed` → All components notified of config update
+
+---
+
+### Audit Service (New — Update 01)
+
+**Purpose**: Append-only audit logging for moderator and admin actions
+
+**Responsibilities**:
+- Record actions with moderator ID, action type, target, old/new values, timestamp
+- Provide filtered read-only queries for Admin panel
+- Enforce append-only policy (no delete or update of entries)
+
+**Implementation Strategy**:
+- Uses Repository interface for database access
+- Environment-agnostic (works with both local Postgres and Supabase Postgres)
+- Single implementation for all phases
+
+---
+
+### AutoModerator Service (New — Update 01)
+
+**Purpose**: Content flagging for submission messages
+
+**Responsibilities**:
+- Check submission messages against configurable word list
+- Identify flagged words with position information
+- Support case-insensitive matching, Unicode, and basic character substitution (e.g. @ for a)
+
+**Implementation Strategy**:
+- Pure logic service — no environment dependencies
+- Reads word list from system_config (via PhotoWallService/Repository)
+- Returns flagged word positions and match details for UI highlighting
+- Advisory only — moderator retains final approval discretion
 
 ---
 
@@ -148,7 +223,11 @@ PhotoWallService.submitSubmission()
     │
     ├─► StorageService.uploadImage()
     │
+    ├─► AutoModeratorService.checkMessage()          ← New (Update 01)
+    │
     ├─► Repository.createSubmission()
+    │
+    ├─► AuditService.logAction('submit')              ← New (Update 01)
     │
     └─► RealtimeService.publish('submission_created')
             │
@@ -166,11 +245,33 @@ PhotoWallService.approveSubmission()
     │
     ├─► Repository.updateSubmissionStatus('approved')
     │
+    ├─► AuditService.logAction('approve')             ← New (Update 01)
+    │
     └─► RealtimeService.publish('submission_approved')
             │
             ├─► DisplayComponent (adds to train)
             │
             └─► ModerationComponent (removes from queue)
+```
+
+### Edit Flow (New — Update 01)
+
+```
+ModerationComponent
+    │
+    ▼
+PhotoWallService.editSubmission()
+    │
+    ├─► Repository.updateSubmissionContent()
+    │       │
+    │       ├─► Store old values in memory for audit
+    │       └─► Update with new values
+    │
+    ├─► AuditService.logAction('edit', oldValues, newValues)
+    │
+    └─► RealtimeService.publish('submission_edited')
+            │
+            └─► DisplayComponent (updates cabin content)
 ```
 
 ### Display Flow
@@ -182,12 +283,35 @@ DisplayComponent
     │       │
     │       └─► Repository.getSubmissionsByStatus('approved')
     │
-    └─► PhotoWallService.subscribeToApproved()
+    ├─► PhotoWallService.subscribeToApproved()
+    │       │
+    │       └─► RealtimeService.subscribe('submission_approved')
+    │
+    ├─► PhotoWallService.subscribeToTrainCommands()    ← New (Update 01)
+    │       │
+    │       └─► RealtimeService.subscribe('train_*')
+    │
+    └─► Check display wall visibility on load          ← New (Update 01)
             │
-            └─► RealtimeService.subscribe('submissions')
-                    │
-                    └─► On 'submission_approved' event:
-                            Add to train animation
+            └─► Repository.getSystemConfig('display_wall_enabled')
+```
+
+### Admin: System Parameters Flow (New — Update 01)
+
+```
+AdminComponent
+    │
+    ▼
+PhotoWallService.updateSystemParameter('train_dwell_time', '10')
+    │
+    ├─► Repository.upsertSystemConfig('train_dwell_time', '10', adminId)
+    │
+    ├─► AuditService.logAction('change_config', oldValue, '10')
+    │
+    └─► RealtimeService.publish('system_config_changed')
+            │
+            └─► DisplayComponent (applies new dwell time)
+            └─► UploadComponent (updates prompt text if changed)
 ```
 
 ---
@@ -214,16 +338,21 @@ const config = {
 }
 
 // Phase 1 service implementations (local only)
+const repository = new PostgresRepository(config.postgres)
 const services = {
-  repository: new PostgresRepository(config.postgres),
+  repository,
   storage: new FileStorageService(config.filesystem),
-  realtime: new MemoryRealtimeService()
+  realtime: new MemoryRealtimeService(),
+  audit: new AuditServiceImpl(repository),
+  autoModerator: new AutoModeratorServiceImpl()
 }
 
 const photoWallService = new PhotoWallService(
   services.repository,
   services.storage,
-  services.realtime
+  services.realtime,
+  services.audit,
+  services.autoModerator
 )
 ```
 
@@ -248,10 +377,13 @@ const config = {
 }
 
 // Phase 2 implementations — same interface, different backend
+const repository = new SupabaseRepository(config.supabase)
 const services = {
-  repository: new SupabaseRepository(config.supabase),
+  repository,
   storage: new SupabaseStorageService(config.supabase),
-  realtime: new SupabaseRealtimeService(config.supabase)
+  realtime: new SupabaseRealtimeService(config.supabase),
+  audit: new AuditServiceImpl(repository),          // Same impl, different repo
+  autoModerator: new AutoModeratorServiceImpl()       // Pure logic, unchanged
 }
 ```
 
@@ -260,22 +392,9 @@ const services = {
 ```typescript
 // Environment: production + instagram
 const config = {
-  database: {
-    /* same as Phase 2 */
-    provider: 'supabase',
-    url: Deno.env.get('SUPABASE_URL'),
-    key: Deno.env.get('SUPABASE_ANON_KEY')
-  },
-  storage: {
-    /* same as Phase 2 */
-    provider: 'supabase',
-    bucket: 'submissions'
-  },
-  realtime: {
-    /* same as Phase 2 */
-    provider: 'supabase',
-    url: Deno.env.get('SUPABASE_URL')
-  },
+  database: { /* same as Phase 2 */ },
+  storage: { /* same as Phase 2 */ },
+  realtime: { /* same as Phase 2 */ },
   instagram: {
     hashtag: Deno.env.get('INSTAGRAM_HASHTAG'),
     apiKey: Deno.env.get('INSTAGRAM_API_KEY'),
@@ -319,27 +438,37 @@ interface InstagramService {
 ## Service Dependencies
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    PhotoWallService                         │
-│                      (Facade)                               │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  ┌──────────────────┐  ┌──────────────────┐  ┌───────────┐ │
-│  │    Repository    │  │  StorageService  │  │ Realtime  │ │
-│  │   (Data Access)  │  │   (Images)       │  │  Service  │ │
-│  └──────────────────┘  └──────────────────┘  └───────────┘ │
-│                                                             │
-│  Phase 1 (local) implementations:                           │
-│  - PostgresRepository                                       │
-│  - FileStorageService                                       │
-│  - MemoryRealtimeService                                    │
-│                                                             │
-│  Phase 2 (cloud) implementations (same interfaces):         │
-│  - SupabaseRepository                                       │
-│  - SupabaseStorageService                                   │
-│  - SupabaseRealtimeService                                  │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────────────┐
+│                          PhotoWallService                                 │
+│                            (Facade)                                       │
+├───────────────────────────────────────────────────────────────────────────┤
+│                                                                           │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  │
+│  │  Repository  │  │   Storage   │  │   Realtime   │  │    Audit     │  │
+│  │ (Data Access)│  │   Service   │  │   Service    │  │   Service    │  │
+│  │              │  │  (Images)   │  │  (Events)    │  │   (Log)      │  │
+│  └──────────────┘  └──────────────┘  └──────────────┘  └──────────────┘  │
+│                                                                           │
+│  ┌──────────────────────────────────────────────────────────────────────┐ │
+│  │                    AutoModeratorService                               │ │
+│  │                    (Content Flagging)                                 │ │
+│  └──────────────────────────────────────────────────────────────────────┘ │
+│                                                                           │
+│  Phase 1 (local) implementations:                                        │
+│  - PostgresRepository                                                     │
+│  - FileStorageService                                                     │
+│  - MemoryRealtimeService                                                  │
+│  - AuditServiceImpl                                                       │
+│  - AutoModeratorServiceImpl                                               │
+│                                                                           │
+│  Phase 2 (cloud) implementations (same interfaces):                      │
+│  - SupabaseRepository                                                     │
+│  - SupabaseStorageService                                                 │
+│  - SupabaseRealtimeService                                                │
+│  - AuditServiceImpl (same — repo-agnostic)                               │
+│  - AutoModeratorServiceImpl (same — pure logic)                          │
+│                                                                           │
+└───────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Phase Delivery Summary
@@ -349,8 +478,10 @@ interface InstagramService {
 | Repository | PostgresRepository (interface) | SupabaseRepository (same interface) | Same as Phase 2 |
 | StorageService | FileStorageService (interface) | SupabaseStorageService (same interface) | Same as Phase 2 |
 | RealtimeService | MemoryRealtimeService (interface) | SupabaseRealtimeService (same interface) | Same as Phase 2 |
+| AuditService | AuditServiceImpl (new — Update 01) | Same impl (repo-agnostic) | Same as Phase 2 |
+| AutoModeratorService | AutoModeratorServiceImpl (new — Update 01) | Same impl (pure logic) | Same as Phase 2 |
 | InstagramService | — | — | New: interface + implementation |
-| Business Logic | All features (FR-01–FR-24) | Same as Phase 1 (no changes) | Same + Instagram source handling |
+| Business Logic | All features (FR-01–FR-24b, 30 FRs + Update 01) | Same as Phase 1 (no changes) | Same + Instagram source handling |
 
 ---
 
@@ -362,6 +493,8 @@ interface InstagramService {
 2. **Database Errors**: Log and return generic error to client, preserve details for debugging
 3. **Storage Errors**: Retry with exponential backoff, fail gracefully with user-friendly message
 4. **Realtime Errors**: Attempt reconnection, fall back to polling if unavailable
+5. **Audit Errors**: Log audit failure but do not block the primary operation (audit is secondary)
+6. **Auth Errors**: Check disabled account status and return appropriate error for disabled accounts
 
 ### Error Response Format
 
@@ -384,6 +517,8 @@ interface ServiceError {
 - Role-based access control (Moderator vs Admin)
 - Session management with secure token handling
 - Password hashing with bcrypt
+- Disabled account check on login (Update 01 — FR-15a)
+- Audit service enforces append-only policy
 
 ### Input Validation
 
@@ -391,6 +526,7 @@ interface ServiceError {
 - Message length validation (max 50 characters)
 - SQL injection prevention via parameterized queries
 - XSS prevention via output encoding
+- Auto-moderator flagging is advisory only (no automatic rejection)
 
 ### Rate Limiting
 
