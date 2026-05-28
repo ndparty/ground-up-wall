@@ -48,9 +48,9 @@
 - Display branded waiting screen when no submissions exist
 - Maintain 60fps animation performance
 - Pause/play/jump-to-cabin controls (visible to logged-in Moderators/Admins only, FR-24a Update 01)
+  - **Jump-to-cabin** uses a *chain-relinking* algorithm: the target cabin is temporarily linked as the immediate next cabin of the current cabin, a single `transitionToNextCabin()` scroll is executed, then the original chain is restored. See `jumpToCabin()` in component-methods.md for the full algorithm.
 - Respect display wall visibility toggle (show blocked message for non-logged-in when disabled, FR-24b Update 01)
 - On refresh, restart from cabin 0 in playing state (FR-24a note)
-
 **Interfaces**:
 - `loadApprovedSubmissions(): Promise<Submission[]>`
 - `subscribeToUpdates(callback: (submission: Submission) => void): UnsubscribeFn`

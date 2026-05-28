@@ -171,19 +171,94 @@ This document provides detailed method signatures for all components. Business r
 
 ---
 
-### `jumpToCabin(cabinNumber: number): void` (Update 01)
+### `initTrain(submissions: Submission[]): void` (New — Implementation Detail)
 
-**Purpose**: Jump to a specific cabin by number (1-based)
+**Purpose**: Initialise the train as a circular doubly-linked chain of cabins
+
+**Parameters**:
+- `submissions`: Array of approved submissions in chronological order
+
+**Internal State** (not exposed as interface):
+```typescript
+interface TrainCabinNode {
+  submission: Submission
+  index: number           // 0-based logical index
+  next: TrainCabinNode | null
+  prev: TrainCabinNode | null
+}
+let currentCabin: TrainCabinNode | null
+let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
+```
+
+**Business Rules**:
+- Build a flat array `trainChain` from the submissions (for O(1) cabin-number lookups)
+- Link each node → next node in order (last links back to first as circular chain)
+- Set `currentCabin` to the first cabin (index 0)
+- This structure is rebuilt whenever the submissions array changes (new approval, deletion, edit)
+
+---
+
+### `getNodeByCabinNumber(cabinNumber: number): TrainCabinNode | null` (New — Implementation Detail)
+
+**Purpose**: Look up a cabin node by its 1-based cabin number using the flat array
+
+**Parameters**:
+- `cabinNumber`: 1-based cabin number (clamped to [1, trainChain.length])
+
+**Returns**: TrainCabinNode at the clamped index or null if train is empty
+
+**Business Rules**:
+- Convert 1-based input to 0-based index: `index = Math.max(0, Math.min(cabinNumber - 1, trainChain.length - 1))`
+- O(1) lookup via `trainChain[index]`
+
+---
+
+### `getCurrentCabinIndex(): number` (New — Implementation Detail)
+
+**Purpose**: Get the 0-based index of the currently displayed cabin
+
+**Returns**: Index within `trainChain`, or -1 if train is empty
+
+---
+
+### `jumpToCabin(cabinNumber: number): void` (Update 01 — Revised Implementation)
+
+**Purpose**: Jump to a specific cabin by number (1-based) using chain-relinking to ensure a single smooth scroll
 
 **Parameters**:
 - `cabinNumber`: Target cabin index (1-based, clamped to train length)
 
-**Business Rules**:
-- Smoothly scroll to specified cabin
-- Clamp to last cabin if index exceeds train length
-- Publish `train_jump` event via RealtimeService for other tabs
-- Visible only to logged-in Moderators/Admins
+**Implementation — Chain Relinking Algorithm**:
 
+The jump is achieved by temporarily re-linking the cabin chain so that the target cabin becomes the immediate next cabin of the current cabin. This ensures only a single `transitionToNextCabin()` scroll is needed, maintaining smooth 60fps animation.
+
+```
+Before jump (current = C, target = T):
+  ... → [C] → [C+1] → ... → [T-1] → [T] → [T+1] → ...
+
+Step 1 — Temporarily re-link:
+  currentCabin.next = targetNode         // C → T (skip everything between)
+  targetNode.prev = currentCabin         // T → C (circular consistency)
+
+Step 2 — Execute single transition:
+  transitionToNextCabin()                // Smooth scroll from C to T (one cabin move)
+
+Step 3 — Restore original chain:
+  currentCabin.next = originalNext       // Restore C's original next
+  targetNode.prev = originalPrev         // Restore T's original previous
+  setCurrentCabin(targetNode)            // Mark T as the new current cabin
+```
+
+**Business Rules**:
+- If `cabinNumber` refers to the currently displayed cabin, do nothing
+- If `cabinNumber` equals the next cabin in sequence, no relinking needed — just call `transitionToNextCabin()` normally
+- Clamp `cabinNumber` to [1, trainChain.length] — values beyond the length clamp to the last cabin
+- If train is empty (no approved submissions), do nothing
+- Only the `next` and `prev` pointers of `currentCabin` and `targetNode` are modified — all other chain pointers remain intact
+- After restoration, the circular chain is unchanged from its original state
+- Publish `train_jump` event via RealtimeService for other tabs (contains `{ currentSubmissions: ... }` for full state sync)
+- Visible only to logged-in Moderators/Admins
+- The chain structure is entirely in-memory on the client side; no server state is modified
 ---
 
 ### `checkVisibilityAccess(): Promise<boolean>` (Update 01)
