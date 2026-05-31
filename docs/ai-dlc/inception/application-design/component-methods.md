@@ -1,4 +1,4 @@
-# Component Methods — ground-up-wall (Updated for Update 01)
+# Component Methods — ground-up-wall (Updated for Update 02)
 
 ## Method Signatures Reference
 
@@ -14,7 +14,7 @@ This document provides detailed method signatures for all components. Business r
 
 **Parameters**:
 - `photo`: Image file (validated: JPEG/PNG, max 10MB)
-- `message`: Short message (max 50 characters)
+- `message`: Short message (validated against configurable max length in characters or words)
 - `name`: Submitter's name (required)
 - `socialHandle`: Optional social media handle
 
@@ -23,7 +23,8 @@ This document provides detailed method signatures for all components. Business r
 **Business Rules**:
 - Image must be compressed client-side before upload
 - Form validation must pass before submission
-- Privacy notice must be visible before submission (FR-02a, Update 01)
+- Privacy notice must be visible before submission (FR-02a updated, Update 02)
+- Mandatory acknowledgment checkbox must be checked before submit is enabled (FR-02a, Update 02)
 - Submission enters "pending" status
 - Message is checked by AutoModeratorService
 
@@ -40,9 +41,10 @@ This document provides detailed method signatures for all components. Business r
 
 **Validation Rules**:
 - Photo: valid image file, under size limit
-- Message: max 50 characters
+- Message: validated against configurable max length (default 50 characters); unit (characters or words) determined by system parameter
 - Name: non-empty string
 - Social handle: optional, valid format if provided
+- Acknowledgment checkbox: must be checked
 
 ---
 
@@ -76,15 +78,29 @@ This document provides detailed method signatures for all components. Business r
 
 ---
 
-### `showPrivacyNotice(): void` (Update 01)
+### `showPrivacyNotice(): void` (Update 01, revised Update 02)
 
 **Purpose**: Display data privacy notice before submission
 
 **Business Rules**:
-- Informs participant that name, message, optional social handle will be displayed on photowall during event
-- States that data will not be retained beyond event duration
+- Informs participant that name, message, photo, and optional social handle will be displayed on photowall during event
+- States that submission data will be retained indefinitely for organiser social media use
+- States that if an Instagram handle is provided, content may be posted on social media with tagging
 - Includes reference for contacting organiser with questions
 - Uses warm tone per DR-04
+
+---
+
+### `getMessageLimitConfig(): Promise<{limit: number, unit: 'characters' | 'words'}>` (Update 02)
+
+**Purpose**: Load configurable message length limit and unit from system parameters
+
+**Returns**: Object with `limit` (default: 50) and `unit` (default: `'characters'`)
+
+**Business Rules**:
+- Fetches from system parameters via PhotoWallService
+- Falls back to defaults if not configured
+- Used by validateForm and the live counter display
 
 ---
 
@@ -261,16 +277,48 @@ Step 3 — Restore original chain:
 - The chain structure is entirely in-memory on the client side; no server state is modified
 ---
 
-### `checkVisibilityAccess(): Promise<boolean>` (Update 01)
+### `checkAuthAccess(): Promise<{allowed: boolean, role: string}>` (Update 01, revised Update 02)
 
-**Purpose**: Check if the current user can view the display wall
+**Purpose**: Check if the current user can view the display wall (authentication required)
 
-**Returns**: Boolean indicating access allowed
+**Returns**: Object with `allowed` boolean and `role` string
 
 **Business Rules**:
-- Authenticated users (Moderators/Admins) always bypass the toggle
-- Non-logged-in users check the display wall visibility system parameter
-- If disabled, show "Access not allowed" message instead of train
+- Only Display Wall Users, Photo Moderators, and Admins are allowed
+- Unauthenticated users and Participants receive 403 with "Access not allowed. Please refer to the organiser's screen instead."
+- Display Wall Users see the train animation only (no controls)
+- Moderators/Admins see the train animation plus pause/play/jump controls
+
+---
+
+### `handleDisplayOverride(command: DisplayOverrideCommand): void` (Update 02)
+
+**Purpose**: Respond to display override commands from mod/admin panel
+
+**Parameters**:
+- `command`: DisplayOverrideCommand with `type` ('blank' | 'placeholder' | 'resume') and optional `imageUrl`
+
+**Business Rules**:
+- `blank`: Render solid black screen, hide train animation
+- `placeholder`: Render the specified image (or system default placeholder), hide train animation
+- `resume`: Return to train animation from current position
+- Commands received via RealtimeService subscription
+- On initial load, check persisted override state from database
+
+---
+
+### `subscribeToDisplayOverride(callback: (command: DisplayOverrideCommand) => void): UnsubscribeFn` (Update 02)
+
+**Purpose**: Subscribe to display override commands broadcast from mod/admin panel
+
+**Parameters**:
+- `callback`: Function called when a display override command is received
+
+**Returns**: Unsubscribe function
+
+**Business Rules**:
+- Listens to `display_blank`, `display_placeholder`, `display_resume` events via RealtimeService
+- All connected display wall sessions receive commands simultaneously
 
 ---
 
@@ -402,8 +450,24 @@ Step 3 — Restore original chain:
 **Returns**: Array of flagged words (for UI highlighting)
 
 **Business Rules**:
-- Reads word list from system parameters
+- Reads word list from system parameters (ships with seeded PG-13 default)
 - Returns matching words for visual highlighting in UI
+
+---
+
+### `commandDisplayOverride(type: 'blank' | 'placeholder' | 'resume', image?: File): Promise<void>` (Update 02)
+
+**Purpose**: Command connected display wall sessions to blank, show placeholder, or resume
+
+**Parameters**:
+- `type`: Override type — `'blank'`, `'placeholder'`, or `'resume'`
+- `image`: Optional per-action override image (for placeholder); if omitted, the system default placeholder is used
+
+**Business Rules**:
+- Available to Photo Moderators and Admins from the moderation panel
+- Broadcasts command via RealtimeService to all connected display wall sessions
+- Override state persisted in database for new sessions
+- Action logged in audit log (NFR-22)
 - Case-insensitive matching, Unicode support, char substitution
 
 ---
@@ -526,7 +590,7 @@ Step 3 — Restore original chain:
 **Business Rules**:
 - Only accessible by Admin
 - Returns current value, default value, last updated info
-- Parameters: train_dwell_time, message_prompt_text, auto_moderator_word_list
+- Parameters: train_dwell_time, message_prompt_text, message_length_limit, message_length_unit, auto_moderator_word_list, default_placeholder_image
 
 ---
 
@@ -577,30 +641,102 @@ Step 3 — Restore original chain:
 
 ---
 
-### `toggleDisplayWallVisibility(enabled: boolean): Promise<void>` (Update 01)
+### `listDisplayWallUsers(): Promise<DisplayWallUser[]>` (Update 02)
 
-**Purpose**: Enable or disable participant access to display wall
+**Purpose**: List all Display Wall User accounts
 
-**Parameters**:
-- `enabled`: Whether non-logged-in users can view the display wall
+**Returns**: Array of Display Wall User objects with active/disabled status
 
 **Business Rules**:
 - Only accessible by Admin
-- Persist setting in database (survives server restart)
-- Moderators/Admins bypass the restriction regardless of setting
-- When disabled, participants see: "Access not allowed. Please refer to the organiser's screen instead."
+- Include username, creation date, active/disabled status
+- Exclude sensitive data (passwords)
 
 ---
 
-### `getDisplayWallVisibility(): Promise<boolean>` (Update 01)
+### `createDisplayWallUser(username: string, initialPassword: string): Promise<void>` (Update 02)
 
-**Purpose**: Get current display wall visibility setting
+**Purpose**: Create new Display Wall User account for TV display
 
-**Returns**: Boolean indicating whether wall is accessible to participants
+**Parameters**:
+- `username`: New Display Wall User username
+- `initialPassword`: Initial password
 
 **Business Rules**:
 - Only accessible by Admin
-- Return the persisted value from database
+- Username must be unique across all user types
+- Log action in audit log (NFR-22)
+
+---
+
+### `disableDisplayWallUser(userId: string): Promise<void>` (Update 02)
+
+**Purpose**: Disable a Display Wall User account
+
+**Parameters**:
+- `userId`: Display Wall User ID
+
+**Business Rules**:
+- Only accessible by Admin
+- Set `disabled` flag; user can no longer log in
+- Log action in audit log (NFR-22)
+
+---
+
+### `deleteDisplayWallUser(userId: string): Promise<void>` (Update 02)
+
+**Purpose**: Permanently delete a Display Wall User account
+
+**Parameters**:
+- `userId`: Display Wall User ID
+
+**Business Rules**:
+- Only accessible by Admin
+- Show confirmation dialog before deletion
+- Audit log entries retain the user ID
+- Log deletion in audit log (NFR-22)
+
+---
+
+### `commandDisplayOverride(type: 'blank' | 'placeholder' | 'resume', image?: File): Promise<void>` (Update 02)
+
+**Purpose**: Command connected display wall sessions to blank, show placeholder, or resume
+
+**Parameters**:
+- `type`: Override type
+- `image`: Optional per-action override image for placeholder
+
+**Business Rules**:
+- Available to Admins from the admin panel (also available to Moderators from moderation panel)
+- Broadcasts command via RealtimeService
+- Override state persisted in database
+- Log action in audit log (NFR-22)
+
+---
+
+### `uploadDefaultPlaceholder(image: File): Promise<void>` (Update 02)
+
+**Purpose**: Upload or replace the system-wide default placeholder image
+
+**Parameters**:
+- `image`: Placeholder image file
+
+**Business Rules**:
+- Only accessible by Admin (via system parameters)
+- Stored in system config / filesystem storage
+- Log action in audit log (NFR-22)
+
+---
+
+### `getDisplayOverrideState(): Promise<DisplayOverrideState>` (Update 02)
+
+**Purpose**: Get current display override state
+
+**Returns**: DisplayOverrideState with `type` ('normal' | 'blank' | 'placeholder') and optional `imageUrl`
+
+**Business Rules**:
+- Only accessible by Admin
+- Return the persisted state from database
 
 ---
 
@@ -667,12 +803,12 @@ Step 3 — Restore original chain:
 
 ---
 
-### `hasRole(role: 'moderator' | 'admin'): boolean`
+### `hasRole(role: 'moderator' | 'admin' | 'display_wall'): boolean`
 
 **Purpose**: Check if current user has specific role
 
 **Parameters**:
-- `role`: Role to check
+- `role`: Role to check ('moderator', 'admin', or 'display_wall')
 
 **Returns**: Boolean indicating role membership
 
@@ -980,25 +1116,85 @@ Step 3 — Restore original chain:
 
 ---
 
-### `getDisplayWallVisibility(): Promise<boolean>` (Update 01)
+### `listDisplayWallUsers(): Promise<DisplayWallUser[]>` (Update 02)
 
-**Purpose**: Get current display wall visibility setting
+**Purpose**: List all Display Wall User accounts
 
-**Returns**: Boolean indicating whether participants can view wall
+**Returns**: Array of Display Wall User objects
 
 ---
 
-### `setDisplayWallVisibility(enabled: boolean, adminId: string): Promise<void>` (Update 01)
+### `createDisplayWallUser(username: string, initialPassword: string, adminId: string): Promise<void>` (Update 02)
 
-**Purpose**: Set display wall visibility for participants
+**Purpose**: Create new Display Wall User account
 
 **Parameters**:
-- `enabled`: Whether participants can view
-- `adminId`: Admin performing the change
+- `username`: New Display Wall User username
+- `initialPassword`: Initial password
+- `adminId`: Admin performing the action
 
 **Business Rules**:
-- Persist to system_config table
-- Log change in audit log
+- Username must be unique across all user types
+- Log action in audit log
+
+---
+
+### `disableDisplayWallUser(userId: string, adminId: string): Promise<void>` (Update 02)
+
+**Purpose**: Disable a Display Wall User account
+
+**Parameters**:
+- `userId`: Display Wall User ID
+- `adminId`: Admin performing the action
+
+---
+
+### `deleteDisplayWallUser(userId: string, adminId: string): Promise<void>` (Update 02)
+
+**Purpose**: Permanently delete a Display Wall User account
+
+**Parameters**:
+- `userId`: Display Wall User ID
+- `adminId`: Admin performing the action
+
+---
+
+### `commandDisplayOverride(type: 'blank' | 'placeholder' | 'resume', userId: string, image?: File): Promise<void>` (Update 02)
+
+**Purpose**: Command display wall override from mod/admin panel
+
+**Parameters**:
+- `type`: Override type
+- `userId`: User issuing the command
+- `image`: Optional per-action override image for placeholder
+
+**Business Rules**:
+- Broadcast via RealtimeService
+- Persist override state in database
+- Log action in audit log
+
+---
+
+### `getDisplayOverrideState(): Promise<DisplayOverrideState>` (Update 02)
+
+**Purpose**: Get current display override state
+
+**Returns**: DisplayOverrideState with type and optional image URL
+
+---
+
+### `uploadDefaultPlaceholder(image: File, adminId: string): Promise<void>` (Update 02)
+
+**Purpose**: Upload or replace the system-wide default placeholder image
+
+**Parameters**:
+- `image`: Placeholder image file
+- `adminId`: Admin performing the action
+
+**Business Rules**:
+- Store image in filesystem/storage
+- Update system config reference
+- Log action in audit log
 
 ---
 
@@ -1279,6 +1475,58 @@ Step 3 — Restore original chain:
 
 **Business Rules**:
 - Set value = default_value from the database
+- For auto_moderator_word_list, restores the seeded PG-13 default list
+
+---
+
+### `createDisplayWallUser(username: string, password: string): Promise<void>` (Update 02)
+
+**Purpose**: Create a Display Wall User in the database
+
+**Parameters**:
+- `username`: Display Wall User username
+- `password`: Hashed password
+
+**Business Rules**:
+- Role set to 'display_wall'
+- Username must be unique across all user types
+
+---
+
+### `listDisplayWallUsers(): Promise<DisplayWallUser[]>` (Update 02)
+
+**Purpose**: List all Display Wall User accounts
+
+**Returns**: Array of Display Wall User objects with status
+
+---
+
+### `disableDisplayWallUser(userId: string): Promise<void>` (Update 02)
+
+**Purpose**: Disable a Display Wall User account
+
+---
+
+### `deleteDisplayWallUser(userId: string): Promise<void>` (Update 02)
+
+**Purpose**: Permanently delete a Display Wall User account
+
+---
+
+### `getDisplayOverrideState(): Promise<DisplayOverrideState>` (Update 02)
+
+**Purpose**: Get the persisted display override state
+
+**Returns**: DisplayOverrideState with `type` and optional `imageUrl`
+
+---
+
+### `setDisplayOverrideState(state: DisplayOverrideState): Promise<void>` (Update 02)
+
+**Purpose**: Persist the display override state
+
+**Parameters**:
+- `state`: DisplayOverrideState to persist
 
 ---
 
@@ -1443,6 +1691,22 @@ Step 3 — Restore original chain:
 - DisplayComponent applies new dwell time
 - UploadComponent updates prompt text if changed
 - ModerationComponent refreshes word list if changed
+
+---
+
+### `onDisplayOverride(callback: (command: DisplayOverrideCommand) => void): UnsubscribeFn` (Update 02)
+
+**Purpose**: Subscribe to display override events (blank/placeholder/resume)
+
+**Parameters**:
+- `callback`: Handler for display override commands
+
+**Returns**: Unsubscribe function
+
+**Business Rules**:
+- Subscribe to "display_override" channel
+- DisplayComponent responds by showing blank, placeholder, or resuming train
+- All connected display wall sessions receive the command simultaneously
 
 ---
 

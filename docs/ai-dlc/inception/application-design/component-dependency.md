@@ -1,4 +1,4 @@
-# Component Dependencies — ground-up-wall (Updated for Update 01)
+# Component Dependencies — ground-up-wall (Updated for Update 02)
 
 ## Dependency Overview
 
@@ -14,7 +14,8 @@ This document describes the dependency relationships and communication patterns 
 | UploadComponent | StorageService | Indirect | Via PhotoWallService |
 | DisplayComponent | PhotoWallService | Direct | Sync + Real-time |
 | DisplayComponent | RealtimeService | Indirect | Via PhotoWallService |
-| DisplayComponent | AuthComponent | Direct | Session check (for train controls visibility) |
+| DisplayComponent | AuthComponent | Direct | Session check (auth-required access + train controls visibility) |
+| ModerationComponent | RealtimeService | Indirect | Display override commands (via PhotoWallService) |
 | ModerationComponent | PhotoWallService | Direct | Sync + Real-time |
 | ModerationComponent | AuthComponent | Direct | Session management |
 | ModerationComponent | AuditService | Indirect | Via PhotoWallService |
@@ -272,6 +273,8 @@ Edit Flow (Extension):
                      └──────────────┘
 ```
 
+**Display override** (Update 02): Moderators/Admins can command blank screen, placeholder image, or resume from the moderation/admin panel. Commands are broadcast via RealtimeService (`display_blank`, `display_placeholder`, `display_resume`). Override state is persisted in the database so new Display Wall sessions also receive the correct state on load.
+
 ### Admin System Parameters & Audit Log Flow
 
 ```
@@ -343,7 +346,7 @@ Audit Log View Flow:
 interface Submission {
   id: string                    // UUID, primary key
   image_url: string             // Path to stored image (filesystem or Supabase Storage)
-  message: string               // Max 50 characters
+  message: string               // Configurable max length (characters or words)
   submitter_name: string        // Required
   social_handle: string | null  // Optional
   status: 'pending' | 'approved' | 'rejected'
@@ -367,7 +370,7 @@ interface User {
   id: string                    // UUID, primary key
   username: string              // Unique
   password_hash: string         // Bcrypt hash
-  role: 'admin' | 'moderator'
+  role: 'admin' | 'moderator' | 'display_wall'  // Update 02: added display_wall role
   disabled: boolean             // Whether account is disabled (Update 01, default false)
   disabled_at: timestamp | null // When account was disabled (Update 01)
   created_at: timestamp
@@ -383,8 +386,10 @@ interface AuditEntry {
   moderator_id: string          // User ID of the moderator/admin who performed the action
   action_type: 'approve' | 'reject' | 'delete' | 'edit' | 'submit' |
                'create_moderator' | 'disable_moderator' | 'delete_moderator' |
-               'reset_password' | 'change_config'
-  target_type: 'submission' | 'moderator' | 'system_config'
+               'reset_password' | 'change_config' |
+               'blank_display' | 'show_placeholder' | 'resume_display' | 'set_default_placeholder' |  // Update 02
+               'create_display_wall_user' | 'disable_display_wall_user' | 'delete_display_wall_user'  // Update 02
+  target_type: 'submission' | 'moderator' | 'display_wall_user' | 'system_config' | 'display_override'  // Update 02: added display_wall_user, display_override
   target_id: string             // ID of the affected resource
   old_value: string | null      // Previous value (for edits/config changes)
   new_value: string | null      // New value (for edits/config changes)
@@ -397,7 +402,7 @@ interface AuditEntry {
 
 ```typescript
 interface SystemConfig {
-  key: string                   // Primary key, e.g. 'train_dwell_time', 'message_prompt_text', 'auto_moderator_word_list'
+  key: string                   // Primary key, e.g. 'train_dwell_time', 'message_prompt_text', 'message_length_limit', 'message_length_unit', 'auto_moderator_word_list', 'default_placeholder_image', 'display_override_state'
   value: string                 // Current value (stored as string, parsed by service)
   default_value: string         // Factory default for "Reset to default" feature
   updated_at: timestamp
@@ -422,6 +427,8 @@ In Phase 1, the real-time service uses an in-memory event emitter within the Den
 **Fallback strategy**: If SSE is unavailable, the DisplayComponent polls `GET /api/submissions/approved` every 10 seconds, which still satisfies NFR-04 (30-second window).
 
 **Train control events** (Update 01): The pause/play/jump commands are published via RealtimeService so all connected display wall tabs receive them simultaneously. Since state is not persisted across refresh, only currently connected tabs are affected.
+
+**Display override events** (Update 02): The blank/placeholder/resume commands are published via RealtimeService so all connected display wall tabs receive them simultaneously. Override state is also persisted in the database, so new sessions check the current state on load.
 
 ---
 

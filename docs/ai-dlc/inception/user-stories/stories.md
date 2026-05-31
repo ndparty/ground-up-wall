@@ -2,9 +2,9 @@
 
 ## Overview
 
-**Organization**: Feature-based with 5 feature groups
+**Organization**: Feature-based with 6 feature groups
 **Format**: Gherkin (Given/When/Then) acceptance criteria
-**Personas**: Participant (Jamie), Photo Moderator (Sam), Admin (Alex)
+**Personas**: Participant (Jamie), Photo Moderator (Sam), Admin (Alex), Display Wall User (Screen)
 **NFRs**: Separate stories to avoid blocking main functions
 **Ordering**: By user journey flow (Upload → Moderate → Display → Admin → Password)
 
@@ -22,8 +22,9 @@
 ```gherkin
 Scenario: Successful photo submission
   Given I am on the upload page
+  And I have checked the mandatory acknowledgment checkbox
   When I select a photo file
-  And I enter a message of 50 characters or fewer
+  And I enter a message within the configured maximum length
   And I enter my name
   And I tap the submit button
   Then I see a success confirmation message
@@ -35,11 +36,25 @@ Scenario: Upload with optional social handle
   And I submit the form
   Then my social handle is saved with the submission
 
-Scenario: Message exceeds maximum length
-  Given I am on the upload page
+Scenario: Message exceeds configured maximum length (characters mode)
+  Given the message length unit is set to "characters" with a limit of 50
+  And I am on the upload page
   When I enter a message longer than 50 characters
-  Then I see a validation error "Message must be 50 characters or fewer"
+  Then I see a live counter showing I have exceeded the limit
   And the submit button remains disabled
+
+Scenario: Message exceeds configured maximum length (words mode)
+  Given the message length unit is set to "words" with a limit of 10
+  And I am on the upload page
+  When I enter a message with more than 10 words
+  Then I see a live counter showing I have exceeded the limit
+  And the submit button remains disabled
+
+Scenario: Submit button disabled without acknowledgment checkbox
+  Given I am on the upload page
+  And I have not checked the mandatory acknowledgment checkbox
+  When I fill in all other required fields
+  Then the submit button remains disabled
 
 Scenario: No file selected
   Given I am on the upload page
@@ -74,29 +89,37 @@ Scenario: Access via QR code
   Then I see the upload form
 ```
 
-### US-02a — View Privacy Notice and Disclaimer (Participant)
+### US-02a — View Privacy Notice, Posting Guidelines, and Acknowledge (Participant)
 
 **As a** Participant  
-**I want** to see a data privacy notice and disclaimer on the upload form  
-**So that** I understand how my data will be used and what happens if my submission isn't approved
+**I want** to see a data privacy notice and posting guidelines disclaimer on the upload form, and acknowledge them before submitting  
+**So that** I understand how my data will be used, that it may be shared on social media, and what happens if my submission isn't approved
 
 **Acceptance Criteria**:
 ```gherkin
-Scenario: Privacy notice displayed
+Scenario: Privacy notice displayed with indefinite retention
   Given I am on the upload page
-  Then I see a data privacy notice stating that my name, message, and social handle will be displayed on the photowall during the event
-  And the notice states that my data will not be retained beyond the event duration
+  Then I see a data privacy notice stating that my name, message, photo, and social handle will be displayed on the photowall during the event
+  And the notice states that submission data will be retained indefinitely for organiser social media use
+  And the notice states that if I provide an Instagram handle, my content may be posted on social media with tagging
   And the language is warm and community-appropriate (not legalistic)
 
-Scenario: Rejection disclaimer displayed
+Scenario: Posting guidelines disclaimer displayed
   Given I am on the upload page
-  Then I see a disclaimer stating I can approach a moderator in person if my submission does not appear within a reasonable time
+  Then I see a disclaimer stating that if my submission does not appear within a reasonable time, it may have been rejected for not conforming to posting guidelines
+  And the disclaimer advises me to review the posting guidelines and re-submit
+  And the disclaimer states that moderators may edit my submission to conform to posting guidelines
   And the disclaimer does not promise that rejection notifications will be sent
 
-Scenario: Success page shows disclaimer
+Scenario: Mandatory acknowledgment checkbox
+  Given I am on the upload page
+  Then I see a checkbox labeled to confirm I have read and understood the privacy notice and posting guidelines
+  And the submit button is disabled until I check the checkbox
+
+Scenario: Success page shows posting guidelines disclaimer
   Given I have submitted a photo
   When I see the success confirmation
-  Then the success page also shows the rejection disclaimer
+  Then the success page also shows the posting guidelines disclaimer
 ```
 
 ---
@@ -259,16 +282,22 @@ Scenario: Unicode and character substitution handling
 
 ## Feature 3: Main Display (Photo Train)
 
-### US-07 — View Display Wall (Participant / Viewer)
+### US-07 — View Display Wall (Display Wall User)
 
-**As a** Participant  
-**I want** to see the photo train display wall  
-**So that** I can view all approved submissions in the SMRT MRT train format
+**As a** Display Wall User  
+**I want** to log in and see the photo train display wall on the TV  
+**So that** event attendees can view all approved submissions in the SMRT MRT train format
 
 **Acceptance Criteria**:
 ```gherkin
+Scenario: Display Wall User login and view
+  Given I have Display Wall User credentials created by an Admin
+  When I log in on the TV browser
+  Then I am shown the display wall with the photo train animation
+
 Scenario: Display approved submissions
-  Given there are approved submissions in the system
+  Given I am logged in as a Display Wall User
+  And there are approved submissions in the system
   When I view the display wall
   Then I see an SMRT MRT train with cabins scrolling right to left
   And each cabin displays a photo, message, and submitter name
@@ -277,7 +306,8 @@ Scenario: Display approved submissions
   And the animation is smooth (targeting 60fps)
 
 Scenario: Display empty state
-  Given there are no approved submissions
+  Given I am logged in as a Display Wall User
+  And there are no approved submissions
   When I view the display wall
   Then I see a branded Singapore National Day waiting screen
   And the screen indicates submissions are coming soon
@@ -286,6 +316,33 @@ Scenario: Submissions displayed in chronological order
   Given there are multiple approved submissions
   When I view the display wall
   Then the cabins are ordered from oldest (left) to newest (right)
+
+Scenario: Unauthenticated user blocked from display wall
+  Given I am not logged in
+  When I try to access the display wall route
+  Then I see "Access not allowed. Please refer to the organiser's screen instead."
+
+Scenario: Participant blocked from display wall
+  Given I am a participant (not logged in)
+  When I try to access the display wall route
+  Then I see "Access not allowed. Please refer to the organiser's screen instead."
+
+Scenario: Display wall shows blank screen when commanded
+  Given I am logged in as a Display Wall User
+  When a moderator or admin commands a blank screen from the moderation/admin panel
+  Then the display wall shows a solid black screen
+  And the train animation is hidden
+
+Scenario: Display wall shows placeholder image when commanded
+  Given I am logged in as a Display Wall User
+  When a moderator or admin commands a placeholder from the moderation/admin panel
+  Then the display wall shows the configured placeholder image
+  And the train animation is hidden
+
+Scenario: Display wall resumes after override
+  Given the display wall is showing a blank screen or placeholder
+  When a moderator or admin commands resume from the moderation/admin panel
+  Then the display wall returns to the train animation from its current position
 ```
 
 ### US-08 — Automatic Wall Updates (System)
@@ -350,8 +407,8 @@ Scenario: Jump to out-of-range cabin
   When I enter cabin number 20
   Then the display scrolls to the last cabin (cabin 10)
 
-Scenario: Participant cannot see controls
-  Given I am not logged in
+Scenario: Display Wall User cannot see controls
+  Given I am logged in as a Display Wall User
   When I view the display wall
   Then the pause/play/jump controls are not visible
   And the train plays normally
@@ -468,10 +525,23 @@ Scenario: Update auto-moderator word list
   When I add a new word to the auto-moderator word list
   Then new submissions containing that word will be flagged
 
+Scenario: Change message length limit and unit
+  Given I am on the system parameters page
+  When I change the message length limit to 10 and the unit to "words"
+  Then the upload form validates messages against a 10-word limit
+  And the live counter shows remaining words
+
+Scenario: Upload default placeholder image
+  Given I am on the system parameters page
+  When I upload a placeholder image
+  Then the image is stored as the system-wide default placeholder
+  And the upload is recorded in the audit log
+
 Scenario: Reset to default
   Given I am on the system parameters page
   When I click "Reset to default" for any parameter
   Then the parameter reverts to its original default value
+  And for the word list, the seeded PG-13 default list is restored
 
 Scenario: Invalid dwell time value
   Given I am on the system parameters page
@@ -518,41 +588,88 @@ Scenario: Password confirmation mismatch
 
 ## Feature 6: Admin Audit & Controls
 
-### US-16 — Toggle Display Wall Visibility for Participants (Admin)
+### US-16 — Manage Display Wall Accounts (Admin)
 
 **As an** Admin  
-**I want** to enable or disable participant access to the display wall  
-**So that** I can control when the wall is visible to non-logged-in users (e.g. during private moments)
+**I want** to create, disable, and delete Display Wall User accounts  
+**So that** I can control which devices can show the photo train on the TV
 
 **Acceptance Criteria**:
 ```gherkin
-Scenario: Disable display wall for participants
+Scenario: Create a Display Wall account
   Given I am logged in as Admin
-  When I toggle the display wall visibility to "Disabled" for non-logged-in users
-  Then a non-logged-in user visiting the display wall route sees "Access not allowed. Please refer to the organiser's screen instead."
-  And the setting is persisted in the database
+  When I navigate to the user management page
+  And I enter a new username and initial password
+  And I select the role "Display Wall User"
+  And I click "Create"
+  Then the Display Wall account is created
+  And a user logging in with those credentials can access the display wall
+  And the creation is recorded in the audit log
 
-Scenario: Re-enable display wall for participants
-  Given the display wall is disabled for non-logged-in users
-  When I toggle the visibility back to "Enabled"
-  Then non-logged-in users see the train animation normally again
+Scenario: Disable a Display Wall account
+  Given I am viewing the user management page
+  When I click "Disable" for a Display Wall account
+  Then the account's status changes to "disabled"
+  And the Display Wall User can no longer log in
+  And the disable action is recorded in the audit log
 
-Scenario: Moderator bypasses toggle
-  Given the display wall visibility is disabled for non-logged-in users
-  When I am logged in as a Photo Moderator
-  And I navigate to the display wall
-  Then I see the train animation normally (the toggle does not apply to me)
+Scenario: Delete a Display Wall account
+  Given I am viewing the user management page
+  When I click "Delete" for a Display Wall account
+  And I confirm the deletion
+  Then the account is permanently removed
+  And audit log entries still reference the account ID
+  And the deletion is recorded in the audit log
 
-Scenario: Admin bypasses toggle
-  Given the display wall visibility is disabled for non-logged-in users
-  When I am logged in as Admin
-  And I navigate to the display wall
-  Then I see the train animation normally (the toggle does not apply to me)
+Scenario: User management page shows role and status
+  Given I am on the user management page
+  Then I see each account's role (Photo Moderator or Display Wall User) and status (active/disabled)
+```
 
-Scenario: Server restart preserves setting
-  Given the display wall visibility is set to "Disabled"
-  When I restart the server
-  Then the display wall remains disabled for non-logged-in users after restart
+### US-19 — Command Display Override (Photo Moderator / Admin)
+
+**As a** Photo Moderator or Admin  
+**I want** to blank the display wall, show a placeholder image, or resume normal display from the moderation or admin panel  
+**So that** I can control what the TV shows during the event (e.g. during breaks, speeches, or setup)
+
+**Acceptance Criteria**:
+```gherkin
+Scenario: Blank the display wall
+  Given I am logged in as a Photo Moderator or Admin
+  When I click "Blank Screen" in the moderation or admin panel
+  Then all connected display wall sessions show a solid black screen
+  And the train animation is hidden
+  And the action is recorded in the audit log
+
+Scenario: Show placeholder image (default)
+  Given an Admin has uploaded a default placeholder image in system parameters
+  When I click "Show Placeholder" in the moderation or admin panel
+  Then all connected display wall sessions show the default placeholder image
+  And the train animation is hidden
+  And the action is recorded in the audit log
+
+Scenario: Show placeholder image (per-action override)
+  Given I am on the moderation or admin panel
+  When I click "Show Placeholder" and select a different image
+  Then all connected display wall sessions show the selected image (not the default)
+  And the action is recorded in the audit log
+
+Scenario: Resume normal display
+  Given the display wall is showing a blank screen or placeholder
+  When I click "Resume Display" in the moderation or admin panel
+  Then all connected display wall sessions return to the train animation
+  And the animation resumes from its current position
+  And the action is recorded in the audit log
+
+Scenario: Display override state persists for new connections
+  Given a moderator has commanded a blank screen
+  When a new Display Wall User logs in
+  Then the display wall shows the blank screen (not the train)
+
+Scenario: Display override state broadcast via RealtimeService
+  Given there are multiple display wall sessions connected
+  When I command a blank screen
+  Then all sessions update simultaneously
 ```
 
 ### US-17 — View Audit Log (Admin)
@@ -705,11 +822,11 @@ Scenario: Audit entries cannot be modified
   Then the entry remains unchanged
 
 Scenario: All auditable actions are logged
-  Given a moderator performs any of the following actions:
-    | approve | reject | edit | delete | create_moderator | disable_moderator | delete_moderator | change_config |
+  Given a moderator or admin performs any of the following actions:
+    | approve | reject | edit | delete | create_moderator | disable_moderator | delete_moderator | change_config | blank_display | show_placeholder | resume_display | set_default_placeholder | create_display_wall_user | disable_display_wall_user | delete_display_wall_user |
   When the action completes
   Then a corresponding entry is created in the audit log
-  And the entry contains the moderator ID, action type, target, old value, new value, and timestamp
+  And the entry contains the user ID, action type, target, old value, new value, and timestamp
 ```
 
 ---
@@ -720,12 +837,12 @@ Scenario: All auditable actions are logged
 |:--:|---------|-------|:-------:|
 | US-01 | Upload | Submit a Photo | Participant |
 | US-02 | Upload | Access Upload Page | Participant |
-| US-02a | Upload | View Privacy Notice and Disclaimer | Participant |
+| US-02a | Upload | View Privacy Notice, Posting Guidelines, and Acknowledge | Participant |
 | US-03 | Moderate | Log In to Organiser Panel | Photo Moderator |
 | US-04 | Moderate | View Pending Queue | Photo Moderator |
 | US-05 | Moderate | Approve, Reject, or Edit | Photo Moderator |
 | US-06 | Moderate | Delete Approved Submission | Photo Moderator |
-| US-07 | Display | View Display Wall | Participant |
+| US-07 | Display | View Display Wall | Display Wall User |
 | US-08 | Display | Automatic Wall Updates | System |
 | US-09 | Admin | Create Moderator Account | Admin |
 | US-10 | Admin | View & Manage Moderators | Admin |
@@ -733,9 +850,10 @@ Scenario: All auditable actions are logged
 | US-12 | Moderate | Auto-Moderator Flagging | Photo Moderator |
 | US-14 | Admin | Configure System Parameters | Admin |
 | US-15 | Display | Pause/Play & Jump to Cabin | Photo Moderator |
-| US-16 | Admin | Toggle Display Wall Visibility | Admin |
+| US-16 | Admin | Manage Display Wall Accounts | Admin |
 | US-17 | Admin | View Audit Log | Admin |
 | US-18 | Admin | Disable/Delete Moderator | Admin |
+| US-19 | Admin | Command Display Override | Photo Moderator & Admin |
 | US-NFR-01 | NFR | Mobile Responsiveness | Participant |
 | US-NFR-02 | NFR | Display Wall Performance | Viewer |
 | US-NFR-03 | NFR | Security | Admin |

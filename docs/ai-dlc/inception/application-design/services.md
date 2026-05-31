@@ -1,4 +1,4 @@
-# Services — ground-up-wall (Updated for Update 01)
+# Services — ground-up-wall (Updated for Update 02)
 
 ## Service Layer Architecture
 
@@ -35,9 +35,11 @@ Central orchestrator for all photo wall operations. Coordinates between UI compo
    - Handle real-time updates for new approvals, edits, and deletions
    - Pause/play/jump train controls (moderator/admin only)
    - Support cabin transition timing via system parameters
+   - Display override controls (blank/placeholder/resume) commanded from mod/admin panel, broadcast via RealtimeService
 
 4. **User Management**
    - Authenticate moderators and admins (check disabled accounts)
+   - Authenticate Display Wall Users
    - Manage user sessions
    - Handle password changes
    - Enforce role-based access control
@@ -45,7 +47,8 @@ Central orchestrator for all photo wall operations. Coordinates between UI compo
 5. **Admin Operations**
    - List, create, disable, enable, delete moderator accounts
    - Reset moderator passwords
-   - Read and update system parameters (dwell time, prompt text, word list)
+   - Read and update system parameters (dwell time, prompt text, message length limit/unit, word list, default placeholder image)
+   - List, create, disable, delete Display Wall User accounts
    - View and filter audit log
 
 6. **Environment Coordination**
@@ -94,9 +97,17 @@ interface PhotoWallService {
   // Admin — Audit log (Update 01)
   getAuditLog(filters: AuditFilter): Promise<AuditEntry[]>
 
-  // Admin — Display wall visibility (Update 01)
-  getDisplayWallVisibility(): Promise<boolean>
-  setDisplayWallVisibility(enabled: boolean, adminId: string): Promise<void>
+  // Admin — Display Wall User management (Update 02)
+  listDisplayWallUsers(): Promise<DisplayWallUser[]>
+  createDisplayWallUser(username: string, initialPassword: string, adminId: string): Promise<void>
+  disableDisplayWallUser(userId: string, adminId: string): Promise<void>
+  deleteDisplayWallUser(userId: string, adminId: string): Promise<void>
+
+  // Display override controls (Update 02)
+  commandDisplayOverride(type: 'blank' | 'placeholder' | 'resume', userId: string, image?: File): Promise<void>
+  getDisplayOverrideState(): Promise<DisplayOverrideState>
+  subscribeToDisplayOverride(callback: (command: DisplayOverrideCommand) => void): UnsubscribeFn
+  uploadDefaultPlaceholder(image: File, adminId: string): Promise<void>
 }
 ```
 
@@ -171,6 +182,9 @@ interface PhotoWallService {
 - `train_resumed` → Display wall resumes normal transition
 - `train_jump` → Display wall jumps to specified cabin
 - `system_config_changed` → All components notified of config update
+- `display_blank` → All display wall sessions show black screen
+- `display_placeholder` → All display wall sessions show placeholder image
+- `display_resume` → All display wall sessions resume train animation
 
 ---
 
@@ -291,9 +305,10 @@ DisplayComponent
     │       │
     │       └─► RealtimeService.subscribe('train_*')
     │
-    └─► Check display wall visibility on load          ← New (Update 01)
+    └─► Check auth + display override state on load    ← Revised (Update 02)
             │
-            └─► Repository.getSystemConfig('display_wall_enabled')
+            ├─► AuthComponent.checkAuthAccess()
+            └─► Repository.getDisplayOverrideState()
 ```
 
 ### Admin: System Parameters Flow (New — Update 01)
@@ -481,7 +496,7 @@ interface InstagramService {
 | AuditService | AuditServiceImpl (new — Update 01) | Same impl (repo-agnostic) | Same as Phase 2 |
 | AutoModeratorService | AutoModeratorServiceImpl (new — Update 01) | Same impl (pure logic) | Same as Phase 2 |
 | InstagramService | — | — | New: interface + implementation |
-| Business Logic | All features (FR-01–FR-24b, 30 FRs + Update 01) | Same as Phase 1 (no changes) | Same + Instagram source handling |
+| Business Logic | All features (FR-01–FR-24c, 31 FRs + Update 01 + Update 02) | Same as Phase 1 (no changes) | Same + Instagram source handling |
 
 ---
 
@@ -518,12 +533,13 @@ interface ServiceError {
 - Session management with secure token handling
 - Password hashing with bcrypt
 - Disabled account check on login (Update 01 — FR-15a)
+- Display Wall User role — view-only access to display wall route
 - Audit service enforces append-only policy
 
 ### Input Validation
 
 - File type and size validation for uploads
-- Message length validation (max 50 characters)
+- Message length validation (configurable limit in characters or words)
 - SQL injection prevention via parameterized queries
 - XSS prevention via output encoding
 - Auto-moderator flagging is advisory only (no automatic rejection)

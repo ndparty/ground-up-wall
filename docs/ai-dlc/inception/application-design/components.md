@@ -1,4 +1,4 @@
-# Components — ground-up-wall (Updated for Update 01)
+# Components — ground-up-wall (Updated for Update 02)
 
 ## Architecture Overview
 
@@ -18,8 +18,11 @@
 **Responsibilities**:
 - Display upload form (photo, message, name, optional social handle)
 - Display configurable prompt text in message field (from system parameters)
-- Display data privacy notice before submission (FR-02a, Update 01)
-- Display rejection disclaimer on form and success page (FR-02b, Update 01)
+- Display data privacy notice (indefinite retention, social media use) before submission (FR-02a updated, Update 02)
+- Display posting guidelines disclaimer on form and success page (FR-02b updated, Update 02)
+- Display mandatory acknowledgment checkbox (FR-02a updated)
+- Validate message against configurable length limit and unit (characters or words)
+- Display live counter for message length
 - Client-side image compression before upload
 - Form validation (file type, size, message length)
 - Submit to backend via PhotoWallService
@@ -27,10 +30,12 @@
 
 **Interfaces**:
 - `submitPhoto(photo: File, message: string, name: string, socialHandle?: string): Promise<SubmissionResult>`
-- `validateForm(data: UploadData): ValidationResult`
+- `validateForm(data: UploadData, limitConfig: {limit: number, unit: 'characters' | 'words'}): ValidationResult`
 - `compressImage(file: File, maxWidth: number, quality: number): Promise<Blob>`
 - `getPromptText(): Promise<string>` (Update 01: load configurable prompt from system parameters)
+- `getMessageLimitConfig(): Promise<{limit: number, unit: 'characters' | 'words'}>` (Update 02)
 - `showPrivacyNotice(): void` (Update 01: display data privacy notice)
+- `showAcknowledgmentCheckbox(): void` (Update 02: display mandatory acknowledgment checkbox)
 
 **UI Routes**: `/upload`, `/` (home redirects to upload)
 
@@ -49,7 +54,8 @@
 - Maintain 60fps animation performance
 - Pause/play/jump-to-cabin controls (visible to logged-in Moderators/Admins only, FR-24a Update 01)
   - **Jump-to-cabin** uses a *chain-relinking* algorithm: the target cabin is temporarily linked as the immediate next cabin of the current cabin, a single `transitionToNextCabin()` scroll is executed, then the original chain is restored. See `jumpToCabin()` in component-methods.md for the full algorithm.
-- Respect display wall visibility toggle (show blocked message for non-logged-in when disabled, FR-24b Update 01)
+- Require authentication (Display Wall User / Photo Moderator / Admin only); show 403 message for unauthenticated/Participant access (FR-24b revised, Update 02)
+- Respond to display override commands (blank screen, placeholder image, resume) from mod/admin panel via RealtimeService (FR-24c, Update 02)
 - On refresh, restart from cabin 0 in playing state (FR-24a note)
 **Interfaces**:
 - `loadApprovedSubmissions(): Promise<Submission[]>`
@@ -59,7 +65,9 @@
 - `pauseTrain(): void` (Update 01)
 - `resumeTrain(): void` (Update 01)
 - `jumpToCabin(cabinNumber: number): void` (Update 01)
-- `checkVisibilityAccess(): Promise<boolean>` (Update 01)
+- `checkAuthAccess(): Promise<{allowed: boolean, role: string}>` (Update 02)
+- `handleDisplayOverride(command: DisplayOverrideCommand): void` (Update 02)
+- `subscribeToDisplayOverride(callback: (command: DisplayOverrideCommand) => void): UnsubscribeFn` (Update 02)
 
 **UI Routes**: `/display`, `/wall`
 
@@ -78,6 +86,7 @@
 - Show edited indicator with moderator name on previously edited submissions (FR-09)
 - Display auto-moderator flagged words with visual highlighting (e.g. underlined/highlighted) (FR-09a, Update 01)
 - Delete previously approved submissions
+- Command display override (blank/placeholder/resume) from moderation panel (FR-24c, Update 02)
 - Real-time updates when new submissions arrive
 
 **Interfaces**:
@@ -89,6 +98,7 @@
 - `deleteApprovedSubmission(id: string): Promise<void>`
 - `subscribeToNewSubmissions(callback: (submission: Submission) => void): UnsubscribeFn`
 - `getFlaggedWords(message: string): string[]` (Update 01: determine which words to highlight)
+- `commandDisplayOverride(type: 'blank' | 'placeholder' | 'resume', image?: File): Promise<void>` (Update 02)
 
 **UI Routes**: `/moderate`, `/moderator/login`
 
@@ -109,9 +119,14 @@
   - Train dwell time (3-60s, default 15s)
   - Message prompt text
   - Auto-moderator word list
+  - Message length limit
+  - Message length unit
+  - Default placeholder image
   - Reset to default for each parameter
 - View audit log with filtering by moderator, action type, date range, target type (NFR-22, Update 01)
-- Toggle display wall visibility for non-logged-in users (FR-24b, Update 01)
+- Manage Display Wall User accounts (create, disable, delete) (FR-24b revised, Update 02)
+- Command display override (blank/placeholder/resume) from admin panel (FR-24c, Update 02)
+- Upload/replace default placeholder image (FR-13a extended, Update 02)
 - Access to Instagram hashtag configuration (Phase 3)
 
 **Interfaces**:
@@ -126,8 +141,13 @@
 - `updateSystemParameter(key: string, value: string): Promise<void>` (Update 01)
 - `resetSystemParameterToDefault(key: string): Promise<void>` (Update 01)
 - `getAuditLog(filters: AuditFilter): Promise<AuditEntry[]>` (Update 01)
-- `toggleDisplayWallVisibility(enabled: boolean): Promise<void>` (Update 01)
-- `getDisplayWallVisibility(): Promise<boolean>` (Update 01)
+- `listDisplayWallUsers(): Promise<DisplayWallUser[]>` (Update 02)
+- `createDisplayWallUser(username: string, initialPassword: string): Promise<void>` (Update 02)
+- `disableDisplayWallUser(userId: string): Promise<void>` (Update 02)
+- `deleteDisplayWallUser(userId: string): Promise<void>` (Update 02)
+- `commandDisplayOverride(type: 'blank' | 'placeholder' | 'resume', image?: File): Promise<void>` (Update 02)
+- `uploadDefaultPlaceholder(image: File): Promise<void>` (Update 02)
+- `getDisplayOverrideState(): Promise<DisplayOverrideState>` (Update 02)
 - `configureInstagramHashtag(hashtag: string): Promise<void>` (Phase 3)
 
 **UI Routes**: `/admin`, `/admin/login`
@@ -143,7 +163,7 @@
 - Check disabled account status on login (Update 01 — FR-15a)
 - Session management
 - Password change functionality
-- Role-based access control (Moderator vs Admin)
+- Role-based access control (Participant upload-only, Moderator, Admin, Display Wall User)
 - Protected route guards
 
 **Interfaces**:
@@ -152,7 +172,7 @@
 - `changePassword(currentPassword: string, newPassword: string): Promise<void>`
 - `getCurrentUser(): User | null`
 - `isAuthenticated(): boolean`
-- `hasRole(role: 'moderator' | 'admin'): boolean`
+- `hasRole(role: 'moderator' | 'admin' | 'display_wall'): boolean`
 - `isAccountDisabled(): Promise<boolean>` (Update 01: check disabled status)
 
 **UI Routes**: `/login`, `/change-password`
@@ -173,7 +193,8 @@
 - Audit logging for moderator/admin actions (Update 01)
 - Auto-moderator content flagging (Update 01)
 - System parameters configuration (Update 01)
-- Display wall visibility toggle (Update 01)
+- Display override controls (blank/placeholder/resume) from mod/admin panel (Update 02)
+- Display Wall User account management (Update 02)
 - Train control command publishing (Update 01)
 
 **Interfaces**:
@@ -197,8 +218,14 @@
 - `updateSystemParameter(key: string, value: string, adminId: string): Promise<void>` (Update 01)
 - `resetSystemParameterToDefault(key: string, adminId: string): Promise<void>` (Update 01)
 - `getAuditLog(filters: AuditFilter): Promise<AuditEntry[]>` (Update 01)
-- `getDisplayWallVisibility(): Promise<boolean>` (Update 01)
-- `setDisplayWallVisibility(enabled: boolean, adminId: string): Promise<void>` (Update 01)
+- `commandDisplayOverride(type: 'blank' | 'placeholder' | 'resume', image?: File, userId: string): Promise<void>` (Update 02)
+- `getDisplayOverrideState(): Promise<DisplayOverrideState>` (Update 02)
+- `subscribeToDisplayOverride(callback: (command: DisplayOverrideCommand) => void): UnsubscribeFn` (Update 02)
+- `listDisplayWallUsers(): Promise<DisplayWallUser[]>` (Update 02)
+- `createDisplayWallUser(username: string, password: string, adminId: string): Promise<void>` (Update 02)
+- `disableDisplayWallUser(userId: string, adminId: string): Promise<void>` (Update 02)
+- `deleteDisplayWallUser(userId: string, adminId: string): Promise<void>` (Update 02)
+- `uploadDefaultPlaceholder(image: File, adminId: string): Promise<void>` (Update 02)
 
 ---
 
@@ -209,6 +236,7 @@
 **Responsibilities**:
 - CRUD operations for submissions (including content update for edits)
 - User authentication and management (including disable/enable/delete)
+- Display Wall User account CRUD
 - Audit log operations (append-only create, filterable read)
 - System config operations (upsert, read all, reset to default)
 - Environment-aware data access (local Postgres vs Supabase)
@@ -235,6 +263,12 @@
 - `getAllSystemConfigs(): Promise<SystemConfig[]>` (Update 01)
 - `upsertSystemConfig(key: string, value: string, updatedBy: string): Promise<void>` (Update 01)
 - `resetSystemConfigToDefault(key: string): Promise<void>` (Update 01)
+- `createDisplayWallUser(username: string, password: string): Promise<void>` (Update 02)
+- `listDisplayWallUsers(): Promise<DisplayWallUser[]>` (Update 02)
+- `disableDisplayWallUser(userId: string): Promise<void>` (Update 02)
+- `deleteDisplayWallUser(userId: string): Promise<void>` (Update 02)
+- `getDisplayOverrideState(): Promise<DisplayOverrideState>` (Update 02)
+- `setDisplayOverrideState(state: DisplayOverrideState): Promise<void>` (Update 02)
 
 ---
 
@@ -262,7 +296,7 @@
 **Responsibilities**:
 - Local development: in-memory event emitter
 - Production: Supabase Realtime (websockets)
-- Event types: submission_created, submission_approved, submission_rejected, submission_edited, submission_deleted, train_paused, train_resumed, train_jump, system_config_changed
+- Event types: submission_created, submission_approved, submission_rejected, submission_edited, submission_deleted, train_paused, train_resumed, train_jump, system_config_changed, display_override
 - Automatic reconnection and error handling
 
 **Interfaces**:
@@ -273,6 +307,7 @@
 - `onSubmissionEdited(callback: (submission: Submission) => void): UnsubscribeFn` (Update 01)
 - `onTrainCommand(callback: (command: TrainCommand) => void): UnsubscribeFn` (Update 01)
 - `onSystemConfigChanged(callback: (config: SystemConfig) => void): UnsubscribeFn` (Update 01)
+- `onDisplayOverride(callback: (command: DisplayOverrideCommand) => void): UnsubscribeFn` (Update 02)
 
 ---
 
@@ -309,6 +344,10 @@
 ## Component Interaction Summary
 
 ```
+                                              ┌──────────────────┐
+                                              │ Display Wall User│
+                                              └────────┬─────────┘
+                                                       │
 ┌────────────────────────────────────────────────────────────────────────────┐
 │                         PRESENTATION LAYER                                 │
 ├─────────────┬─────────────┬──────────────┬────────────┬─────────┬──────────┤
@@ -353,7 +392,7 @@
 | PhotoWallService | Manual submissions + auto-moderator + audit | Add `fetchInstagramPosts()` method |
 | Repository | `submissions`, `users`, `audit_log`, `system_config` tables | Add `source` field (manual/instagram) |
 | ModerationComponent | Full moderation with edit, delete, flagged indicators | Show source indicator (IG vs manual) |
-| AdminComponent | User management + system params + audit log + visibility toggle | Add Instagram hashtag config UI |
+| AdminComponent | User management (mods + display wall) + system params + audit log + display override | Add Instagram hashtag config UI |
 | RealtimeService | Local/Supabase events + train commands + config changes | Add Instagram webhook handling |
 | AuditService | All moderator/admin actions logged | Add Instagram import actions |
 | AutoModeratorService | Configurable word list flagging | Extend to Instagram-sourced messages |
