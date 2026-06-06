@@ -57,9 +57,14 @@
    // 2. Check if admin already exists (idempotent)
    // 3. Create initial admin account:
    //    username: 'admin'
-   //    password: from env variable ADMIN_INITIAL_PASSWORD or 'admin123'
+   //    password: from env variable ADMIN_INITIAL_PASSWORD, OR fallback to 'admin123' for local dev only
    //    role: 'admin'
    // 4. Seed system_config defaults (only if not already set):
+   ```
+
+   > ⚠️ **Security note (admin initial password)**: The `'admin123'` fallback exists **for local development convenience only**. It is intentionally weak and is printed in plain text to the seed script's console output. **For any non-local environment (staging, demo, production), `ADMIN_INITIAL_PASSWORD` MUST be set to a strong password (min 12 chars, mixed case + digits + symbols) before running the seed script.** The seed script will refuse to run with the fallback password if `DENO_DEPLOYMENT_ID` is set (a heuristic for "this is not a local Deno process"). Document this prominently in SETUP.md and the README so it's not missed.
+
+   ```typescript
    const DEFAULTS = [
      { key: 'train_dwell_time', value: '15', default_value: '15' },
      { key: 'message_prompt_text', value: 'What does National Day mean to you?', default_value: 'What does National Day mean to you?' },
@@ -213,18 +218,24 @@
    - US-NFR-03: Image upload validation (size + type)
    - US-NFR-05: Audit entries cannot be deleted or modified
    - US-NFR-05: All 15+ auditable actions are logged correctly
+   - US-NFR-05: **Negative test** — the Repository interface must not expose `updateAuditEntry` or `deleteAuditEntry` methods. Enforce via TypeScript compile-time check (a unit test that uses `Object.keys(repository)` on the typed interface) and a runtime check (introspect the PostgresRepository class for these method names and fail the test if found).
 
 #### Unit Tests (E2E)
 
-| Test File | Total Scenarios |
-|-----------|:--------------:|
-| `tests/e2e/upload.test.ts` | ~12 |
-| `tests/e2e/moderation.test.ts` | ~18 |
-| `tests/e2e/display.test.ts` | ~16 |
-| `tests/e2e/admin.test.ts` | ~22 |
-| `tests/e2e/auth.test.ts` | ~3 |
-| `tests/e2e/nfr.test.ts` | ~8 |
-| **Total** | **~79** |
+| Test File | Total Scenarios | Smoke subset (PR-time) |
+|-----------|:--------------:|:----------------------:|
+| `tests/e2e/upload.test.ts` | ~12 | ~5 (form renders, valid submit, char limit, word limit, no-ack-disabled) |
+| `tests/e2e/moderation.test.ts` | ~18 | ~7 (login, view queue, approve, reject, edit pending, edit approved, flagged UI) |
+| `tests/e2e/display.test.ts` | ~16 | ~6 (DW user view, 403 blocks, blank override, placeholder override, resume, new approval within 30s) |
+| `tests/e2e/admin.test.ts` | ~22 | ~8 (create mod, disable, delete, reset pw, change dwell, change prompt, create DW, audit view) |
+| `tests/e2e/auth.test.ts` | ~3 | ~2 (success, wrong current password) |
+| `tests/e2e/nfr.test.ts` | ~8 | ~2 (audit log integrity negative test, admin route not public) |
+| **Total** | **~79** | **~30 (PR smoke)** |
+
+**CI split strategy**:
+- **PR-time (`deno task test:e2e:smoke`)** — runs the ~30 smoke subset on every PR push. Target wall-clock: ≤5 minutes. If any smoke test fails, the PR is blocked.
+- **Nightly / pre-release (`deno task test:e2e`)** — runs all 79 scenarios nightly on `main` and on tagged releases. Target wall-clock: ≤30 minutes. Failures create issues but don't block individual PRs.
+- **Tag the smoke tests** with `Deno.test({ name: "smoke: ..." })` or use a shared `isSmoke` flag so the `--filter=smoke` deno-test flag selects them. (Alternatively, prefix smoke test names with `smoke_` and use `--filter=^smoke_`.)
 
 #### Verification
 
@@ -232,10 +243,11 @@
 - [ ] All existing tests pass
 - [ ] New tests pass
 - [ ] Code coverage meets ≥80% threshold for new/modified code
-- [ ] All ~79 Gherkin scenarios pass against a clean test database
+- [ ] PR-time smoke subset (~30) passes in ≤5 min against a clean test database
+- [ ] Full E2E suite (~79) passes in ≤30 min nightly
 - [ ] NFR-03 (60fps) confirmed via measurement
 - [ ] NFR-04 (30s real-time) confirmed via measurement
-- [ ] NFR-22 (audit log integrity) confirmed via assertion tests
+- [ ] NFR-22 (audit log integrity) confirmed via assertion tests, **including negative test** (no update/delete on audit_log)
 
 ---
 
@@ -253,16 +265,22 @@
 #### Implementation Details
 
 1. **Create `SETUP.md`** with:
-   - Prerequisites: Deno, PostgreSQL 15+, git
+   - Prerequisites: Deno, **PostgreSQL 17+**, git
    - Step-by-step setup:
      1. Clone repository
      2. Create database: `createdb ground_up_wall_dev`
      3. Copy `.env.example` to `.env`, configure `DATABASE_URL`
-     4. Run migrations: `deno task db:migrate`
-     5. Run seeds: `deno run -A scripts/seed.ts`
-     6. Start dev server: `deno task start`
-   - Default admin credentials: admin / admin123
-   - Running tests: `deno task test`
+     4. Set `ADMIN_INITIAL_PASSWORD` env var to a strong password (see admin-password security note in §1.1)
+     5. Run migrations: `deno task db:migrate`
+     6. Run seeds: `deno run -A scripts/seed.ts`
+     7. Start dev server: `deno task start`
+   - Default admin credentials: admin / (value of `ADMIN_INITIAL_PASSWORD` or `'admin123'` for local dev only)
+   - Running tests: `deno task test` (unit), `deno task test:e2e` (E2E), `deno task test:e2e:smoke` (PR-time smoke subset)
+   - **Visual / Performance NFR verification protocol** (reproducible exit-criteria sign-off):
+     - **NFR-03 (60fps animation)**: Open display wall page in Chrome → DevTools → Performance → record for 30s with 50+ cabins in train → confirm FPS counter reads ≥55fps sustained. Take a screenshot of the FPS overlay for the audit trail.
+     - **NFR-04 (30s real-time)**: Open moderation panel and display wall in two tabs. Submit + approve a photo. Measure wall-clock from approval to cabin visible on display. Must be <30s. Log the measurement.
+     - **NFR-08 (legibility)**: Measure cabin font sizes with DevTools → Computed → font-size. Name ≥24px, message ≥18px. Screenshot.
+     - **NFR-22 (audit log integrity)**: Run `deno task test:e2e:smoke --filter audit` (or the dedicated NFR test) and confirm all auditable action types produce a row. Negative test: `lib/repositories/postgres_repository_test.ts` has `testNoUpdateOrDeleteOnAuditLog` which calls reflection/introspection on the Repository interface to confirm no `updateAuditEntry` or `deleteAuditEntry` methods are exposed.
    - Project structure overview
    - Common troubleshooting
 

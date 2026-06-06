@@ -45,15 +45,20 @@
 
 #### Implementation Details
 
-1. **Create `routes/display.tsx`:**
-   - Route handler checks authentication via middleware
-   - If not authenticated or Participant role: return 403 with message:
-     ```
-     "Access not allowed. Please refer to the organiser's screen instead."
-     ```
-   - If Display Wall User / Moderator / Admin: render the DisplayComponent island
-   - Full-screen layout (no header, no nav — just the train)
-   - Auto-enter fullscreen via Fullscreen API on mount
+  1. **Create `routes/display.tsx`:**
+     - Route handler checks authentication via middleware
+     - If not authenticated or Participant role: return 403 with message:
+       ```
+       "Access not allowed. Please refer to the organiser's screen instead."
+       ```
+     - If Display Wall User / Moderator / Admin: render the DisplayComponent island
+     - Full-screen layout (no header, no nav — just the train)
+     - **Fullscreen handling (do NOT auto-call `requestFullscreen()` on mount)** — the Fullscreen API requires a user gesture and will throw `NotAllowedError` if invoked from script on page load. Instead:
+       - Render a "Click to go fullscreen" overlay button on first load (one-time, dismissable)
+       - The button's click handler calls `document.documentElement.requestFullscreen()`
+       - Persist a `display_wall_fullscreen_dismissed` flag in `localStorage` so the overlay only shows once per browser
+       - Document in SETUP.md that the organiser can also press **F11** on the TV keyboard after first load to toggle fullscreen
+       - For dev/QA, the same F11 path works without the overlay
 
 2. **Create `routes/api/display/check-access.ts`:**
    - GET endpoint that checks session and role

@@ -68,6 +68,8 @@
    [Submit]             (disabled until checkbox checked)
    ```
 
+4. **Upload route is intentionally open to all** (per FR-01). This includes authenticated users with any role — Participant, Photo Moderator, Admin, **and Display Wall User**. A `display_wall` user navigating to `/upload` will see the form and can submit a photo attributed to whatever name they type. This is by design (the display wall account is meant to be a TV account, but the URL isn't gated). Document in the upload page footer: *"The upload form is open to everyone. The display wall account is for viewing only; you don't need to log in to submit a photo."* No code-side guard is required — the spec is explicit (FR-01, US-01).
+
 #### Unit Tests
 
 | Test File | Test Method | Verifies |

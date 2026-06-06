@@ -72,11 +72,14 @@ A Code Execution Plan describes *how to implement* the changes defined in a work
 2. **Configure `deno.json`** with tasks, imports, and lint/format settings:
    ```json
    {
-     "tasks": {
-       "start": "deno run -A --watch=static/,routes/ dev.ts",
-       "test": "deno test -A",
-       "db:migrate": "deno run -A scripts/migrate.ts"
-     },
+      "tasks": {
+        "start": "deno run -A --watch=static/,routes/,lib/,islands/,components/ dev.ts",
+        "test": "deno test -A",
+        "test:unit": "deno test -A --ignore=tests/e2e/",
+        "test:e2e": "deno test -A tests/e2e/ --timeout=60000",
+        "test:e2e:smoke": "deno test -A tests/e2e/ --timeout=30000 --filter=smoke",
+        "db:migrate": "deno run -A scripts/migrate.ts"
+      },
      "compilerOptions": {
        "jsx": "precompile",
        "jsxImportSource": "preact"
