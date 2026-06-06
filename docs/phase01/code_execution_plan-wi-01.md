@@ -62,12 +62,12 @@ A Code Execution Plan describes *how to implement* the changes defined in a work
 
 1. **Initialize the project:**
    ```bash
-   deno run -A -r https://fresh.deno.dev@1.6.8 ground-up-wall
+   deno run -A -r https://fresh.deno.dev ground-up-wall
    cd ground-up-wall
    ```
    Accept default options (No Tailwind, No VS Code).
    
-   > ⚠️ The version pin (`@1.6.8`) must match the `$fresh/` import in `deno.json`. If upgrading Fresh later, update both locations together.
+   > ⚠️ Fresh 2.x uses JSR imports (`jsr:@fresh/...`). The scaffold generates `deno.json` with JSR imports automatically. If you need to pin a specific version, use `jsr:@fresh@2.3.3/`.
 
 2. **Configure `deno.json`** with tasks, imports, and lint/format settings:
    ```json
@@ -82,15 +82,18 @@ A Code Execution Plan describes *how to implement* the changes defined in a work
        "jsxImportSource": "preact"
      },
      "imports": {
-       "$fresh/": "https://deno.land/x/fresh@1.6.8/",
-       "preact": "https://esm.sh/preact@10.19.6",
-       "preact/": "https://esm.sh/preact@10.19.6/",
-       "preact-render-to-string": "https://esm.sh/*preact-render-to-string@6.4.0",
-       "@preact/signals": "https://esm.sh/*@preact/signals@1.2.2",
-       "@preact/signals-core": "https://esm.sh/*@preact/signals-core@1.5.1",
-       "$std/": "https://deno.land/std@0.215.0/",
-       "postgres": "https://deno.land/x/postgres@v0.19.3/mod.ts",
-       "bcrypt": "https://deno.land/x/bcrypt@v0.4.1/mod.ts"
+       "$fresh/": "jsr:@fresh/core@^2.3.3/",
+       "preact": "jsr:preact@^10.29.2",
+       "preact/": "jsr:preact@^10.29.2/",
+       "preact-render-to-string": "jsr:@preact/render-to-string@^6.6.7",
+       "@preact/signals": "jsr:@preact/signals@^1.3.0",
+       "@preact/signals-core": "jsr:@preact/signals-core@^1.8.0",
+       "@std/assert": "jsr:@std/assert@^1.0.0",
+       "@std/fs": "jsr:@std/fs@^1.0.0",
+       "@std/path": "jsr:@std/path@^1.0.0",
+       "@std/encoding": "jsr:@std/encoding@^1.0.0",
+       "@db/postgres": "jsr:@db/postgres@^0.19.5",
+       "bcrypt": "jsr:@felix/bcrypt@^1.0.8"
      },
      "lint": {
        "rules": {
@@ -103,7 +106,7 @@ A Code Execution Plan describes *how to implement* the changes defined in a work
      }
    }
    ```
-   > ℹ️ Imports are defined directly in `deno.json` (Deno 2.x standard) rather than a separate `import_map.json`.
+   > ℹ️ Imports are defined directly in `deno.json` (Deno 2.x standard) rather than a separate `import_map.json`. Fresh 2.x uses JSR (`jsr:`) for all framework imports.
 
 4. **Configure `fresh.config.ts`:**
    ```typescript

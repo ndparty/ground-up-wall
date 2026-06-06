@@ -260,19 +260,25 @@ All of the following must pass before Phase 01 is considered complete:
 
 ## Appendix B: Tech Stack
 
-| Component | Technology | Version |
-|-----------|------------|---------|
-| Runtime | Deno | Latest stable |
-| Framework | Deno Fresh | Latest stable |
-| Database | PostgreSQL | 15+ |
-| ORM/Query | Deno Postgres client | Latest |
-| Storage | Local filesystem | — |
-| Realtime | In-memory EventEmitter + SSE | — |
-| Animation | CSS transforms + requestAnimationFrame | — |
-| Authentication | Session cookies (opaque tokens) | — |
-| Password Hashing | bcrypt (Deno port) | — |
-| Frontend | Preact (Fresh default) | — |
-| Testing | Deno test + std/assert | — |
+All dependencies are pinned in `deno.json` and resolved via JSR (Deno's official package registry). See the [WI-01 Code Execution Plan](./code_execution_plan-wi-01.md) for the exact import map and the [Dev Setup Guide](./dev_setup.md) for the full version compatibility table.
+
+| Component | Technology | Version (pinned) | Notes |
+|-----------|------------|------------------|-------|
+| Runtime | Deno | `latest stable` | Deno Deploy runs Deno 2.5.x; we target that compatibility floor |
+| Framework | Deno Fresh | `^2.3.3` | Latest stable Fresh 2.x via JSR `@fresh/core` |
+| Database | PostgreSQL | `17+` | Matches Supabase PG 17 (self-hosted + managed direction) |
+| Postgres driver | `@db/postgres` | `^0.19.5` | JSR — works with local PG 17 and Supabase |
+| UI library | `preact` | `^10.29.2` | JSR — Fresh's default UI framework |
+| SSR | `@preact/render-to-string` | `^6.6.7` | JSR |
+| Reactive state | `@preact/signals` | `^1.3.0` | JSR |
+| Deno std (modular) | `@std/assert`, `@std/fs`, `@std/path`, `@std/encoding` | `^1.0.0` | JSR — Deno std is now per-module on JSR |
+| Password hashing | `@felix/bcrypt` | `^1.0.8` | JSR — bcrypt for Deno via FFI |
+| Storage | Local filesystem (`./uploads/`) | — | Phase 2: swap to Supabase Storage |
+| Realtime | In-memory EventEmitter + SSE | — | Phase 2: swap to Supabase Realtime |
+| Animation | CSS transforms + `requestAnimationFrame` | — | Hand-rolled — no animation library |
+| Authentication | Session cookies (opaque tokens) | — | In-memory `Map<token, session>` for Phase 1 |
+| Testing | Deno test + `@std/assert` | — | Built-in test runner |
+| Linting / formatting | Deno lint + Deno fmt | — | Built-in; no ESLint / Prettier needed |
 
 ---
 

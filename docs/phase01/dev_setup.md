@@ -53,7 +53,21 @@ The fastest path to a ready development machine:
 
 OS-specific install instructions for each step are below.
 
-> **Version compatibility:** The project (`WI-01`) pins Fresh 1.6.8, Preact 10.19.6, Deno std 0.215.0, Postgres driver v0.19.3, and bcrypt v0.4.1 in `deno.json` imports. These are fetched at runtime — no separate install needed. PostgreSQL 17 is used locally; the codebase targets PG 15+ features so it will also work with Supabase (Phase 2).
+> **Version compatibility:** The project (`WI-01`) pins the following dependencies in `deno.json` (all via JSR, exact versions defined in the [WI-01 Code Execution Plan](./code_execution_plan-wi-01.md)):
+>
+> | Package | Version | Purpose |
+> |---|---|---|
+> | [`@fresh/core`](https://jsr.io/@fresh/core) | `^2.3.3` | Deno Fresh framework (matches Deno Deploy runtime ~Deno 2.5) |
+> | [`preact`](https://jsr.io/preact) | `^10.29.2` | UI library |
+> | [`@preact/render-to-string`](https://jsr.io/@preact/render-to-string) | `^6.6.7` | SSR rendering |
+> | [`@preact/signals`](https://jsr.io/@preact/signals) | `^1.3.0` | Reactive state |
+> | [`@std/assert`](https://jsr.io/@std/assert), [`@std/fs`](https://jsr.io/@std/fs), [`@std/path`](https://jsr.io/@std/path), [`@std/encoding`](https://jsr.io/@std/encoding) | `^1.0.0` | Deno standard library modules |
+> | [`@db/postgres`](https://jsr.io/@db/postgres) | `^0.19.5` | Postgres driver (works with local PG and Supabase) |
+> | [`@felix/bcrypt`](https://jsr.io/@felix/bcrypt) | `^1.0.8` | Password hashing |
+>
+> Dependencies are downloaded and cached on first use, then loaded from the local Deno cache — no `npm install` step needed. To upgrade later, run `deno outdated` to see available updates.
+>
+> **PostgreSQL 17** is used locally and matches the Supabase PG 17 default direction (Supabase self-hosted supports 17; managed cloud is moving toward 17 as the new default — see [Supabase PG 17 upgrade guide](https://supabase.com/docs/guides/self-hosting/postgres-upgrade-17) and [Supabase PR #35961](https://github.com/supabase/supabase/pull/35961) selecting newer PG versions as default). The same codebase will run in Phase 2 on Supabase without changes.
 
 > **Attribution:** This document was produced through a Party Mode roundtable with Winston (System Architect), Amelia (Senior Software Engineer), Paige (Technical Writer), and John (Product Manager).
 
@@ -478,7 +492,7 @@ Run these checks to confirm the machine is ready for development:
 | 5 | Environment variable set | `echo $DATABASE_URL` ¹ | `postgres://localhost:5432/ground_up_wall_dev` |
 | 6 | Git installed | `git --version` | Version output without errors |
 | 7 | VS Code installed | `code --version` | Version output without errors |
-| 8 | Deno can fetch remote modules | `deno eval --allow-net "const _ = await import('https://deno.land/std@0.215.0/assert/mod.ts'); console.log('module fetch OK');"` | `module fetch OK` |
+| 8 | Deno can fetch remote modules | `deno eval --allow-net "const _ = await import('jsr:@std/assert@^1.0.0'); console.log('module fetch OK');"` | `module fetch OK` |
 
 > ¹ On Windows PowerShell, use `echo $env:DATABASE_URL` instead.
 
@@ -526,16 +540,16 @@ If port 5432 is already in use:
 
 ### Verifying Deno Can Fetch Remote Modules
 
-Check that Deno can reach its package registries:
+Check that Deno can reach JSR (the primary package registry for this project):
 
 ```bash
 deno eval --allow-net "
-const res = await fetch('https://deno.land');
-console.log('Deno registry reachable:', res.status === 200);
+const res = await fetch('https://jsr.io');
+console.log('JSR registry reachable:', res.status === 200);
 "
 ```
 
-Expected output: `Deno registry reachable: true`
+Expected output: `JSR registry reachable: true`
 
 ---
 
