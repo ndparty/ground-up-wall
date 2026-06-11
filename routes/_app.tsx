@@ -1,3 +1,4 @@
+import AuthStatus from "../islands/AuthStatus.tsx";
 import { define } from "../utils.ts";
 
 export default define.page(function App({ Component }) {
@@ -37,6 +38,7 @@ export default define.page(function App({ Component }) {
         <header class="brand-header">
           <img src="/logo.svg" alt="SG National Day" />
           <h1>Ground Up Wall</h1>
+          <AuthStatus />
         </header>
         <main>
           <Component />

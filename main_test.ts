@@ -19,7 +19,8 @@ Deno.test({
   async fn() {
     const handler = await createTestHandler();
     const res = await handler(new Request("http://localhost/"), serveInfo);
-    assertEquals(res.status, 200);
+    assertEquals(res.status, 302);
+    assertEquals(res.headers.get("location"), "/upload");
   },
 });
 
