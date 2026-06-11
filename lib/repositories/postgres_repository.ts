@@ -422,6 +422,13 @@ export class PostgresRepository implements Repository {
     );
   }
 
+  async enableDisplayWallUser(id: string): Promise<void> {
+    await this.query(
+      `UPDATE users SET disabled = false, disabled_at = NULL WHERE id = $1 AND role = 'display_wall'`,
+      [id],
+    );
+  }
+
   async deleteDisplayWallUser(id: string): Promise<void> {
     await this.query(`DELETE FROM users WHERE id = $1 AND role = 'display_wall'`, [id]);
   }

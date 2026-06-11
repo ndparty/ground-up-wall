@@ -198,3 +198,26 @@ body.display-wall-mode main {
   border-radius: 4px;
   border: 1px solid #ccc;
 }
+
+.display-wall__override-blank {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  z-index: 10;
+}
+
+.display-wall__override-placeholder {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #111;
+}
+
+.display-wall__override-placeholder img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}

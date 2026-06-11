@@ -40,6 +40,11 @@ export const handlers = define.handlers({
             send("train_command", command);
           }),
         );
+        unsubs.push(
+          ctx.state.services.photoWall.subscribeToDisplayOverride((command) => {
+            send("display_override", command);
+          }),
+        );
       },
       cancel() {
         for (const unsub of unsubs) unsub();

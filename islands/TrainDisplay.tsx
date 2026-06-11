@@ -1,5 +1,13 @@
 import { useEffect, useRef, useState } from "preact/hooks";
-import type { TrainCommand } from "../lib/interfaces/realtime_service.ts";
+import type {
+  DisplayOverrideCommand,
+  TrainCommand,
+} from "../lib/interfaces/realtime_service.ts";
+import {
+  mapCommandToOverrideState,
+  resolveOverrideView,
+  type OverrideState,
+} from "../lib/train/display_override.ts";
 import {
   addSubmission,
   cloneChain,
@@ -37,6 +45,7 @@ export default function TrainDisplay() {
   const [isPlaying, setIsPlaying] = useState(true);
   const [userRole, setUserRole] = useState<User["role"] | null>(null);
   const [showFullscreenPrompt, setShowFullscreenPrompt] = useState(false);
+  const [overrideState, setOverrideState] = useState<OverrideState>({ type: "normal" });
   const isPlayingRef = useRef(isPlaying);
   isPlayingRef.current = isPlaying;
 
@@ -57,6 +66,19 @@ export default function TrainDisplay() {
       .then((data) => setUserRole(data.user?.role ?? null))
       .catch(() => undefined);
   }, []);
+
+  useEffect(() => {
+    fetch("/api/display/override-state")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data) setOverrideState(data as OverrideState);
+      })
+      .catch(() => undefined);
+  }, []);
+
+  function applyDisplayOverride(command: DisplayOverrideCommand) {
+    setOverrideState(mapCommandToOverrideState(command.type, command.imageUrl));
+  }
 
   useEffect(() => {
     fetch("/api/display/submissions")
@@ -131,6 +153,11 @@ export default function TrainDisplay() {
       applyTrainCommand(command);
     });
 
+    es.addEventListener("display_override", (event) => {
+      const command = JSON.parse(event.data) as DisplayOverrideCommand;
+      applyDisplayOverride(command);
+    });
+
     return () => es.close();
   }, []);
 
@@ -186,6 +213,7 @@ export default function TrainDisplay() {
 
   const translateX = -currentIndex * CABIN_STEP_PX;
   const showControls = shouldShowTrainControls(userRole);
+  const overrideView = resolveOverrideView(overrideState);
 
   return (
     <div class="display-wall">
@@ -199,30 +227,40 @@ export default function TrainDisplay() {
         </div>
       )}
 
-      {!hasCabins
-        ? (
-          <div class="display-wall__empty">
-            <h2>🇸🇬 Ground Up Wall</h2>
-            <p>Submissions coming soon!</p>
+      {overrideView === "blank" && <div class="display-wall__override-blank" />}
+
+      {overrideView === "placeholder" && (
+        <div class="display-wall__override-placeholder">
+          {overrideState.imageUrl
+            ? <img src={overrideState.imageUrl} alt="Placeholder" />
+            : <p>Placeholder</p>}
+        </div>
+      )}
+
+      {overrideView === "train" && !hasCabins && (
+        <div class="display-wall__empty">
+          <h2>🇸🇬 Ground Up Wall</h2>
+          <p>Submissions coming soon!</p>
+        </div>
+      )}
+
+      {overrideView === "train" && hasCabins && (
+        <div class="display-wall__track-wrap">
+          <div
+            class="display-wall__track"
+            style={{ transform: `translateX(${translateX}px)` }}
+          >
+            {chain.nodes.map((node) => (
+              <TrainCabin
+                key={node.submission.id}
+                submission={node.submission}
+                isActive={node.index === currentIndex}
+                index={node.index}
+              />
+            ))}
           </div>
-        )
-        : (
-          <div class="display-wall__track-wrap">
-            <div
-              class="display-wall__track"
-              style={{ transform: `translateX(${translateX}px)` }}
-            >
-              {chain.nodes.map((node) => (
-                <TrainCabin
-                  key={node.submission.id}
-                  submission={node.submission}
-                  isActive={node.index === currentIndex}
-                  index={node.index}
-                />
-              ))}
-            </div>
-          </div>
-        )}
+        </div>
+      )}
 
       {showControls && hasCabins && (
         <TrainControls

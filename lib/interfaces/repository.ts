@@ -54,6 +54,7 @@ export interface Repository {
   createDisplayWallUser(data: CreateUserData): Promise<User>;
   listDisplayWallUsers(): Promise<DisplayWallUser[]>;
   disableDisplayWallUser(id: string): Promise<void>;
+  enableDisplayWallUser(id: string): Promise<void>;
   deleteDisplayWallUser(id: string): Promise<void>;
   getDisplayOverrideState(): Promise<DisplayOverrideState | null>;
   setDisplayOverrideState(state: DisplayOverrideState): Promise<void>;

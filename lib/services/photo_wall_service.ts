@@ -419,6 +419,31 @@ export class PhotoWallService {
     });
   }
 
+  async enableDisplayWallUser(userId: string, adminId: string): Promise<void> {
+    await this.repository.enableDisplayWallUser(userId);
+    await this.audit.logAction({
+      moderator_id: adminId,
+      action_type: "enable_display_wall_user",
+      target_type: "display_wall_user",
+      target_id: userId,
+    });
+  }
+
+  async resetDisplayWallUserPassword(
+    userId: string,
+    newPassword: string,
+    adminId: string,
+  ): Promise<void> {
+    const hash = await bcrypt.hash(newPassword);
+    await this.repository.updateUserPassword(userId, hash);
+    await this.audit.logAction({
+      moderator_id: adminId,
+      action_type: "reset_password",
+      target_type: "display_wall_user",
+      target_id: userId,
+    });
+  }
+
   async deleteDisplayWallUser(userId: string, adminId: string): Promise<void> {
     await this.repository.deleteDisplayWallUser(userId);
     await this.audit.logAction({

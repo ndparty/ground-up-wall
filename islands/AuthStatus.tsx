@@ -28,7 +28,8 @@ export default function AuthStatus() {
     );
   }
 
-  const canModerate = user.role === "moderator" || user.role === "admin";
+  const isAdmin = user.role === "admin";
+  const canModerate = user.role === "moderator" || isAdmin;
   const canDisplay = user.role === "display_wall" || canModerate;
 
   return (
@@ -36,6 +37,7 @@ export default function AuthStatus() {
       <span>Hi, {user.username}</span>
       {canDisplay && <a href="/display" style="color: white;">Display</a>}
       {canModerate && <a href="/moderate" style="color: white;">Moderate</a>}
+      {isAdmin && <a href="/admin" style="color: white;">Admin</a>}
       <a href="/change-password" style="color: white;">Change password</a>
       <button
         type="button"

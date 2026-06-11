@@ -280,3 +280,21 @@ Deno.test({
     }
   },
 });
+
+Deno.test({
+  name: "testDisplayOverridePersists",
+  async fn() {
+    const dir = await Deno.makeTempDir();
+    try {
+      await cleanupTestData();
+      const { service, repo } = await createTestService(dir);
+      await service.commandDisplayOverride("blank", "admin-1");
+      const state = await service.getDisplayOverrideState();
+      assertEquals(state?.type, "blank");
+      await repo.close();
+    } finally {
+      await cleanupTestData();
+      await Deno.remove(dir, { recursive: true });
+    }
+  },
+});
