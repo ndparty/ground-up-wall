@@ -124,6 +124,10 @@ export class PhotoWallService {
   }
 
   async approveSubmission(id: string, moderatorId: string): Promise<Submission> {
+    const pending = await this.repository.getSubmissionsByStatus("pending");
+    if (!pending.some((s) => s.id === id)) {
+      throw new Error("Submission is not pending");
+    }
     const submission = await this.repository.updateSubmissionStatus(id, "approved", moderatorId);
 
     await this.audit.logAction({
@@ -143,6 +147,10 @@ export class PhotoWallService {
     moderatorId: string,
     reason?: string,
   ): Promise<Submission> {
+    const pending = await this.repository.getSubmissionsByStatus("pending");
+    if (!pending.some((s) => s.id === id)) {
+      throw new Error("Submission is not pending");
+    }
     const submission = await this.repository.updateSubmissionStatus(id, "rejected");
 
     await this.audit.logAction({
@@ -188,6 +196,10 @@ export class PhotoWallService {
 
   subscribeToApproved(callback: (submission: Submission) => void): UnsubscribeFn {
     return this.realtime.onSubmissionApproved(callback);
+  }
+
+  subscribeToCreated(callback: (submission: Submission) => void): UnsubscribeFn {
+    return this.realtime.onSubmissionCreated(callback);
   }
 
   publishTrainCommand(command: TrainCommand): void {
