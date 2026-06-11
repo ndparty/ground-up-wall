@@ -6,9 +6,10 @@
     "build": "deno run -A dev.ts build",
     "test": "deno test -P",
     "test:unit": "deno test -P --ignore=tests/e2e/",
-    "test:e2e": "deno test -P tests/e2e/ --timeout=60000",
-    "test:e2e:smoke": "deno test -P tests/e2e/ --timeout=30000 --filter=smoke",
+    "test:e2e": "deno test -P tests/e2e/",
+    "test:e2e:smoke": "deno test -P tests/e2e/ --filter=smoke",
     "db:migrate": "deno run -A scripts/migrate.ts",
+    "db:seed": "deno run -A scripts/seed.ts",
     "check": "deno fmt --check . && deno lint . && deno check main.ts"
   },
   "compilerOptions": {

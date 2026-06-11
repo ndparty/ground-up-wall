@@ -1,44 +1,76 @@
 # ground-up-wall
 
-A photowall web application for events — users upload photos with short messages, displayed on a dynamic train-like wall. Built for the Singapore National Day ground-up party.
+A photowall web application for events — participants upload photos with short messages, moderators approve them, and approved submissions ride an SMRT-themed train on a display wall.
 
-> **Status**: Inception phase — architecture and planning in progress.
+Built for the Singapore National Day ground-up party.
 
-## Source Code
+## Status
 
-The application code will live under `src/` once development begins.
+**Phase 01 (local MVP)** — feature-complete on localhost: upload, moderation, display wall, admin panel, and audit logging.
 
-Planned tech stack:
-- **Runtime**: Deno Fresh
-- **Hosting**: Deno Deploy
-- **Database + Storage**: Supabase (Postgres + file storage)
+## Quick start
 
-## docs/ai-dlc/
-
-This folder contains the shared AI-DLC (AI-Driven Development Lifecycle) artifacts — the requirements, user stories, and design documents produced during the inception phase. These are team-shared artifacts, referenced by each developer's personal SDD (Spec-Driven Development) session repository.
-
-### Current Contents
-
-```
-docs/ai-dlc/
-└── inception/
-    ├── requirements/
-    │   ├── requirements.md                         — 18 functional + 16 non-functional requirements
-    │   └── requirement-verification-questions.md   — Clarifying questions and answers
-    ├── user-stories/
-    │   ├── personas.md                             — 3 personas (Participant, Moderator, Admin)
-    │   ├── stories.md                              — 15 stories with Gherkin acceptance criteria
-    │   └── traceability-matrix.md                  — FR/NFR to story mapping
-    ├── application-design/
-    │   ├── components.md                           — 9 components identified
-    │   ├── component-methods.md                    — Method signatures per component
-    │   ├── services.md                             — PhotoWallService facade + supporting services
-    │   ├── component-dependency.md                 — Dependency matrix and data flow
-    │   └── requirements-traceability.md            — 56 requirements mapped to components
-    └── plans/
-        ├── application-design-plan.md              — Application design phase plan
-        ├── story-generation-plan.md                — Story generation phase plan
-        └── user-stories-assessment.md              — User stories needs assessment
+```bash
+createdb ground_up_wall_dev
+cp .env.example .env
+export ADMIN_INITIAL_PASSWORD="YourStrongPass123!"   # optional locally; required in deployed envs
+deno task db:migrate
+deno task db:seed
+deno task start
 ```
 
-Future construction-phase artifacts will go under `docs/ai-dlc/construction/` and operations under `docs/ai-dlc/operations/`.
+Open http://localhost:8000 — log in as `admin` (see [SETUP.md](SETUP.md) for credentials).
+
+Full setup instructions: **[SETUP.md](SETUP.md)**  
+OS-specific tool install: **[docs/phase01/dev_setup.md](docs/phase01/dev_setup.md)**
+
+## Tech stack
+
+| Layer | Technology |
+|-------|------------|
+| Runtime / framework | Deno 2.x + Fresh 2.x |
+| UI | Preact + Signals |
+| Database | PostgreSQL 17+ |
+| File storage | Local filesystem (`STORAGE_PATH`) |
+| Real-time | In-memory SSE (Phase 2: Supabase) |
+
+## Architecture
+
+```
+Browser  →  Fresh routes (pages + API)
+                ↓
+         PhotoWallService (facade)
+                ↓
+    Repository · FileStorage · Realtime · Audit
+```
+
+- **Public:** `/upload` — photo submission (no login)
+- **Moderator:** `/moderate` — approve, reject, edit, display override
+- **Display wall:** `/display` — train animation (display-wall, moderator, or admin login)
+- **Admin:** `/admin` — users, parameters, audit log, display override
+
+## Tests
+
+```bash
+deno task test              # all tests
+deno task test:e2e:smoke    # PR smoke subset
+deno task test:e2e          # full E2E suite
+```
+
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [SETUP.md](SETUP.md) | Developer setup and NFR sign-off |
+| [docs/phase01/epic_plan-phase01.md](docs/phase01/epic_plan-phase01.md) | Phase 01 work items WI-01–WI-07 |
+| [docs/ai-dlc/](docs/ai-dlc/) | Requirements, user stories, architecture |
+
+## Phase roadmap
+
+1. **Phase 1** — Local MVP (current)
+2. **Phase 2** — Cloud deployment (Deno Deploy + Supabase)
+3. **Phase 3** — Instagram hashtag integration
+
+## Contributing
+
+Work items follow the stacked-PR workflow in the Phase 01 epic plan. Branch from the previous WI branch, implement per the matching `code_execution_plan-wi-*.md`, run `deno task test`, and open a PR.

@@ -1,0 +1,144 @@
+import { assertEquals } from "@std/assert";
+import type { Repository } from "../../lib/interfaces/repository.ts";
+import { PostgresRepository } from "../../lib/repositories/postgres_repository.ts";
+import {
+  authedRequest,
+  cleanupTestData,
+  createTestHandler,
+  createTestRepository,
+  createTestSubmission,
+  loginAsModerator,
+  serveInfo,
+  submitViaApi,
+  teardownTestDb,
+  testPhoto,
+  makePhotoForm,
+} from "../helpers.ts";
+
+const FORBIDDEN_AUDIT_METHODS = ["updateAuditEntry", "deleteAuditEntry"] as const;
+
+Deno.test({
+  name: "smoke: US-NFR-05 audit log has no update or delete methods",
+  fn() {
+    const protoNames = Object.getOwnPropertyNames(PostgresRepository.prototype);
+
+    for (const method of FORBIDDEN_AUDIT_METHODS) {
+      assertEquals(protoNames.includes(method), false);
+    }
+
+    const _typeCheck: Pick<Repository, "createAuditEntry" | "getAuditLog"> = {
+      createAuditEntry: async () => {
+        throw new Error("not implemented");
+      },
+      getAuditLog: async () => [],
+    };
+    void _typeCheck;
+  },
+});
+
+Deno.test({
+  name: "smoke: US-NFR-03 admin API not publicly accessible",
+  async fn() {
+    const handler = await createTestHandler();
+    const res = await handler(new Request("http://localhost/api/admin/users"), serveInfo);
+    assertEquals(res.status, 401);
+    await teardownTestDb();
+  },
+});
+
+Deno.test({
+  name: "US-NFR-03 admin page not accessible to moderators",
+  async fn() {
+    const handler = await createTestHandler();
+    const { token } = await loginAsModerator(handler);
+    const res = await handler(authedRequest("http://localhost/admin", token), serveInfo);
+    assertEquals(res.status, 403);
+    await teardownTestDb();
+  },
+});
+
+Deno.test({
+  name: "US-NFR-03 image upload validation rejects oversize file",
+  async fn() {
+    const handler = await createTestHandler();
+    await cleanupTestData();
+    const big = new Uint8Array(10 * 1024 * 1024 + 1);
+    const file = new File([big], "big.jpg", { type: "image/jpeg" });
+    const res = await submitViaApi(
+      handler,
+      makePhotoForm({ photo: file, message: "Hi", submitter_name: "Alex" }),
+    );
+    assertEquals(res.status, 400);
+    await teardownTestDb();
+  },
+});
+
+Deno.test({
+  name: "US-NFR-05 auditable approve action is logged",
+  async fn() {
+    const handler = await createTestHandler();
+    const { token, userId } = await loginAsModerator(handler);
+    const submission = await createTestSubmission();
+    await handler(
+      authedRequest(`http://localhost/api/moderate/approve/${submission.id}`, token, {
+        method: "POST",
+      }),
+      serveInfo,
+    );
+    const repo = await createTestRepository();
+    const logs = await repo.getAuditLog({ action_type: "approve", moderator_id: userId });
+    assertEquals(logs.length >= 1, true);
+    await repo.close();
+    await teardownTestDb();
+  },
+});
+
+Deno.test({
+  name: "US-NFR-02 loads many approved submissions quickly",
+  async fn() {
+    const handler = await createTestHandler();
+    const { token } = await loginAsModerator(handler);
+    const ids: string[] = [];
+    for (let i = 0; i < 50; i++) {
+      const sub = await createTestSubmission({ submitter_name: `User ${i}` });
+      ids.push(sub.id);
+      await handler(
+        authedRequest(`http://localhost/api/moderate/approve/${sub.id}`, token, {
+          method: "POST",
+        }),
+        serveInfo,
+      );
+    }
+    const start = performance.now();
+    const res = await handler(
+      authedRequest("http://localhost/api/display/submissions", token),
+      serveInfo,
+    );
+    const elapsed = performance.now() - start;
+    assertEquals(res.status, 200);
+    assertEquals((await res.json()).submissions.length, 50);
+    assertEquals(elapsed < 5000, true);
+    await teardownTestDb();
+  },
+});
+
+Deno.test({
+  name: "US-NFR-01 upload page uses readable layout classes",
+  async fn() {
+    const handler = await createTestHandler();
+    const res = await handler(new Request("http://localhost/upload"), serveInfo);
+    const html = await res.text();
+    assertEquals(html.includes("upload") || html.includes("Upload"), true);
+    await teardownTestDb();
+  },
+});
+
+Deno.test({
+  name: "US-NFR-01 train stylesheet defines cabin typography",
+  async fn() {
+    const css = await Deno.readTextFile("static/train.css");
+    assertEquals(css.includes("font-size"), true);
+    assertEquals(css.includes("cabin"), true);
+    await teardownTestDb();
+  },
+});

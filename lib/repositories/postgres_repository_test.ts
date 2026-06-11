@@ -1,5 +1,6 @@
 import { assertEquals, assertExists } from "@std/assert";
 import * as bcrypt from "bcrypt";
+import { PostgresRepository } from "./postgres_repository.ts";
 import { cleanupTestData, createTestRepository } from "../test_helpers.ts";
 
 Deno.test({
@@ -209,6 +210,17 @@ Deno.test({
     } finally {
       await cleanupTestData();
       await repo.close();
+    }
+  },
+});
+
+Deno.test({
+  name: "testNoUpdateOrDeleteOnAuditLog",
+  fn() {
+    const forbidden = ["updateAuditEntry", "deleteAuditEntry"];
+    const proto = Object.getOwnPropertyNames(PostgresRepository.prototype);
+    for (const method of forbidden) {
+      assertEquals(proto.includes(method), false);
     }
   },
 });
