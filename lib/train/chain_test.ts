@@ -4,6 +4,8 @@ import {
   addSubmission,
   getNodeByCabinNumber,
   initTrain,
+  isChainCircular,
+  jumpToCabin,
   rebuildChain,
   removeSubmission,
   transitionToNext,
@@ -94,4 +96,73 @@ Deno.test("testTransitionToNext", () => {
   assertEquals(chain.current?.submission.id, "b");
   transitionToNext(chain);
   assertEquals(chain.current?.submission.id, "a");
+});
+
+Deno.test("testJumpToCabinForward", () => {
+  const chain = initTrain([
+    makeSubmission("a"),
+    makeSubmission("b"),
+    makeSubmission("c"),
+    makeSubmission("d"),
+  ]);
+  jumpToCabin(chain, 4);
+  assertEquals(chain.current?.submission.id, "d");
+  assertEquals(isChainCircular(chain), true);
+});
+
+Deno.test("testJumpToCabinBackward", () => {
+  const chain = initTrain([makeSubmission("a"), makeSubmission("b"), makeSubmission("c")]);
+  chain.current = chain.nodes[2];
+  jumpToCabin(chain, 1);
+  assertEquals(chain.current?.submission.id, "a");
+  assertEquals(isChainCircular(chain), true);
+});
+
+Deno.test("testJumpToCurrentCabin", () => {
+  const chain = initTrain([makeSubmission("a"), makeSubmission("b")]);
+  jumpToCabin(chain, 1);
+  assertEquals(chain.current?.submission.id, "a");
+});
+
+Deno.test("testJumpToNextCabin", () => {
+  const chain = initTrain([makeSubmission("a"), makeSubmission("b"), makeSubmission("c")]);
+  jumpToCabin(chain, 2);
+  assertEquals(chain.current?.submission.id, "b");
+});
+
+Deno.test("testJumpOutOfRangeClamps", () => {
+  const chain = initTrain([makeSubmission("a"), makeSubmission("b")]);
+  jumpToCabin(chain, 99);
+  assertEquals(chain.current?.submission.id, "b");
+  jumpToCabin(chain, 0);
+  assertEquals(chain.current?.submission.id, "a");
+});
+
+Deno.test("testJumpEmptyTrain", () => {
+  const chain = initTrain([]);
+  jumpToCabin(chain, 1);
+  assertEquals(chain.current, null);
+});
+
+Deno.test("testJumpChainIntegrity", () => {
+  const chain = initTrain([
+    makeSubmission("a"),
+    makeSubmission("b"),
+    makeSubmission("c"),
+    makeSubmission("d"),
+  ]);
+  jumpToCabin(chain, 3);
+  assertEquals(isChainCircular(chain), true);
+  assertEquals(chain.nodes.map((n) => n.submission.id), ["a", "b", "c", "d"]);
+});
+
+Deno.test("testMultipleJumpsChainIntegrity", () => {
+  const subs = ["a", "b", "c", "d", "e", "f"].map((id) => makeSubmission(id));
+  const chain = initTrain(subs);
+  const jumps = [4, 1, 6, 2, 5, 3];
+  for (const cabin of jumps) {
+    jumpToCabin(chain, cabin);
+    assertEquals(isChainCircular(chain), true);
+    assertEquals(chain.nodes.map((n) => n.submission.id), subs.map((s) => s.id));
+  }
 });

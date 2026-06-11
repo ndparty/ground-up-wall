@@ -35,6 +35,11 @@ export const handlers = define.handlers({
             send("submission_deleted", payload);
           }),
         );
+        unsubs.push(
+          ctx.state.services.photoWall.subscribeToTrainCommands((command) => {
+            send("train_command", command);
+          }),
+        );
       },
       cancel() {
         for (const unsub of unsubs) unsub();

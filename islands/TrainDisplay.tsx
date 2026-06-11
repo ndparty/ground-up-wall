@@ -1,35 +1,61 @@
 import { useEffect, useRef, useState } from "preact/hooks";
+import type { TrainCommand } from "../lib/interfaces/realtime_service.ts";
 import {
   addSubmission,
   cloneChain,
   initTrain,
+  jumpToCabin,
   removeSubmission,
   transitionToNext,
   updateSubmission,
   type TrainChain,
 } from "../lib/train/chain.ts";
 import { clampDwellSeconds } from "../lib/train/display_helpers.ts";
+import {
+  applyApprovedWhilePaused,
+  resumeFromPause,
+  shouldShowTrainControls,
+} from "../lib/train/playback.ts";
 import type { Submission } from "../lib/types.ts";
+import type { User } from "../lib/types.ts";
 import TrainCabin from "./TrainCabin.tsx";
+import TrainControls from "./TrainControls.tsx";
 
 const CABIN_STEP_PX = 512; // --cabin-width + --cabin-gap
+
+async function publishTrainCommand(command: TrainCommand): Promise<void> {
+  await fetch("/api/display/train-command", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(command),
+  });
+}
 
 export default function TrainDisplay() {
   const [chain, setChain] = useState<TrainChain>(() => initTrain([]));
   const [dwellTime, setDwellTime] = useState(15);
-  const [isPlaying] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(true);
+  const [userRole, setUserRole] = useState<User["role"] | null>(null);
   const [showFullscreenPrompt, setShowFullscreenPrompt] = useState(false);
-  const chainRef = useRef(chain);
-  chainRef.current = chain;
+  const isPlayingRef = useRef(isPlaying);
+  isPlayingRef.current = isPlaying;
 
   const currentIndex = chain.current?.index ?? 0;
   const hasCabins = chain.nodes.length > 0;
+  const currentCabin = hasCabins ? currentIndex + 1 : 0;
 
   useEffect(() => {
     const dismissed = globalThis.localStorage?.getItem("display_wall_fullscreen_dismissed");
     if (!dismissed) setShowFullscreenPrompt(true);
     document.body.classList.add("display-wall-mode");
     return () => document.body.classList.remove("display-wall-mode");
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((res) => (res.ok ? res.json() : { user: null }))
+      .then((data) => setUserRole(data.user?.role ?? null))
+      .catch(() => undefined);
   }, []);
 
   useEffect(() => {
@@ -43,6 +69,29 @@ export default function TrainDisplay() {
       .catch(() => undefined);
   }, []);
 
+  function applyTrainCommand(command: TrainCommand) {
+    if (command.type === "pause") {
+      setIsPlaying(false);
+      return;
+    }
+    if (command.type === "play") {
+      setIsPlaying(true);
+      setChain((prev) => {
+        const next = cloneChain(prev);
+        resumeFromPause(next);
+        return { ...next, nodes: [...next.nodes] };
+      });
+      return;
+    }
+    if (command.type === "jump" && command.cabinNumber !== undefined) {
+      setChain((prev) => {
+        const next = cloneChain(prev);
+        jumpToCabin(next, command.cabinNumber!);
+        return { ...next, nodes: [...next.nodes] };
+      });
+    }
+  }
+
   useEffect(() => {
     const es = new EventSource("/api/display/events");
 
@@ -50,7 +99,11 @@ export default function TrainDisplay() {
       const submission = JSON.parse(event.data) as Submission;
       setChain((prev) => {
         const next = cloneChain(prev);
-        addSubmission(next, submission);
+        if (isPlayingRef.current) {
+          addSubmission(next, submission);
+        } else {
+          applyApprovedWhilePaused(next, submission, false);
+        }
         return { ...next, nodes: [...next.nodes] };
       });
     });
@@ -73,6 +126,11 @@ export default function TrainDisplay() {
       });
     });
 
+    es.addEventListener("train_command", (event) => {
+      const command = JSON.parse(event.data) as TrainCommand;
+      applyTrainCommand(command);
+    });
+
     return () => es.close();
   }, []);
 
@@ -87,6 +145,30 @@ export default function TrainDisplay() {
     }, dwellTime * 1000);
     return () => clearTimeout(timer);
   }, [isPlaying, dwellTime, currentIndex, hasCabins]);
+
+  async function pauseTrain() {
+    setIsPlaying(false);
+    await publishTrainCommand({ type: "pause" });
+  }
+
+  async function resumeTrain() {
+    setIsPlaying(true);
+    setChain((prev) => {
+      const next = cloneChain(prev);
+      resumeFromPause(next);
+      return { ...next, nodes: [...next.nodes] };
+    });
+    await publishTrainCommand({ type: "play" });
+  }
+
+  async function jumpTrain(cabinNumber: number) {
+    setChain((prev) => {
+      const next = cloneChain(prev);
+      jumpToCabin(next, cabinNumber);
+      return { ...next, nodes: [...next.nodes] };
+    });
+    await publishTrainCommand({ type: "jump", cabinNumber });
+  }
 
   function dismissFullscreenPrompt() {
     globalThis.localStorage?.setItem("display_wall_fullscreen_dismissed", "1");
@@ -103,6 +185,7 @@ export default function TrainDisplay() {
   }
 
   const translateX = -currentIndex * CABIN_STEP_PX;
+  const showControls = shouldShowTrainControls(userRole);
 
   return (
     <div class="display-wall">
@@ -140,6 +223,17 @@ export default function TrainDisplay() {
             </div>
           </div>
         )}
+
+      {showControls && hasCabins && (
+        <TrainControls
+          isPlaying={isPlaying}
+          onPause={pauseTrain}
+          onPlay={resumeTrain}
+          onJump={jumpTrain}
+          trainLength={chain.nodes.length}
+          currentCabin={currentCabin}
+        />
+      )}
     </div>
   );
 }

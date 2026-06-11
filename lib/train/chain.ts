@@ -109,6 +109,53 @@ export function updateSubmission(chain: TrainChain, submission: Submission): voi
   if (node) node.submission = submission;
 }
 
+export function jumpToCabin(chain: TrainChain, cabinNumber: number): void {
+  const clampedCabin = Math.max(1, Math.min(cabinNumber, chain.nodes.length));
+  if (chain.nodes.length === 0) return;
+
+  const currentIndex = chain.current?.index ?? 0;
+  const targetIndex = clampedCabin - 1;
+  if (currentIndex === targetIndex) return;
+
+  const currentNode = chain.nodes[currentIndex];
+  const targetNode = chain.nodes[targetIndex];
+
+  if (currentNode.next === targetNode) {
+    transitionToNext(chain);
+    return;
+  }
+
+  const currentOriginalNext = currentNode.next!;
+  const targetOriginalPrev = targetNode.prev!;
+
+  currentNode.next = targetNode;
+  targetNode.prev = currentNode;
+
+  transitionToNext(chain);
+
+  currentNode.next = currentOriginalNext;
+  currentOriginalNext.prev = currentNode;
+  targetNode.prev = targetOriginalPrev;
+  targetOriginalPrev.next = targetNode;
+
+  chain.current = targetNode;
+}
+
+export function isChainCircular(chain: TrainChain): boolean {
+  if (chain.nodes.length === 0) return chain.head === null && chain.current === null;
+  const head = chain.head;
+  if (!head) return false;
+  if (head.next!.prev !== head || head.prev!.next !== head) return false;
+
+  let node = head.next;
+  let visited = 1;
+  while (node !== head && visited < chain.nodes.length) {
+    visited++;
+    node = node!.next;
+  }
+  return visited === chain.nodes.length && node === head;
+}
+
 export function removeSubmission(chain: TrainChain, submissionId: string): void {
   const idx = chain.nodes.findIndex((n) => n.submission.id === submissionId);
   if (idx === -1) return;

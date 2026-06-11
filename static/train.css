@@ -150,3 +150,51 @@ body.display-wall-mode main {
   border-radius: 8px;
   cursor: pointer;
 }
+
+.train-controls {
+  position: absolute;
+  left: 50%;
+  bottom: 1.5rem;
+  transform: translateX(-50%);
+  z-index: 15;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1.25rem;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 12px;
+  backdrop-filter: blur(6px);
+}
+
+.train-controls__status {
+  font-size: 0.95rem;
+  color: white;
+  white-space: nowrap;
+}
+
+.train-controls__btn {
+  padding: 0.45rem 1rem;
+  font-size: 0.95rem;
+  background: var(--sg-red);
+  color: white;
+  border: 1px solid white;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.train-controls__jump {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: white;
+  font-size: 0.9rem;
+}
+
+.train-controls__jump input {
+  width: 4rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+}
