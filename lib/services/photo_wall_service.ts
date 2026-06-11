@@ -202,6 +202,15 @@ export class PhotoWallService {
     return this.realtime.onSubmissionCreated(callback);
   }
 
+  subscribeToEdited(callback: (submission: Submission) => void): UnsubscribeFn {
+    return this.realtime.onSubmissionEdited(callback);
+  }
+
+  subscribeToDeleted(callback: (payload: { id: string }) => void): UnsubscribeFn {
+    return this.realtime.subscribe("submission:deleted", (payload) =>
+      callback(payload as { id: string }));
+  }
+
   publishTrainCommand(command: TrainCommand): void {
     this.realtime.publish("train:command", command);
   }

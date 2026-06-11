@@ -8,7 +8,7 @@ export const serveInfo: Deno.ServeHandlerInfo = {
   completed: Promise.resolve(),
 };
 
-type TestHandler = (
+export type TestHandler = (
   req: Request,
   info?: Deno.ServeHandlerInfo,
 ) => Response | Promise<Response>;

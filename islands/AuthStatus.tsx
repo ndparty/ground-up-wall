@@ -29,10 +29,12 @@ export default function AuthStatus() {
   }
 
   const canModerate = user.role === "moderator" || user.role === "admin";
+  const canDisplay = user.role === "display_wall" || canModerate;
 
   return (
     <div style="margin-left: auto; display: flex; align-items: center; gap: 1rem; color: white;">
       <span>Hi, {user.username}</span>
+      {canDisplay && <a href="/display" style="color: white;">Display</a>}
       {canModerate && <a href="/moderate" style="color: white;">Moderate</a>}
       <a href="/change-password" style="color: white;">Change password</a>
       <button
