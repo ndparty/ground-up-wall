@@ -161,6 +161,7 @@ This document provides detailed method signatures for all components. Business r
 - Smooth scroll animation
 - Loop back to first cabin when reaching end
 - Maintain 60fps performance
+- **Transition duration is fixed at ~0.6–0.8s** (CSS `transform` transition) regardless of dwell time. The dwell time (3–60s) controls **how long the train holds on a cabin** before triggering the next `transitionToNextCabin()` call. At dwell=3s the transition is ~22% of the cycle (still feels "snappy"); at dwell=60s it's ~1.3% (a subtle movement). The transition must NOT scale with dwell — doing so would make the visual rhythm inconsistent and would feel "slow" at high dwell values.
 
 ---
 

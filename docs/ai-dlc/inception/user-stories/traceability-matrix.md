@@ -84,8 +84,8 @@ Maps Functional Requirements (FRs) and Non-Functional Requirements (NFRs) to Use
 | NFR-15 | PII collected (name, photo, message, social handle); indefinite retention for social media; mandatory privacy acknowledgment | US-02, US-02a, US-NFR-03 |
 | NFR-16 | WCAG 2.1 AA accessibility (labels, contrast, keyboard nav) | US-NFR-01 |
 | NFR-17 | Environment-only configuration switches (no code changes) | _Not yet covered (Phase 2)_ |
-| NFR-18 | Repository pattern for data access abstraction | _Covered by Phase 1 architecture (interfaces defined in Phase 1, Supabase impl in Phase 2)_ |
-| NFR-19 | Storage abstraction layer (local vs Supabase) | _Covered by Phase 1 architecture (interfaces defined in Phase 1, Supabase impl in Phase 2)_ |
+| NFR-18 | Repository pattern for data access abstraction | _Covered by Phase 1 architecture: abstract Repository interface defined in Phase 1 (PostgresRepository impl), SupabaseRepository impl in Phase 2 — no business logic changes needed_ |
+| NFR-19 | Storage abstraction layer (local vs Supabase) | _Covered by Phase 1 architecture: abstract StorageService interface defined in Phase 1 (FileStorageService impl), SupabaseStorageService impl in Phase 2 — no business logic changes needed_ |
 | NFR-20 | Instagram fetching respects rate limits, graceful error handling | _Not yet covered (Phase 3)_ |
 | NFR-21 | Content source abstraction pattern | _Not yet covered (Phase 3)_ |
 | NFR-22 | Audit log for moderator/admin actions incl. display override (append-only, filterable) | US-17, US-19, US-NFR-05 |

@@ -410,6 +410,17 @@ interface SystemConfig {
 }
 ```
 
+> 📝 **Note on `display_override_state` storage** — The `display_override_state` row in `system_config` stores a JSON-encoded string in the `value` column (a single string field). The decoded shape is:
+> ```typescript
+> {
+>   type: 'normal' | 'blank' | 'placeholder',
+>   imageUrl?: string,
+>   commanded_by: string,   // nested inside the JSON value, NOT a separate column
+>   commanded_at: timestamp  // nested inside the JSON value, NOT a separate column
+> }
+> ```
+> Despite being listed alongside other fields in the table above, `commanded_by` and `commanded_at` are properties of the JSON `value`, not separate SQL columns. The `system_config` schema is intentionally flat (key/value/default_value/updated_at/updated_by); the override state simply uses the `value` column to hold a JSON string.
+
 ---
 
 ## Real-Time Mechanism (Local Development)
