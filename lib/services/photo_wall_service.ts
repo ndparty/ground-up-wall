@@ -9,6 +9,7 @@ import type {
 } from "../interfaces/realtime_service.ts";
 import type { Repository } from "../interfaces/repository.ts";
 import type { StorageService } from "../interfaces/storage_service.ts";
+import { SEEDED_DEFAULT_WORD_LIST } from "./auto_moderator_service_impl.ts";
 import type {
   AuditEntry,
   AuditFilter,
@@ -21,6 +22,19 @@ import type {
   SystemConfig,
   User,
 } from "../types.ts";
+
+export function parseWordList(value: string | undefined | null): string[] {
+  if (!value) return [...SEEDED_DEFAULT_WORD_LIST];
+  try {
+    const parsed = JSON.parse(value);
+    if (Array.isArray(parsed) && parsed.every((w) => typeof w === "string")) {
+      return parsed.length > 0 ? parsed : [...SEEDED_DEFAULT_WORD_LIST];
+    }
+  } catch {
+    // fall through
+  }
+  return [...SEEDED_DEFAULT_WORD_LIST];
+}
 
 export class PhotoWallService {
   constructor(
@@ -61,6 +75,12 @@ export class PhotoWallService {
 
     await this.realtime.publish("submission:created", submission);
     return submission;
+  }
+
+  async submitPublicSubmission(data: SubmissionInput): Promise<Submission> {
+    const config = await this.repository.getSystemConfig("auto_moderator_word_list");
+    const wordList = parseWordList(config?.value);
+    return await this.submitSubmission(data, wordList, "anonymous");
   }
 
   async editSubmission(

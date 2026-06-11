@@ -212,3 +212,71 @@ Deno.test({
     }
   },
 });
+
+Deno.test({
+  name: "testSubmitWithFlaggedMessage",
+  async fn() {
+    const dir = await Deno.makeTempDir();
+    try {
+      await cleanupTestData();
+      const { service, repo } = await createTestService(dir);
+      const blob = new Blob([new Uint8Array([1, 2, 3])], { type: "image/jpeg" });
+      const submission = await service.submitPublicSubmission({
+        image: blob,
+        message: "this is crap content",
+        submitter_name: "Flagged User",
+      });
+      assertEquals(submission.is_flagged, true);
+      assertEquals(submission.flagged_words?.includes("crap"), true);
+      await repo.close();
+    } finally {
+      await cleanupTestData();
+      await Deno.remove(dir, { recursive: true });
+    }
+  },
+});
+
+Deno.test({
+  name: "testSubmitWithCleanMessage",
+  async fn() {
+    const dir = await Deno.makeTempDir();
+    try {
+      await cleanupTestData();
+      const { service, repo } = await createTestService(dir);
+      const blob = new Blob([new Uint8Array([1, 2, 3])], { type: "image/jpeg" });
+      const submission = await service.submitPublicSubmission({
+        image: blob,
+        message: "Happy National Day everyone",
+        submitter_name: "Clean User",
+      });
+      assertEquals(submission.is_flagged, false);
+      await repo.close();
+    } finally {
+      await cleanupTestData();
+      await Deno.remove(dir, { recursive: true });
+    }
+  },
+});
+
+Deno.test({
+  name: "testSubmitWithEmptyWordList",
+  async fn() {
+    const dir = await Deno.makeTempDir();
+    try {
+      await cleanupTestData();
+      const { service, repo } = await createTestService(dir);
+      await repo.upsertSystemConfig("auto_moderator_word_list", "[]", "system");
+      const blob = new Blob([new Uint8Array([1, 2, 3])], { type: "image/jpeg" });
+      const submission = await service.submitPublicSubmission({
+        image: blob,
+        message: "still clean",
+        submitter_name: "User",
+      });
+      assertEquals(submission.is_flagged, false);
+      await repo.close();
+    } finally {
+      await cleanupTestData();
+      await Deno.remove(dir, { recursive: true });
+    }
+  },
+});
