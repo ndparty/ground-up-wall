@@ -1,0 +1,6 @@
+fresh.gen.ts
+_fresh/
+*.log
+uploads/
+.env
+node_modules/
