@@ -45,6 +45,11 @@ export const handlers = define.handlers({
             send("display_override", command);
           }),
         );
+        unsubs.push(
+          ctx.state.services.photoWall.subscribeToSystemConfig((config) => {
+            send("system_config_changed", config);
+          }),
+        );
       },
       cancel() {
         for (const unsub of unsubs) unsub();

@@ -35,6 +35,11 @@ export function parseSubmissionForm(
     throw new Error("Message exceeds length limit");
   }
 
+  const acknowledged = form.get("acknowledged");
+  if (acknowledged !== "true" && acknowledged !== "on") {
+    throw new Error("Privacy notice acknowledgment is required");
+  }
+
   return {
     data: {
       image: photo,

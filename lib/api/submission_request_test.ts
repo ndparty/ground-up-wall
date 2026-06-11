@@ -17,6 +17,7 @@ Deno.test("testSubmitValidSubmission", () => {
     photo: file,
     message: "Hello",
     submitter_name: "Alex",
+    acknowledged: "true",
   });
   const { data } = parseSubmissionForm(form, lengthConfig);
   assertEquals(data.submitter_name, "Alex");
@@ -39,6 +40,20 @@ Deno.test("testSubmitWithInvalidFileType", () => {
     () => parseSubmissionForm(form, lengthConfig),
     Error,
     "Invalid file type",
+  );
+});
+
+Deno.test("testSubmitWithoutAcknowledgment", () => {
+  const file = new File([new Uint8Array([1, 2, 3])], "photo.jpg", { type: "image/jpeg" });
+  const form = makeForm({
+    photo: file,
+    message: "Hello",
+    submitter_name: "Alex",
+  });
+  assertThrows(
+    () => parseSubmissionForm(form, lengthConfig),
+    Error,
+    "Privacy notice acknowledgment is required",
   );
 });
 

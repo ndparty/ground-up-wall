@@ -264,10 +264,55 @@ export default function ModerationQueue() {
   useEffect(() => {
     loadQueues().finally(() => setLoaded(true));
     const es = new EventSource("/api/moderate/events");
+
+    const parseSubmission = (event: MessageEvent): Submission | null => {
+      try {
+        return JSON.parse(event.data) as Submission;
+      } catch {
+        return null;
+      }
+    };
+
     es.addEventListener("submission_created", (event) => {
-      const submission = JSON.parse(event.data) as Submission;
+      const submission = parseSubmission(event);
+      if (!submission) return;
       setPending((prev) => [submission, ...prev.filter((s) => s.id !== submission.id)]);
     });
+
+    es.addEventListener("submission_approved", (event) => {
+      const submission = parseSubmission(event);
+      if (!submission) return;
+      setPending((prev) => prev.filter((s) => s.id !== submission.id));
+      setApproved((prev) => [submission, ...prev.filter((s) => s.id !== submission.id)]);
+    });
+
+    es.addEventListener("submission_rejected", (event) => {
+      try {
+        const { id } = JSON.parse(event.data) as { id: string };
+        setPending((prev) => prev.filter((s) => s.id !== id));
+      } catch {
+        // ignore malformed events
+      }
+    });
+
+    es.addEventListener("submission_edited", (event) => {
+      const submission = parseSubmission(event);
+      if (!submission) return;
+      setPending((prev) => prev.map((s) => (s.id === submission.id ? submission : s)));
+      setApproved((prev) => prev.map((s) => (s.id === submission.id ? submission : s)));
+    });
+
+    es.addEventListener("submission_deleted", (event) => {
+      try {
+        const { id } = JSON.parse(event.data) as { id: string };
+        setApproved((prev) => prev.filter((s) => s.id !== id));
+      } catch {
+        // ignore malformed events
+      }
+    });
+
+    es.onerror = () => es.close();
+
     return () => es.close();
   }, []);
 

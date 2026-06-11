@@ -215,6 +215,49 @@ Deno.test({
 });
 
 Deno.test({
+  name: "testUpdateSubmissionStatusIfPending",
+  async fn() {
+    const repo = await createTestRepository();
+    try {
+      await cleanupTestData();
+      const created = await repo.createSubmission({
+        image_url: "/x.jpg",
+        message: "msg",
+        submitter_name: "A",
+      });
+      const approved = await repo.updateSubmissionStatusIfPending(created.id, "approved", "mod-1");
+      assertEquals(approved?.status, "approved");
+      const second = await repo.updateSubmissionStatusIfPending(created.id, "approved", "mod-2");
+      assertEquals(second, null);
+    } finally {
+      await cleanupTestData();
+      await repo.close();
+    }
+  },
+});
+
+Deno.test({
+  name: "testGetUserById",
+  async fn() {
+    const repo = await createTestRepository();
+    try {
+      await cleanupTestData();
+      const hash = await bcrypt.hash("pass");
+      const user = await repo.createUser({
+        username: "admin_lookup",
+        password_hash: hash,
+        role: "admin",
+      });
+      const found = await repo.getUserById(user.id);
+      assertEquals(found?.username, "admin_lookup");
+    } finally {
+      await cleanupTestData();
+      await repo.close();
+    }
+  },
+});
+
+Deno.test({
   name: "testNoUpdateOrDeleteOnAuditLog",
   fn() {
     const forbidden = ["updateAuditEntry", "deleteAuditEntry"];

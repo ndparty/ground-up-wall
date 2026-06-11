@@ -73,6 +73,7 @@ export default function UploadForm({
       form.append("photo", compressed, "photo.jpg");
       form.append("message", message);
       form.append("submitter_name", submitterName.trim());
+      form.append("acknowledged", "true");
       if (socialHandle.trim()) form.append("social_handle", socialHandle.trim());
 
       const res = await fetch("/api/submissions", { method: "POST", body: form });

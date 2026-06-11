@@ -158,6 +158,63 @@ Deno.test({
 });
 
 Deno.test({
+  name: "testChangePasswordAdminUser",
+  async fn() {
+    await cleanupTestData();
+    const { auth, repo } = await createAuthService();
+    const hash = await bcrypt.hash("oldpass");
+    const user = await repo.createUser({
+      username: "admin_pw",
+      password_hash: hash,
+      role: "admin",
+    });
+    const login = await auth.login("admin_pw", "oldpass");
+    await auth.changePassword(user.id, "oldpass", "newpass", login.token);
+    const relogin = await auth.login("admin_pw", "newpass");
+    assertEquals(relogin.success, true);
+    await repo.close();
+  },
+});
+
+Deno.test({
+  name: "testResolveCurrentUserRejectsDisabledAccount",
+  async fn() {
+    await cleanupTestData();
+    const { auth, repo } = await createAuthService();
+    const hash = await bcrypt.hash("pass");
+    const user = await repo.createModerator({
+      username: "disable_me",
+      password_hash: hash,
+      role: "moderator",
+    });
+    const login = await auth.login("disable_me", "pass");
+    assertEquals((await auth.resolveCurrentUser(login.token))?.username, "disable_me");
+    await repo.disableModerator(user.id);
+    assertEquals(await auth.resolveCurrentUser(login.token), null);
+    await repo.close();
+  },
+});
+
+Deno.test({
+  name: "testInvalidateSessionsForUser",
+  async fn() {
+    await cleanupTestData();
+    const { auth, repo } = await createAuthService();
+    const hash = await bcrypt.hash("pass");
+    await repo.createModerator({
+      username: "session_user",
+      password_hash: hash,
+      role: "moderator",
+    });
+    const login = await auth.login("session_user", "pass");
+    assertEquals(auth.getCurrentUser(login.token)?.username, "session_user");
+    auth.invalidateSessionsForUser((await repo.listModerators())[0].id);
+    assertEquals(auth.getCurrentUser(login.token), null);
+    await repo.close();
+  },
+});
+
+Deno.test({
   name: "testChangePasswordAuditLogged",
   async fn() {
     await cleanupTestData();

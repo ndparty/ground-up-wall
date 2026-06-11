@@ -12,10 +12,11 @@ This guide gets the Phase 01 application running on your machine. For OS-specifi
 
 1. **Clone** the repository and `cd` into it.
 
-2. **Create the database:**
+2. **Create the databases:**
 
    ```bash
    createdb ground_up_wall_dev
+   createdb ground_up_wall_test
    ```
 
 3. **Configure environment:**
@@ -72,8 +73,8 @@ Create moderator and display-wall accounts from **Admin → Users**.
 
 | Command | Purpose |
 |---------|---------|
-| `deno task test` | Full unit + integration test suite |
-| `deno task test:unit` | Unit tests only (excludes `tests/e2e/`) |
+| `deno task test` | Full unit + integration test suite (serial, uses test DB) |
+| `deno task test:unit` | Route + lib tests only (excludes `tests/e2e/`, still uses Postgres) |
 | `deno task test:e2e` | Full end-to-end scenario suite |
 | `deno task test:e2e:smoke` | PR-time smoke subset (~30 scenarios) |
 
@@ -105,7 +106,7 @@ docs/phase01/    Epic plan and execution plans
 |---------|-----|
 | `Connection refused` to Postgres | Ensure PostgreSQL is running; verify `DATABASE_URL` |
 | Migration errors | Run `deno task db:migrate` on a clean database |
-| Tests fail with auth errors | Tests use `ground_up_wall_dev`; avoid running dev server against the same DB during tests |
+| Tests fail with auth errors | Tests default to `ground_up_wall_test` via `DATABASE_URL_TEST`; avoid running dev server against the test DB during `deno task test` |
 | Seed says admin exists | Idempotent — safe to re-run |
 
 ## Phase roadmap

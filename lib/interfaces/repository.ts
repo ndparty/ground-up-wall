@@ -16,12 +16,18 @@ import type {
 export interface Repository {
   // Submission operations
   createSubmission(data: SubmissionData): Promise<Submission>;
+  getSubmissionById(id: string): Promise<Submission | null>;
   getSubmissionsByStatus(status: Submission["status"]): Promise<Submission[]>;
   updateSubmissionStatus(
     id: string,
     status: Submission["status"],
     approvedBy?: string,
   ): Promise<Submission>;
+  updateSubmissionStatusIfPending(
+    id: string,
+    status: "approved" | "rejected",
+    approvedBy?: string,
+  ): Promise<Submission | null>;
   updateSubmissionContent(
     id: string,
     data: SubmissionEditData,
@@ -31,14 +37,15 @@ export interface Repository {
 
   // User operations
   authenticateUser(username: string): Promise<User | null>;
+  getUserById(id: string): Promise<User | null>;
   createUser(data: CreateUserData): Promise<User>;
-  updateUserPassword(userId: string, passwordHash: string): Promise<void>;
+  updateUserPassword(userId: string, passwordHash: string): Promise<boolean>;
   listModerators(): Promise<Moderator[]>;
   createModerator(data: CreateUserData): Promise<User>;
-  resetModeratorPassword(id: string, passwordHash: string): Promise<void>;
-  disableModerator(id: string): Promise<void>;
-  enableModerator(id: string): Promise<void>;
-  deleteModerator(id: string): Promise<void>;
+  resetModeratorPassword(id: string, passwordHash: string): Promise<boolean>;
+  disableModerator(id: string): Promise<boolean>;
+  enableModerator(id: string): Promise<boolean>;
+  deleteModerator(id: string): Promise<boolean>;
 
   // System config operations
   getSystemConfig(key: string): Promise<SystemConfig | null>;
@@ -53,9 +60,9 @@ export interface Repository {
   // Display Wall operations
   createDisplayWallUser(data: CreateUserData): Promise<User>;
   listDisplayWallUsers(): Promise<DisplayWallUser[]>;
-  disableDisplayWallUser(id: string): Promise<void>;
-  enableDisplayWallUser(id: string): Promise<void>;
-  deleteDisplayWallUser(id: string): Promise<void>;
+  disableDisplayWallUser(id: string): Promise<boolean>;
+  enableDisplayWallUser(id: string): Promise<boolean>;
+  deleteDisplayWallUser(id: string): Promise<boolean>;
   getDisplayOverrideState(): Promise<DisplayOverrideState | null>;
   setDisplayOverrideState(state: DisplayOverrideState): Promise<void>;
 

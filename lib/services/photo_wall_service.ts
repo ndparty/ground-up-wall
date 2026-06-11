@@ -10,6 +10,7 @@ import type {
 import type { Repository } from "../interfaces/repository.ts";
 import type { StorageService } from "../interfaces/storage_service.ts";
 import { SEEDED_DEFAULT_WORD_LIST } from "./auto_moderator_service_impl.ts";
+import { isMessageValid, type MessageLengthConfig } from "../validation/message_length.ts";
 import type {
   AuditEntry,
   AuditFilter,
@@ -56,14 +57,20 @@ export class PhotoWallService {
 
     const flagResult = this.autoModerator.checkMessage(data.message, wordList);
 
-    const submission = await this.repository.createSubmission({
-      image_url: imageUrl,
-      message: data.message,
-      submitter_name: data.submitter_name,
-      social_handle: data.social_handle,
-      flagged_words: flagResult.flagged_words,
-      is_flagged: flagResult.is_flagged,
-    });
+    let submission: Submission;
+    try {
+      submission = await this.repository.createSubmission({
+        image_url: imageUrl,
+        message: data.message,
+        submitter_name: data.submitter_name,
+        social_handle: data.social_handle,
+        flagged_words: flagResult.flagged_words,
+        is_flagged: flagResult.is_flagged,
+      });
+    } catch (err) {
+      await this.storage.deleteImage(imagePath).catch(() => undefined);
+      throw err;
+    }
 
     await this.audit.logAction({
       moderator_id: submitterId,
@@ -88,17 +95,24 @@ export class PhotoWallService {
     data: SubmissionEditData,
     moderatorId: string,
   ): Promise<Submission> {
-    const existing = (await this.repository.getSubmissionsByStatus("pending"))
-      .concat(await this.repository.getSubmissionsByStatus("approved"))
-      .find((s) => s.id === id);
+    const existing = await this.repository.getSubmissionById(id);
+    if (!existing) throw new Error("Submission not found");
+    if (existing.status !== "pending" && existing.status !== "approved") {
+      throw new Error("Submission cannot be edited");
+    }
 
-    const oldValues = existing
-      ? JSON.stringify({
-        message: existing.message,
-        submitter_name: existing.submitter_name,
-        social_handle: existing.social_handle,
-      })
-      : undefined;
+    if (data.message !== undefined) {
+      const lengthConfig = await this.getMessageLengthConfig();
+      if (!isMessageValid(data.message, lengthConfig)) {
+        throw new Error("Message exceeds length limit");
+      }
+    }
+
+    const oldValues = JSON.stringify({
+      message: existing.message,
+      submitter_name: existing.submitter_name,
+      social_handle: existing.social_handle,
+    });
 
     const updated = await this.repository.updateSubmissionContent(id, data, moderatorId);
 
@@ -124,11 +138,8 @@ export class PhotoWallService {
   }
 
   async approveSubmission(id: string, moderatorId: string): Promise<Submission> {
-    const pending = await this.repository.getSubmissionsByStatus("pending");
-    if (!pending.some((s) => s.id === id)) {
-      throw new Error("Submission is not pending");
-    }
-    const submission = await this.repository.updateSubmissionStatus(id, "approved", moderatorId);
+    const submission = await this.repository.updateSubmissionStatusIfPending(id, "approved", moderatorId);
+    if (!submission) throw new Error("Submission is not pending");
 
     await this.audit.logAction({
       moderator_id: moderatorId,
@@ -147,11 +158,8 @@ export class PhotoWallService {
     moderatorId: string,
     reason?: string,
   ): Promise<Submission> {
-    const pending = await this.repository.getSubmissionsByStatus("pending");
-    if (!pending.some((s) => s.id === id)) {
-      throw new Error("Submission is not pending");
-    }
-    const submission = await this.repository.updateSubmissionStatus(id, "rejected");
+    const submission = await this.repository.updateSubmissionStatusIfPending(id, "rejected");
+    if (!submission) throw new Error("Submission is not pending");
 
     await this.audit.logAction({
       moderator_id: moderatorId,
@@ -161,6 +169,7 @@ export class PhotoWallService {
       new_value: reason ?? "rejected",
     });
 
+    await this.realtime.publish("submission:rejected", { id });
     return submission;
   }
 
@@ -211,6 +220,10 @@ export class PhotoWallService {
       callback(payload as { id: string }));
   }
 
+  subscribeToRejected(callback: (payload: { id: string }) => void): UnsubscribeFn {
+    return this.realtime.onSubmissionRejected(callback);
+  }
+
   publishTrainCommand(command: TrainCommand): void {
     this.realtime.publish("train:command", command);
   }
@@ -239,36 +252,6 @@ export class PhotoWallService {
       role,
       created_by: createdBy,
     });
-  }
-
-  async changePassword(
-    userId: string,
-    currentPassword: string,
-    newPassword: string,
-  ): Promise<void> {
-    const users = await this.repository.listModerators();
-    const allUsers = users;
-    let user: User | undefined;
-    for (const mod of allUsers) {
-      if (mod.id === userId) {
-        user = await this.repository.authenticateUser(mod.username) ?? undefined;
-        break;
-      }
-    }
-    if (!user) {
-      const dwUsers = await this.repository.listDisplayWallUsers();
-      for (const dw of dwUsers) {
-        if (dw.id === userId) {
-          user = await this.repository.authenticateUser(dw.username) ?? undefined;
-          break;
-        }
-      }
-    }
-    if (!user) throw new Error("User not found");
-    const valid = await bcrypt.verify(currentPassword, user.password_hash);
-    if (!valid) throw new Error("Invalid current password");
-    const hash = await bcrypt.hash(newPassword);
-    await this.repository.updateUserPassword(userId, hash);
   }
 
   async listModerators(): Promise<Moderator[]> {
@@ -303,7 +286,8 @@ export class PhotoWallService {
     adminId: string,
   ): Promise<void> {
     const hash = await bcrypt.hash(newPassword);
-    await this.repository.resetModeratorPassword(moderatorId, hash);
+    const updated = await this.repository.resetModeratorPassword(moderatorId, hash);
+    if (!updated) throw new Error("Moderator not found");
 
     await this.audit.logAction({
       moderator_id: adminId,
@@ -314,7 +298,8 @@ export class PhotoWallService {
   }
 
   async disableModerator(moderatorId: string, adminId: string): Promise<void> {
-    await this.repository.disableModerator(moderatorId);
+    const updated = await this.repository.disableModerator(moderatorId);
+    if (!updated) throw new Error("Moderator not found");
     await this.audit.logAction({
       moderator_id: adminId,
       action_type: "disable_moderator",
@@ -324,7 +309,8 @@ export class PhotoWallService {
   }
 
   async enableModerator(moderatorId: string, adminId: string): Promise<void> {
-    await this.repository.enableModerator(moderatorId);
+    const updated = await this.repository.enableModerator(moderatorId);
+    if (!updated) throw new Error("Moderator not found");
     await this.audit.logAction({
       moderator_id: adminId,
       action_type: "enable_moderator",
@@ -334,7 +320,8 @@ export class PhotoWallService {
   }
 
   async deleteModerator(moderatorId: string, adminId: string): Promise<void> {
-    await this.repository.deleteModerator(moderatorId);
+    const deleted = await this.repository.deleteModerator(moderatorId);
+    if (!deleted) throw new Error("Moderator not found");
     await this.audit.logAction({
       moderator_id: adminId,
       action_type: "delete_moderator",
@@ -410,7 +397,8 @@ export class PhotoWallService {
   }
 
   async disableDisplayWallUser(userId: string, adminId: string): Promise<void> {
-    await this.repository.disableDisplayWallUser(userId);
+    const updated = await this.repository.disableDisplayWallUser(userId);
+    if (!updated) throw new Error("Display wall user not found");
     await this.audit.logAction({
       moderator_id: adminId,
       action_type: "disable_display_wall_user",
@@ -420,7 +408,8 @@ export class PhotoWallService {
   }
 
   async enableDisplayWallUser(userId: string, adminId: string): Promise<void> {
-    await this.repository.enableDisplayWallUser(userId);
+    const updated = await this.repository.enableDisplayWallUser(userId);
+    if (!updated) throw new Error("Display wall user not found");
     await this.audit.logAction({
       moderator_id: adminId,
       action_type: "enable_display_wall_user",
@@ -435,7 +424,8 @@ export class PhotoWallService {
     adminId: string,
   ): Promise<void> {
     const hash = await bcrypt.hash(newPassword);
-    await this.repository.updateUserPassword(userId, hash);
+    const updated = await this.repository.updateUserPassword(userId, hash);
+    if (!updated) throw new Error("Display wall user not found");
     await this.audit.logAction({
       moderator_id: adminId,
       action_type: "reset_password",
@@ -445,7 +435,8 @@ export class PhotoWallService {
   }
 
   async deleteDisplayWallUser(userId: string, adminId: string): Promise<void> {
-    await this.repository.deleteDisplayWallUser(userId);
+    const deleted = await this.repository.deleteDisplayWallUser(userId);
+    if (!deleted) throw new Error("Display wall user not found");
     await this.audit.logAction({
       moderator_id: adminId,
       action_type: "delete_display_wall_user",
@@ -490,8 +481,24 @@ export class PhotoWallService {
       new_value: JSON.stringify(state),
     });
 
-    const command: DisplayOverrideCommand = { type, imageUrl };
+    let resolvedImageUrl = imageUrl;
+    if (type === "placeholder" && !resolvedImageUrl) {
+      const configs = await this.repository.getAllSystemConfigs();
+      resolvedImageUrl = configs.find((c) => c.key === "default_placeholder_image")?.value;
+    }
+
+    const command: DisplayOverrideCommand = { type, imageUrl: resolvedImageUrl };
     await this.realtime.publish("display_override:command", command);
+  }
+
+  private async getMessageLengthConfig(): Promise<MessageLengthConfig> {
+    const configs = await this.repository.getAllSystemConfigs();
+    const byKey = new Map(configs.map((c) => [c.key, c.value]));
+    const unit = byKey.get("message_length_unit");
+    return {
+      limit: Number(byKey.get("message_length_limit") ?? 50),
+      unit: unit === "words" ? "words" : "characters",
+    };
   }
 
   async getDisplayOverrideState(): Promise<DisplayOverrideState | null> {
@@ -502,6 +509,10 @@ export class PhotoWallService {
     callback: (command: DisplayOverrideCommand) => void,
   ): UnsubscribeFn {
     return this.realtime.onDisplayOverride(callback);
+  }
+
+  subscribeToSystemConfig(callback: (config: SystemConfig) => void): UnsubscribeFn {
+    return this.realtime.onSystemConfigChanged(callback);
   }
 
   async uploadDefaultPlaceholder(image: Blob, adminId: string): Promise<void> {

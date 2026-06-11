@@ -19,7 +19,11 @@ export default function UserManagement() {
 
   async function loadUsers() {
     const res = await fetch("/api/admin/users");
-    if (res.ok) setUsers(await res.json());
+    if (!res.ok) {
+      setMessage("Failed to load users");
+      return;
+    }
+    setUsers(await res.json());
   }
 
   useEffect(() => {
@@ -49,11 +53,17 @@ export default function UserManagement() {
     if (user.disabled && !globalThis.confirm(`Enable ${user.username}?`)) return;
     if (!user.disabled && !globalThis.confirm(`Disable ${user.username}?`)) return;
     const action = user.disabled ? "enable" : "disable";
-    await fetch("/api/admin/users/toggle-status", {
+    const res = await fetch("/api/admin/users/toggle-status", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId: user.id, action, role: user.role }),
+      body: JSON.stringify({ userId: user.id, action }),
     });
+    const body = await res.json();
+    if (!res.ok) {
+      setMessage(body.error ?? "Update failed");
+      return;
+    }
+    setMessage(action === "disable" ? `Disabled ${user.username}` : `Enabled ${user.username}`);
     await loadUsers();
   }
 
@@ -62,9 +72,15 @@ export default function UserManagement() {
     const res = await fetch("/api/admin/users/delete", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId: user.id, role: user.role, confirmed: true }),
+      body: JSON.stringify({ userId: user.id, confirmed: true }),
     });
-    if (res.ok) await loadUsers();
+    const body = await res.json();
+    if (!res.ok) {
+      setMessage(body.error ?? "Delete failed");
+      return;
+    }
+    setMessage(`Deleted ${user.username}`);
+    await loadUsers();
   }
 
   async function submitResetPassword(user: ManagedUser) {
@@ -74,14 +90,16 @@ export default function UserManagement() {
       body: JSON.stringify({
         userId: user.id,
         newPassword: resetPassword,
-        role: user.role,
       }),
     });
-    if (res.ok) {
-      setResetUserId(null);
-      setResetPassword("");
-      setMessage(`Password reset for ${user.username}`);
+    const body = await res.json();
+    if (!res.ok) {
+      setMessage(body.error ?? "Password reset failed");
+      return;
     }
+    setResetUserId(null);
+    setResetPassword("");
+    setMessage(`Password reset for ${user.username}`);
   }
 
   return (

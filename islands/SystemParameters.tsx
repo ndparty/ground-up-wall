@@ -46,18 +46,33 @@ export default function SystemParameters() {
   }
 
   async function reset(key: string) {
-    await fetch("/api/admin/parameters/reset", {
+    const res = await fetch("/api/admin/parameters/reset", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ key }),
     });
+    const body = await res.json();
+    if (!res.ok) {
+      setMessage(body.error ?? "Reset failed");
+      return;
+    }
+    setMessage(`Reset ${key} to default`);
     await load();
   }
 
   async function uploadPlaceholder(file: File) {
     const form = new FormData();
     form.append("image", file);
-    await fetch("/api/admin/parameters/upload-placeholder", { method: "POST", body: form });
+    const res = await fetch("/api/admin/parameters/upload-placeholder", {
+      method: "POST",
+      body: form,
+    });
+    const body = await res.json();
+    if (!res.ok) {
+      setMessage(body.error ?? "Upload failed");
+      return;
+    }
+    setMessage("Placeholder image updated");
     await load();
   }
 

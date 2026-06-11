@@ -18,6 +18,7 @@ export interface RealtimeService {
   onSubmissionApproved(callback: (submission: Submission) => void): UnsubscribeFn;
   onSubmissionCreated(callback: (submission: Submission) => void): UnsubscribeFn;
   onSubmissionEdited(callback: (submission: Submission) => void): UnsubscribeFn;
+  onSubmissionRejected(callback: (payload: { id: string }) => void): UnsubscribeFn;
   onTrainCommand(callback: (command: TrainCommand) => void): UnsubscribeFn;
   onSystemConfigChanged(callback: (config: SystemConfig) => void): UnsubscribeFn;
   onDisplayOverride(callback: (command: DisplayOverrideCommand) => void): UnsubscribeFn;

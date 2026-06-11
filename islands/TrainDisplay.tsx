@@ -18,7 +18,7 @@ import {
   updateSubmission,
   type TrainChain,
 } from "../lib/train/chain.ts";
-import { clampDwellSeconds } from "../lib/train/display_helpers.ts";
+import { clampDwellSeconds, parseDwellTime } from "../lib/train/display_helpers.ts";
 import {
   applyApprovedWhilePaused,
   resumeFromPause,
@@ -31,12 +31,21 @@ import TrainControls from "./TrainControls.tsx";
 
 const CABIN_STEP_PX = 512; // --cabin-width + --cabin-gap
 
-async function publishTrainCommand(command: TrainCommand): Promise<void> {
-  await fetch("/api/display/train-command", {
+async function publishTrainCommand(command: TrainCommand): Promise<boolean> {
+  const res = await fetch("/api/display/train-command", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(command),
   });
+  return res.ok;
+}
+
+function parseSseData<T>(event: MessageEvent): T | null {
+  try {
+    return JSON.parse(event.data) as T;
+  } catch {
+    return null;
+  }
 }
 
 export default function TrainDisplay() {
@@ -47,11 +56,30 @@ export default function TrainDisplay() {
   const [showFullscreenPrompt, setShowFullscreenPrompt] = useState(false);
   const [overrideState, setOverrideState] = useState<OverrideState>({ type: "normal" });
   const isPlayingRef = useRef(isPlaying);
+  const initialLoadDone = useRef(false);
+  const pendingChainUpdates = useRef<Array<(prev: TrainChain) => TrainChain>>([]);
   isPlayingRef.current = isPlaying;
 
   const currentIndex = chain.current?.index ?? 0;
   const hasCabins = chain.nodes.length > 0;
   const currentCabin = hasCabins ? currentIndex + 1 : 0;
+
+  function applyChainUpdate(updater: (prev: TrainChain) => TrainChain) {
+    if (!initialLoadDone.current) {
+      pendingChainUpdates.current.push(updater);
+      return;
+    }
+    setChain(updater);
+  }
+
+  function flushPendingChainUpdates(base: TrainChain) {
+    let next = base;
+    for (const updater of pendingChainUpdates.current) {
+      next = updater(next);
+    }
+    pendingChainUpdates.current = [];
+    return next;
+  }
 
   useEffect(() => {
     const dismissed = globalThis.localStorage?.getItem("display_wall_fullscreen_dismissed");
@@ -61,35 +89,51 @@ export default function TrainDisplay() {
   }, []);
 
   useEffect(() => {
-    fetch("/api/auth/me")
-      .then((res) => (res.ok ? res.json() : { user: null }))
-      .then((data) => setUserRole(data.user?.role ?? null))
-      .catch(() => undefined);
-  }, []);
+    let cancelled = false;
 
-  useEffect(() => {
-    fetch("/api/display/override-state")
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data) setOverrideState(data as OverrideState);
-      })
-      .catch(() => undefined);
+    async function bootstrap() {
+      const [meRes, overrideRes, submissionsRes] = await Promise.all([
+        fetch("/api/auth/me"),
+        fetch("/api/display/override-state"),
+        fetch("/api/display/submissions"),
+      ]);
+
+      if (cancelled) return;
+
+      if (meRes.ok) {
+        const me = await meRes.json();
+        setUserRole(me.user?.role ?? null);
+      }
+
+      if (overrideRes.ok) {
+        const override = await overrideRes.json();
+        setOverrideState(override as OverrideState);
+      }
+
+      if (submissionsRes.ok) {
+        const data = await submissionsRes.json();
+        setDwellTime(clampDwellSeconds(data.dwellTimeSeconds ?? 15));
+        const loaded = initTrain(data.submissions as Submission[]);
+        initialLoadDone.current = true;
+        setChain(flushPendingChainUpdates(loaded));
+      } else {
+        initialLoadDone.current = true;
+        setChain((prev) => flushPendingChainUpdates(prev));
+      }
+    }
+
+    bootstrap().catch(() => {
+      initialLoadDone.current = true;
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   function applyDisplayOverride(command: DisplayOverrideCommand) {
     setOverrideState(mapCommandToOverrideState(command.type, command.imageUrl));
   }
-
-  useEffect(() => {
-    fetch("/api/display/submissions")
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (!data) return;
-        setDwellTime(clampDwellSeconds(data.dwellTimeSeconds ?? 15));
-        setChain(initTrain(data.submissions as Submission[]));
-      })
-      .catch(() => undefined);
-  }, []);
 
   function applyTrainCommand(command: TrainCommand) {
     if (command.type === "pause") {
@@ -98,7 +142,7 @@ export default function TrainDisplay() {
     }
     if (command.type === "play") {
       setIsPlaying(true);
-      setChain((prev) => {
+      applyChainUpdate((prev) => {
         const next = cloneChain(prev);
         resumeFromPause(next);
         return { ...next, nodes: [...next.nodes] };
@@ -106,7 +150,7 @@ export default function TrainDisplay() {
       return;
     }
     if (command.type === "jump" && command.cabinNumber !== undefined) {
-      setChain((prev) => {
+      applyChainUpdate((prev) => {
         const next = cloneChain(prev);
         jumpToCabin(next, command.cabinNumber!);
         return { ...next, nodes: [...next.nodes] };
@@ -118,8 +162,9 @@ export default function TrainDisplay() {
     const es = new EventSource("/api/display/events");
 
     es.addEventListener("submission_approved", (event) => {
-      const submission = JSON.parse(event.data) as Submission;
-      setChain((prev) => {
+      const submission = parseSseData<Submission>(event);
+      if (!submission) return;
+      applyChainUpdate((prev) => {
         const next = cloneChain(prev);
         if (isPlayingRef.current) {
           addSubmission(next, submission);
@@ -131,8 +176,9 @@ export default function TrainDisplay() {
     });
 
     es.addEventListener("submission_edited", (event) => {
-      const submission = JSON.parse(event.data) as Submission;
-      setChain((prev) => {
+      const submission = parseSseData<Submission>(event);
+      if (!submission) return;
+      applyChainUpdate((prev) => {
         const next = cloneChain(prev);
         updateSubmission(next, submission);
         return { ...next, nodes: [...next.nodes] };
@@ -140,23 +186,35 @@ export default function TrainDisplay() {
     });
 
     es.addEventListener("submission_deleted", (event) => {
-      const { id } = JSON.parse(event.data) as { id: string };
-      setChain((prev) => {
+      const payload = parseSseData<{ id: string }>(event);
+      if (!payload) return;
+      applyChainUpdate((prev) => {
         const next = cloneChain(prev);
-        removeSubmission(next, id);
+        removeSubmission(next, payload.id);
         return { ...next, nodes: [...next.nodes] };
       });
     });
 
     es.addEventListener("train_command", (event) => {
-      const command = JSON.parse(event.data) as TrainCommand;
-      applyTrainCommand(command);
+      const command = parseSseData<TrainCommand>(event);
+      if (command) applyTrainCommand(command);
     });
 
     es.addEventListener("display_override", (event) => {
-      const command = JSON.parse(event.data) as DisplayOverrideCommand;
-      applyDisplayOverride(command);
+      const command = parseSseData<DisplayOverrideCommand>(event);
+      if (command) applyDisplayOverride(command);
     });
+
+    es.addEventListener("system_config_changed", (event) => {
+      const config = parseSseData<{ key: string; value: string }>(event);
+      if (config?.key === "train_dwell_time") {
+        setDwellTime(clampDwellSeconds(parseDwellTime(config.value)));
+      }
+    });
+
+    es.onerror = () => {
+      es.close();
+    };
 
     return () => es.close();
   }, []);
@@ -164,7 +222,7 @@ export default function TrainDisplay() {
   useEffect(() => {
     if (!isPlaying || !hasCabins) return;
     const timer = setTimeout(() => {
-      setChain((prev) => {
+      applyChainUpdate((prev) => {
         const next = cloneChain(prev);
         transitionToNext(next);
         return { ...next, nodes: [...next.nodes] };
@@ -174,27 +232,39 @@ export default function TrainDisplay() {
   }, [isPlaying, dwellTime, currentIndex, hasCabins]);
 
   async function pauseTrain() {
+    const wasPlaying = isPlaying;
     setIsPlaying(false);
-    await publishTrainCommand({ type: "pause" });
+    const ok = await publishTrainCommand({ type: "pause" });
+    if (!ok) setIsPlaying(wasPlaying);
   }
 
   async function resumeTrain() {
+    const wasPlaying = isPlaying;
     setIsPlaying(true);
-    setChain((prev) => {
+    applyChainUpdate((prev) => {
       const next = cloneChain(prev);
       resumeFromPause(next);
       return { ...next, nodes: [...next.nodes] };
     });
-    await publishTrainCommand({ type: "play" });
+    const ok = await publishTrainCommand({ type: "play" });
+    if (!ok) setIsPlaying(wasPlaying);
   }
 
   async function jumpTrain(cabinNumber: number) {
-    setChain((prev) => {
+    const previousIndex = currentIndex;
+    applyChainUpdate((prev) => {
       const next = cloneChain(prev);
       jumpToCabin(next, cabinNumber);
       return { ...next, nodes: [...next.nodes] };
     });
-    await publishTrainCommand({ type: "jump", cabinNumber });
+    const ok = await publishTrainCommand({ type: "jump", cabinNumber });
+    if (!ok) {
+      applyChainUpdate((prev) => {
+        const next = cloneChain(prev);
+        jumpToCabin(next, previousIndex + 1);
+        return { ...next, nodes: [...next.nodes] };
+      });
+    }
   }
 
   function dismissFullscreenPrompt() {

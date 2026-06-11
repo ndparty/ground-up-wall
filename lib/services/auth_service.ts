@@ -59,6 +59,7 @@ export class AuthService {
     this.sessions.delete(token);
   }
 
+  /** Fast lookup without DB — prefer resolveCurrentUser for request handling. */
   getCurrentUser(token: string | null | undefined): AuthUser | null {
     if (!token) return null;
     const session = this.sessions.get(token);
@@ -68,6 +69,33 @@ export class AuthService {
       return null;
     }
     return session.user;
+  }
+
+  /** Validates session against DB (disabled/deleted users are rejected). */
+  async resolveCurrentUser(token: string | null | undefined): Promise<AuthUser | null> {
+    if (!token) return null;
+    const session = this.sessions.get(token);
+    if (!session) return null;
+    if (session.expires < new Date()) {
+      this.sessions.delete(token);
+      return null;
+    }
+    const dbUser = await this.repository.getUserById(session.user.id);
+    if (!dbUser || dbUser.disabled) {
+      this.sessions.delete(token);
+      return null;
+    }
+    const authUser = toAuthUser(dbUser);
+    session.user = authUser;
+    return authUser;
+  }
+
+  invalidateSessionsForUser(userId: string, exceptToken?: string): void {
+    for (const [token, session] of this.sessions) {
+      if (session.user.id === userId && token !== exceptToken) {
+        this.sessions.delete(token);
+      }
+    }
   }
 
   isAuthenticated(token: string | null | undefined): boolean {
@@ -83,35 +111,22 @@ export class AuthService {
     userId: string,
     currentPassword: string,
     newPassword: string,
+    keepToken?: string,
   ): Promise<void> {
-    const user = await this.findUserById(userId);
+    const user = await this.repository.getUserById(userId);
     if (!user) throw new Error("User not found");
     const valid = await bcrypt.verify(currentPassword, user.password_hash);
     if (!valid) throw new Error("Current password is incorrect");
     const hash = await bcrypt.hash(newPassword);
-    await this.repository.updateUserPassword(userId, hash);
+    const updated = await this.repository.updateUserPassword(userId, hash);
+    if (!updated) throw new Error("User not found");
     await this.audit.logAction({
       moderator_id: userId,
       action_type: "change_password",
       target_type: "user",
       target_id: userId,
     });
-  }
-
-  private async findUserById(userId: string): Promise<User | null> {
-    const moderators = await this.repository.listModerators();
-    for (const mod of moderators) {
-      if (mod.id === userId) {
-        return await this.repository.authenticateUser(mod.username);
-      }
-    }
-    const displayUsers = await this.repository.listDisplayWallUsers();
-    for (const dw of displayUsers) {
-      if (dw.id === userId) {
-        return await this.repository.authenticateUser(dw.username);
-      }
-    }
-    return null;
+    this.invalidateSessionsForUser(userId, keepToken);
   }
 
   private async logLoginFailure(username: string, reason: string): Promise<void> {

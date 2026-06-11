@@ -170,6 +170,9 @@ export function makePhotoForm(entries: Record<string, string | Blob | File>): Fo
   for (const [key, value] of Object.entries(entries)) {
     form.append(key, value);
   }
+  if (!form.has("acknowledged")) {
+    form.append("acknowledged", "true");
+  }
   return form;
 }
 

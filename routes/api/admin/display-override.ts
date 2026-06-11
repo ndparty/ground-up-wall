@@ -15,7 +15,12 @@ export const handlers = define.handlers({
     const imageFile = form.get("image");
     const image = imageFile instanceof File && imageFile.size > 0 ? imageFile : undefined;
 
-    await ctx.state.services.photoWall.commandDisplayOverride(type, admin.id, image);
-    return ctx.json({ ok: true });
+    try {
+      await ctx.state.services.photoWall.commandDisplayOverride(type, admin.id, image);
+      return ctx.json({ ok: true });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Override failed";
+      return ctx.json({ error: message }, { status: 400 });
+    }
   },
 });

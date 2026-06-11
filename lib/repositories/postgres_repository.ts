@@ -197,12 +197,37 @@ export class PostgresRepository implements Repository {
     return mapSubmission(rows[0]);
   }
 
+  async getSubmissionById(id: string): Promise<Submission | null> {
+    const rows = await this.query<SubmissionRow>(
+      `SELECT * FROM submissions WHERE id = $1`,
+      [id],
+    );
+    return rows.length > 0 ? mapSubmission(rows[0]) : null;
+  }
+
   async getSubmissionsByStatus(status: Submission["status"]): Promise<Submission[]> {
     const rows = await this.query<SubmissionRow>(
       `SELECT * FROM submissions WHERE status = $1 ORDER BY created_at ASC`,
       [status],
     );
     return rows.map(mapSubmission);
+  }
+
+  async updateSubmissionStatusIfPending(
+    id: string,
+    status: "approved" | "rejected",
+    approvedBy?: string,
+  ): Promise<Submission | null> {
+    const rows = await this.query<SubmissionRow>(
+      `UPDATE submissions SET
+        status = $2,
+        approved_by = CASE WHEN $2 = 'approved' THEN $3 ELSE approved_by END,
+        approved_at = CASE WHEN $2 = 'approved' THEN NOW() ELSE approved_at END
+      WHERE id = $1 AND status = 'pending'
+      RETURNING *`,
+      [id, status, approvedBy ?? null],
+    );
+    return rows.length > 0 ? mapSubmission(rows[0]) : null;
   }
 
   async updateSubmissionStatus(
@@ -262,6 +287,14 @@ export class PostgresRepository implements Repository {
     return rows.length > 0 ? mapUser(rows[0]) : null;
   }
 
+  async getUserById(id: string): Promise<User | null> {
+    const rows = await this.query<UserRow>(
+      `SELECT * FROM users WHERE id = $1`,
+      [id],
+    );
+    return rows.length > 0 ? mapUser(rows[0]) : null;
+  }
+
   async createUser(data: CreateUserData): Promise<User> {
     const rows = await this.query<UserRow>(
       `INSERT INTO users (username, password_hash, role, created_by)
@@ -271,11 +304,12 @@ export class PostgresRepository implements Repository {
     return mapUser(rows[0]);
   }
 
-  async updateUserPassword(userId: string, passwordHash: string): Promise<void> {
-    await this.query(
-      `UPDATE users SET password_hash = $2 WHERE id = $1`,
+  async updateUserPassword(userId: string, passwordHash: string): Promise<boolean> {
+    const rows = await this.query<{ id: string }>(
+      `UPDATE users SET password_hash = $2 WHERE id = $1 RETURNING id`,
       [userId, passwordHash],
     );
+    return rows.length > 0;
   }
 
   async listModerators(): Promise<Moderator[]> {
@@ -289,29 +323,38 @@ export class PostgresRepository implements Repository {
     return await this.createUser({ ...data, role: "moderator" });
   }
 
-  async resetModeratorPassword(id: string, passwordHash: string): Promise<void> {
-    await this.query(
-      `UPDATE users SET password_hash = $2 WHERE id = $1 AND role = 'moderator'`,
+  async resetModeratorPassword(id: string, passwordHash: string): Promise<boolean> {
+    const rows = await this.query<{ id: string }>(
+      `UPDATE users SET password_hash = $2 WHERE id = $1 AND role = 'moderator' RETURNING id`,
       [id, passwordHash],
     );
+    return rows.length > 0;
   }
 
-  async disableModerator(id: string): Promise<void> {
-    await this.query(
-      `UPDATE users SET disabled = true, disabled_at = NOW() WHERE id = $1 AND role = 'moderator'`,
+  async disableModerator(id: string): Promise<boolean> {
+    const rows = await this.query<{ id: string }>(
+      `UPDATE users SET disabled = true, disabled_at = NOW()
+       WHERE id = $1 AND role = 'moderator' RETURNING id`,
       [id],
     );
+    return rows.length > 0;
   }
 
-  async enableModerator(id: string): Promise<void> {
-    await this.query(
-      `UPDATE users SET disabled = false, disabled_at = NULL WHERE id = $1 AND role = 'moderator'`,
+  async enableModerator(id: string): Promise<boolean> {
+    const rows = await this.query<{ id: string }>(
+      `UPDATE users SET disabled = false, disabled_at = NULL
+       WHERE id = $1 AND role = 'moderator' RETURNING id`,
       [id],
     );
+    return rows.length > 0;
   }
 
-  async deleteModerator(id: string): Promise<void> {
-    await this.query(`DELETE FROM users WHERE id = $1 AND role = 'moderator'`, [id]);
+  async deleteModerator(id: string): Promise<boolean> {
+    const rows = await this.query<{ id: string }>(
+      `DELETE FROM users WHERE id = $1 AND role = 'moderator' RETURNING id`,
+      [id],
+    );
+    return rows.length > 0;
   }
 
   async getSystemConfig(key: string): Promise<SystemConfig | null> {
@@ -415,22 +458,30 @@ export class PostgresRepository implements Repository {
     return rows.map(mapDisplayWallUser);
   }
 
-  async disableDisplayWallUser(id: string): Promise<void> {
-    await this.query(
-      `UPDATE users SET disabled = true, disabled_at = NOW() WHERE id = $1 AND role = 'display_wall'`,
+  async disableDisplayWallUser(id: string): Promise<boolean> {
+    const rows = await this.query<{ id: string }>(
+      `UPDATE users SET disabled = true, disabled_at = NOW()
+       WHERE id = $1 AND role = 'display_wall' RETURNING id`,
       [id],
     );
+    return rows.length > 0;
   }
 
-  async enableDisplayWallUser(id: string): Promise<void> {
-    await this.query(
-      `UPDATE users SET disabled = false, disabled_at = NULL WHERE id = $1 AND role = 'display_wall'`,
+  async enableDisplayWallUser(id: string): Promise<boolean> {
+    const rows = await this.query<{ id: string }>(
+      `UPDATE users SET disabled = false, disabled_at = NULL
+       WHERE id = $1 AND role = 'display_wall' RETURNING id`,
       [id],
     );
+    return rows.length > 0;
   }
 
-  async deleteDisplayWallUser(id: string): Promise<void> {
-    await this.query(`DELETE FROM users WHERE id = $1 AND role = 'display_wall'`, [id]);
+  async deleteDisplayWallUser(id: string): Promise<boolean> {
+    const rows = await this.query<{ id: string }>(
+      `DELETE FROM users WHERE id = $1 AND role = 'display_wall' RETURNING id`,
+      [id],
+    );
+    return rows.length > 0;
   }
 
   async getDisplayOverrideState(): Promise<DisplayOverrideState | null> {

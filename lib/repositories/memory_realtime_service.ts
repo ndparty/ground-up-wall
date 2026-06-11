@@ -13,7 +13,11 @@ export class MemoryRealtimeService implements RealtimeService {
     const subscribers = this.channels.get(channel);
     if (!subscribers) return;
     for (const callback of subscribers) {
-      callback(payload);
+      try {
+        callback(payload);
+      } catch {
+        // Isolate failing subscribers so one bad client cannot block others.
+      }
     }
   }
 
@@ -37,6 +41,10 @@ export class MemoryRealtimeService implements RealtimeService {
 
   onSubmissionEdited(callback: (submission: Submission) => void): UnsubscribeFn {
     return this.subscribe("submission:edited", (payload) => callback(payload as Submission));
+  }
+
+  onSubmissionRejected(callback: (payload: { id: string }) => void): UnsubscribeFn {
+    return this.subscribe("submission:rejected", (payload) => callback(payload as { id: string }));
   }
 
   onTrainCommand(callback: (command: TrainCommand) => void): UnsubscribeFn {

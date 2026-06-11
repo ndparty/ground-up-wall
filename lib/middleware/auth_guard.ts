@@ -9,15 +9,22 @@ export interface AuthState {
   services: AppState;
 }
 
+function jsonAuthError(status: 401 | 403, error: string): Response {
+  return new Response(JSON.stringify({ error }), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
 export function requireRole(...roles: User["role"][]): Middleware<AuthState> {
   return async (ctx: Context<AuthState>) => {
     const token = getSessionToken(ctx.req);
-    const user = ctx.state.services.auth.getCurrentUser(token);
+    const user = await ctx.state.services.auth.resolveCurrentUser(token);
     if (!user) {
-      return new Response("Unauthorized", { status: 401 });
+      return jsonAuthError(401, "Unauthorized");
     }
     if (!roles.includes(user.role)) {
-      return new Response("Forbidden", { status: 403 });
+      return jsonAuthError(403, "Forbidden");
     }
     ctx.state.user = user;
     return await ctx.next();

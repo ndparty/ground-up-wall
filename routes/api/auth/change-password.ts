@@ -3,11 +3,11 @@ import { define } from "../../../utils.ts";
 
 export const handlers = define.handlers({
   async POST(ctx) {
-    const token = getSessionToken(ctx.req);
-    const user = ctx.state.services.auth.getCurrentUser(token);
+    const user = ctx.state.user;
     if (!user) {
       return ctx.json({ error: "Unauthorized" }, { status: 401 });
     }
+    const token = getSessionToken(ctx.req);
     const { currentPassword, newPassword, confirmPassword } = await ctx.req.json();
     if (newPassword !== confirmPassword) {
       return ctx.json({ error: "Passwords do not match" }, { status: 400 });
@@ -17,6 +17,7 @@ export const handlers = define.handlers({
         user.id,
         currentPassword,
         newPassword,
+        token ?? undefined,
       );
       return ctx.json({ ok: true });
     } catch (err) {

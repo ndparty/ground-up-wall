@@ -2,9 +2,13 @@ import { runMigrations } from "../scripts/migrate.ts";
 import { normalizeDatabaseUrl } from "./db_url.ts";
 import { PostgresRepository } from "./repositories/postgres_repository.ts";
 
+const DEFAULT_TEST_DB = "postgres://localhost:5432/ground_up_wall_test";
+
 export function getTestDatabaseUrl(): string {
   return normalizeDatabaseUrl(
-    Deno.env.get("DATABASE_URL") ?? "postgres://localhost:5432/ground_up_wall_dev",
+    Deno.env.get("DATABASE_URL_TEST") ??
+      Deno.env.get("DATABASE_URL") ??
+      DEFAULT_TEST_DB,
   );
 }
 
