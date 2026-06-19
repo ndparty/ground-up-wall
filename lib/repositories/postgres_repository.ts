@@ -12,6 +12,7 @@ import type {
   Submission,
   SubmissionData,
   SubmissionEditData,
+  SubmissionEditFlags,
   SystemConfig,
   User,
 } from "../types.ts";
@@ -252,12 +253,15 @@ export class PostgresRepository implements Repository {
     id: string,
     data: SubmissionEditData,
     editedBy: string,
+    flags?: SubmissionEditFlags,
   ): Promise<Submission> {
     const rows = await this.query<SubmissionRow>(
       `UPDATE submissions SET
         message = COALESCE($2, message),
         submitter_name = COALESCE($3, submitter_name),
         social_handle = COALESCE($4, social_handle),
+        is_flagged = COALESCE($6, is_flagged),
+        flagged_words = COALESCE($7, flagged_words),
         edited_by = $5,
         edited_at = NOW(),
         edit_count = edit_count + 1
@@ -269,6 +273,8 @@ export class PostgresRepository implements Repository {
         data.submitter_name ?? null,
         data.social_handle ?? null,
         editedBy,
+        flags?.is_flagged ?? null,
+        flags?.flagged_words ?? null,
       ],
     );
     if (rows.length === 0) throw new Error(`Submission not found: ${id}`);

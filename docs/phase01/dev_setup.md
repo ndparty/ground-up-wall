@@ -43,13 +43,25 @@ The fastest path to a ready development machine:
 ┌──────────────────────────────────────────────────────┐
 │ 1. Install Deno                 (runtime)            │
 │ 2. Install PostgreSQL 17+       (database)           │
-│ 3. Create database              (ground_up_wall_dev) │
-│ 4. Set DATABASE_URL             (env variable)       │
+│ 3. Create databases             (dev + test)         │
+│ 4. Copy .env.example → .env     (config)             │
 │ 5. Install Git                  (version control)    │
 │ 6. Install VS Code + Deno ext   (editor)             │
 └──────────────────────────────────────────────────────┘
 ```
 
+After tools are installed, bootstrap the application (from the repo root):
+
+```bash
+createdb ground_up_wall_dev
+createdb ground_up_wall_test
+cp .env.example .env
+deno task db:migrate
+deno task db:seed
+deno task start
+```
+
+Open http://localhost:8000. Full demo walkthrough: **[../../DEMO.md](../../DEMO.md)**. Developer details: **[../../SETUP.md](../../SETUP.md)**.
 
 OS-specific install instructions for each step are below.
 

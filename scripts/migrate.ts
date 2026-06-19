@@ -1,5 +1,6 @@
 import { Client } from "@db/postgres";
 import { normalizeDatabaseUrl } from "../lib/db_url.ts";
+import { loadEnvFile } from "../lib/load_env.ts";
 
 const MIGRATIONS = [
   {
@@ -77,27 +78,8 @@ const MIGRATIONS = [
   },
 ];
 
-async function loadEnvFile(): Promise<void> {
-  try {
-    const content = await Deno.readTextFile(".env");
-    for (const line of content.split("\n")) {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith("#")) continue;
-      const eqIndex = trimmed.indexOf("=");
-      if (eqIndex === -1) continue;
-      const key = trimmed.slice(0, eqIndex).trim();
-      const value = trimmed.slice(eqIndex + 1).trim();
-      if (!Deno.env.get(key)) {
-        Deno.env.set(key, value);
-      }
-    }
-  } catch {
-    // .env is optional
-  }
-}
-
 export async function runMigrations(databaseUrl?: string): Promise<void> {
-  await loadEnvFile();
+  loadEnvFile();
   const url = normalizeDatabaseUrl(
     databaseUrl ??
       Deno.env.get("DATABASE_URL") ??

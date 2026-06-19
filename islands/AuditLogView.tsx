@@ -6,7 +6,7 @@ const ACTION_TYPES = [
   "create_moderator", "disable_moderator", "enable_moderator", "delete_moderator",
   "reset_password", "create_display_wall_user", "disable_display_wall_user",
   "enable_display_wall_user", "delete_display_wall_user",
-  "blank_display", "show_placeholder", "resume_display", "change_password",
+  "blank_display", "show_placeholder", "resume_display", "change_password", "login_failed",
 ];
 
 export default function AuditLogView() {

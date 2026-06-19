@@ -2,6 +2,8 @@
 
 This guide gets the Phase 01 application running on your machine. For OS-specific tool installation (Deno, PostgreSQL, Git), see [docs/phase01/dev_setup.md](docs/phase01/dev_setup.md).
 
+For a step-by-step demo walkthrough, see **[DEMO.md](DEMO.md)**.
+
 ## Prerequisites
 
 - Deno 2.x
@@ -19,6 +21,8 @@ This guide gets the Phase 01 application running on your machine. For OS-specifi
    createdb ground_up_wall_test
    ```
 
+   Windows (if `createdb` is on PATH): same commands in PowerShell. Alternatively use `psql -c "CREATE DATABASE ground_up_wall_dev;"`.
+
 3. **Configure environment:**
 
    ```bash
@@ -27,17 +31,23 @@ This guide gets the Phase 01 application running on your machine. For OS-specifi
 
    Edit `.env` and set `DATABASE_URL` if needed (default: `postgres://localhost:5432/ground_up_wall_dev`).
 
-4. **Set the initial admin password** (recommended even for local dev):
+   The application loads `.env` automatically at startup (`lib/load_env.ts`). Scripts (`db:migrate`, `db:seed`) also read `.env`.
+
+4. **Set passwords** (recommended even for local dev):
 
    ```bash
    # PowerShell
    $env:ADMIN_INITIAL_PASSWORD = "YourStrongPass123!"
+   $env:DEMO_MODERATOR_PASSWORD = "demo123"
+   $env:DEMO_DISPLAY_PASSWORD = "demo123"
 
    # bash/zsh
    export ADMIN_INITIAL_PASSWORD="YourStrongPass123!"
+   export DEMO_MODERATOR_PASSWORD="demo123"
+   export DEMO_DISPLAY_PASSWORD="demo123"
    ```
 
-   > **Security:** If `ADMIN_INITIAL_PASSWORD` is not set, the seed script uses `admin123` for local development only and prints it to the console. The seed script **refuses** to use the fallback when `DENO_DEPLOYMENT_ID` is set (deployed environments).
+   > **Security:** If passwords are not set, the seed script uses local fallbacks (`admin123`, `demo123`) and prints them to the console. The seed script **refuses** fallbacks when `DENO_DEPLOYMENT_ID` is set (deployed environments).
 
 5. **Run migrations:**
 
@@ -45,7 +55,7 @@ This guide gets the Phase 01 application running on your machine. For OS-specifi
    deno task db:migrate
    ```
 
-6. **Seed initial data** (admin account + default system parameters):
+6. **Seed initial data** (admin, demo moderator/display accounts, default system parameters):
 
    ```bash
    deno task db:seed
@@ -65,18 +75,28 @@ After seeding:
 
 | Role | Username | Password |
 |------|----------|----------|
-| Admin | `admin` | Value of `ADMIN_INITIAL_PASSWORD`, or `admin123` in local dev only |
-
-Create moderator and display-wall accounts from **Admin → Users**.
+| Admin | `admin` | `ADMIN_INITIAL_PASSWORD`, or `admin123` locally |
+| Moderator | `moderator` | `DEMO_MODERATOR_PASSWORD`, or `demo123` locally |
+| Display wall | `display` | `DEMO_DISPLAY_PASSWORD`, or `demo123` locally |
 
 ## Running tests
 
 | Command | Purpose |
 |---------|---------|
-| `deno task test` | Full unit + integration test suite (serial, uses test DB) |
+| `deno task test` | Full unit + integration + E2E suite (210 tests) |
 | `deno task test:unit` | Route + lib tests only (excludes `tests/e2e/`, still uses Postgres) |
 | `deno task test:e2e` | Full end-to-end scenario suite |
-| `deno task test:e2e:smoke` | PR-time smoke subset (~30 scenarios) |
+| `deno task test:e2e:smoke` | PR-time smoke subset (~33 scenarios) |
+| `deno task check` | `deno fmt --check`, `deno lint`, `deno check main.ts` |
+
+Tests use `DATABASE_URL_TEST` (default: `ground_up_wall_test`). Create that database before running tests.
+
+For flaky parallel runs on Windows, use a single worker:
+
+```powershell
+$env:DENO_JOBS="1"
+deno task test
+```
 
 ## Visual / performance NFR sign-off
 
@@ -97,8 +117,11 @@ lib/             Services, repositories, validation
 scripts/         migrate.ts, seed.ts
 tests/e2e/       End-to-end integration tests
 static/          CSS and assets
+uploads/         Uploaded images (created at runtime)
 docs/phase01/    Epic plan and execution plans
 ```
+
+Uploaded images are served at `/submissions/`, `/placeholders/`, and `/overrides/` from `STORAGE_PATH`.
 
 ## Troubleshooting
 
@@ -106,8 +129,9 @@ docs/phase01/    Epic plan and execution plans
 |---------|-----|
 | `Connection refused` to Postgres | Ensure PostgreSQL is running; verify `DATABASE_URL` |
 | Migration errors | Run `deno task db:migrate` on a clean database |
-| Tests fail with auth errors | Tests default to `ground_up_wall_test` via `DATABASE_URL_TEST`; avoid running dev server against the test DB during `deno task test` |
+| Tests fail with auth errors | Create `ground_up_wall_test`; set `DATABASE_URL_TEST`; avoid running dev server against the test DB during `deno task test` |
 | Seed says admin exists | Idempotent — safe to re-run |
+| Images 404 on display | Confirm files exist under `./uploads/` and server is running |
 
 ## Phase roadmap
 

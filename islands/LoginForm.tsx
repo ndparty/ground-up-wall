@@ -23,7 +23,15 @@ export default function LoginForm() {
         setError(body.error ?? "Login failed");
         return;
       }
-      globalThis.location.href = "/upload";
+      const body = await res.json();
+      const role = body.user?.role as string | undefined;
+      if (role === "display_wall") {
+        globalThis.location.href = "/display";
+      } else if (role === "moderator" || role === "admin") {
+        globalThis.location.href = "/moderate";
+      } else {
+        globalThis.location.href = "/upload";
+      }
     } catch {
       setError("Login failed");
     } finally {

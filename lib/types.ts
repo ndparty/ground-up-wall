@@ -41,6 +41,11 @@ export interface SubmissionEditData {
   social_handle?: string;
 }
 
+export interface SubmissionEditFlags {
+  is_flagged: boolean;
+  flagged_words: string[];
+}
+
 export interface User {
   id: string;
   username: string;

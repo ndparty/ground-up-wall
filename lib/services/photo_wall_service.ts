@@ -21,7 +21,6 @@ import type {
   SubmissionEditData,
   SubmissionInput,
   SystemConfig,
-  User,
 } from "../types.ts";
 
 export function parseWordList(value: string | undefined | null): string[] {
@@ -108,13 +107,24 @@ export class PhotoWallService {
       }
     }
 
+    let editFlags: { is_flagged: boolean; flagged_words: string[] } | undefined;
+    if (data.message !== undefined) {
+      const config = await this.repository.getSystemConfig("auto_moderator_word_list");
+      const wordList = parseWordList(config?.value);
+      const flagResult = this.autoModerator.checkMessage(data.message, wordList);
+      editFlags = {
+        is_flagged: flagResult.is_flagged,
+        flagged_words: flagResult.flagged_words,
+      };
+    }
+
     const oldValues = JSON.stringify({
       message: existing.message,
       submitter_name: existing.submitter_name,
       social_handle: existing.social_handle,
     });
 
-    const updated = await this.repository.updateSubmissionContent(id, data, moderatorId);
+    const updated = await this.repository.updateSubmissionContent(id, data, moderatorId, editFlags);
 
     await this.audit.logAction({
       moderator_id: moderatorId,
@@ -199,10 +209,6 @@ export class PhotoWallService {
     await this.realtime.publish("submission:deleted", { id });
   }
 
-  publishNewSubmission(submission: Submission): void {
-    this.realtime.publish("submission:created", submission);
-  }
-
   subscribeToApproved(callback: (submission: Submission) => void): UnsubscribeFn {
     return this.realtime.onSubmissionApproved(callback);
   }
@@ -230,28 +236,6 @@ export class PhotoWallService {
 
   subscribeToTrainCommands(callback: (command: TrainCommand) => void): UnsubscribeFn {
     return this.realtime.onTrainCommand(callback);
-  }
-
-  async authenticateUser(username: string, password: string): Promise<User | null> {
-    const user = await this.repository.authenticateUser(username);
-    if (!user || user.disabled) return null;
-    const valid = await bcrypt.verify(password, user.password_hash);
-    return valid ? user : null;
-  }
-
-  async createUser(
-    username: string,
-    password: string,
-    role: User["role"],
-    createdBy?: string,
-  ): Promise<User> {
-    const passwordHash = await bcrypt.hash(password);
-    return await this.repository.createUser({
-      username,
-      password_hash: passwordHash,
-      role,
-      created_by: createdBy,
-    });
   }
 
   async listModerators(): Promise<Moderator[]> {

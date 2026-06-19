@@ -282,6 +282,40 @@ Deno.test({
 });
 
 Deno.test({
+  name: "testEditReflagsMessage",
+  async fn() {
+    const dir = await Deno.makeTempDir();
+    try {
+      await cleanupTestData();
+      const { service, repo } = await createTestService(dir);
+      await repo.upsertSystemConfig(
+        "auto_moderator_word_list",
+        JSON.stringify(["crap"]),
+        "system",
+      );
+
+      const submission = await service.submitSubmission(
+        { image: new Blob([new Uint8Array([1])]), message: "Clean message", submitter_name: "A" },
+        ["crap"],
+      );
+      assertEquals(submission.is_flagged, false);
+
+      const edited = await service.editSubmission(
+        submission.id,
+        { message: "what crap" },
+        "mod-1",
+      );
+      assertEquals(edited.is_flagged, true);
+      assertEquals(edited.flagged_words?.includes("crap"), true);
+      await repo.close();
+    } finally {
+      await cleanupTestData();
+      await Deno.remove(dir, { recursive: true });
+    }
+  },
+});
+
+Deno.test({
   name: "testDisplayOverridePersists",
   async fn() {
     const dir = await Deno.makeTempDir();

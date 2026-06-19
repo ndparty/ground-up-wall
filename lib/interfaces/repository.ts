@@ -9,6 +9,7 @@ import type {
   Submission,
   SubmissionData,
   SubmissionEditData,
+  SubmissionEditFlags,
   SystemConfig,
   User,
 } from "../types.ts";
@@ -32,6 +33,7 @@ export interface Repository {
     id: string,
     data: SubmissionEditData,
     editedBy: string,
+    flags?: SubmissionEditFlags,
   ): Promise<Submission>;
   deleteSubmission(id: string): Promise<void>;
 

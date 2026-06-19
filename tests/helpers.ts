@@ -189,3 +189,17 @@ export async function submitViaApi(
     serveInfo,
   );
 }
+
+export async function submitTestSubmission(handler: TestHandler): Promise<{ id: string }> {
+  const form = makePhotoForm({
+    photo: testPhoto(),
+    message: "Happy National Day",
+    submitter_name: "Participant",
+  });
+  const res = await submitViaApi(handler, form);
+  if (!res.ok) {
+    throw new Error(`Submit failed: ${res.status} ${await res.text()}`);
+  }
+  const body = await res.json();
+  return { id: body.submission_id as string };
+}

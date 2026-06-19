@@ -10,18 +10,33 @@ Built for the Singapore National Day ground-up party.
 
 ## Quick start
 
+### bash / macOS / Linux
+
 ```bash
 createdb ground_up_wall_dev
+createdb ground_up_wall_test
 cp .env.example .env
-export ADMIN_INITIAL_PASSWORD="YourStrongPass123!"   # optional locally; required in deployed envs
+export ADMIN_INITIAL_PASSWORD="YourStrongPass123!"   # optional locally
 deno task db:migrate
 deno task db:seed
 deno task start
 ```
 
-Open http://localhost:8000 — log in as `admin` (see [SETUP.md](SETUP.md) for credentials).
+### Windows (PowerShell)
 
-Full setup instructions: **[SETUP.md](SETUP.md)**  
+```powershell
+createdb ground_up_wall_dev
+createdb ground_up_wall_test
+Copy-Item .env.example .env
+$env:ADMIN_INITIAL_PASSWORD = "YourStrongPass123!"
+deno task db:migrate
+deno task db:seed
+deno task start
+```
+
+Open http://localhost:8000 — see [DEMO.md](DEMO.md) for the full walkthrough and demo accounts.
+
+The app reads `.env` at startup automatically. Full setup: **[SETUP.md](SETUP.md)**  
 OS-specific tool install: **[docs/phase01/dev_setup.md](docs/phase01/dev_setup.md)**
 
 ## Tech stack
@@ -52,15 +67,19 @@ Browser  →  Fresh routes (pages + API)
 ## Tests
 
 ```bash
-deno task test              # all tests
+deno task test              # all tests (210 scenarios)
 deno task test:e2e:smoke    # PR smoke subset
 deno task test:e2e          # full E2E suite
+deno task check             # format, lint, type-check
 ```
+
+Requires Postgres and `ground_up_wall_test` (or set `DATABASE_URL_TEST`). For serial runs on Windows: `$env:DENO_JOBS="1"; deno task test`
 
 ## Documentation
 
 | Document | Description |
 |----------|-------------|
+| [DEMO.md](DEMO.md) | Start, run, and demonstrate the system |
 | [SETUP.md](SETUP.md) | Developer setup and NFR sign-off |
 | [docs/phase01/epic_plan-phase01.md](docs/phase01/epic_plan-phase01.md) | Phase 01 work items WI-01–WI-07 |
 | [docs/ai-dlc/](docs/ai-dlc/) | Requirements, user stories, architecture |

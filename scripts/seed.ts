@@ -2,11 +2,15 @@ import * as bcrypt from "bcrypt";
 import { Client } from "@db/postgres";
 import { normalizeDatabaseUrl } from "../lib/db_url.ts";
 import { seededWordListJson } from "../lib/admin/parameter_validation.ts";
+import { loadEnvFile } from "../lib/load_env.ts";
 import { PostgresRepository } from "../lib/repositories/postgres_repository.ts";
 import { runMigrations } from "./migrate.ts";
 
 export const ADMIN_USERNAME = "admin";
+export const MODERATOR_USERNAME = "moderator";
+export const DISPLAY_USERNAME = "display";
 const LOCAL_DEV_FALLBACK_PASSWORD = "admin123";
+const LOCAL_DEMO_FALLBACK_PASSWORD = "demo123";
 
 const SYSTEM_DEFAULTS = [
   { key: "train_dwell_time", value: "15", default_value: "15" },
@@ -26,27 +30,10 @@ const SYSTEM_DEFAULTS = [
 
 export interface SeedResult {
   adminCreated: boolean;
+  moderatorCreated: boolean;
+  displayCreated: boolean;
   configsSeeded: number;
   passwordSource: "env" | "local_fallback";
-}
-
-async function loadEnvFile(): Promise<void> {
-  try {
-    const content = await Deno.readTextFile(".env");
-    for (const line of content.split("\n")) {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith("#")) continue;
-      const eqIndex = trimmed.indexOf("=");
-      if (eqIndex === -1) continue;
-      const key = trimmed.slice(0, eqIndex).trim();
-      const value = trimmed.slice(eqIndex + 1).trim();
-      if (!Deno.env.get(key)) {
-        Deno.env.set(key, value);
-      }
-    }
-  } catch {
-    // .env is optional
-  }
 }
 
 export function resolveAdminPassword(): { password: string; source: "env" | "local_fallback" } {
@@ -62,8 +49,17 @@ export function resolveAdminPassword(): { password: string; source: "env" | "loc
   return { password: LOCAL_DEV_FALLBACK_PASSWORD, source: "local_fallback" };
 }
 
+export function resolveDemoPassword(envKey: string): string {
+  const fromEnv = Deno.env.get(envKey);
+  if (fromEnv && fromEnv.length > 0) return fromEnv;
+  if (Deno.env.get("DENO_DEPLOYMENT_ID")) {
+    throw new Error(`${envKey} must be set before running the seed script in deployed environments.`);
+  }
+  return LOCAL_DEMO_FALLBACK_PASSWORD;
+}
+
 export async function runSeed(databaseUrl?: string): Promise<SeedResult> {
-  await loadEnvFile();
+  loadEnvFile();
   const url = normalizeDatabaseUrl(
     databaseUrl ??
       Deno.env.get("DATABASE_URL") ??
@@ -73,10 +69,14 @@ export async function runSeed(databaseUrl?: string): Promise<SeedResult> {
   await runMigrations(url);
 
   const { password, source } = resolveAdminPassword();
+  const moderatorPassword = resolveDemoPassword("DEMO_MODERATOR_PASSWORD");
+  const displayPassword = resolveDemoPassword("DEMO_DISPLAY_PASSWORD");
   const repo = new PostgresRepository(url);
   await repo.connect();
 
   let adminCreated = false;
+  let moderatorCreated = false;
+  let displayCreated = false;
   try {
     const existingAdmin = await repo.authenticateUser(ADMIN_USERNAME);
     if (!existingAdmin) {
@@ -88,6 +88,30 @@ export async function runSeed(databaseUrl?: string): Promise<SeedResult> {
         created_by: "seed",
       });
       adminCreated = true;
+    }
+
+    const existingModerator = await repo.authenticateUser(MODERATOR_USERNAME);
+    if (!existingModerator) {
+      const hash = await bcrypt.hash(moderatorPassword);
+      await repo.createModerator({
+        username: MODERATOR_USERNAME,
+        password_hash: hash,
+        role: "moderator",
+        created_by: "seed",
+      });
+      moderatorCreated = true;
+    }
+
+    const existingDisplay = await repo.authenticateUser(DISPLAY_USERNAME);
+    if (!existingDisplay) {
+      const hash = await bcrypt.hash(displayPassword);
+      await repo.createDisplayWallUser({
+        username: DISPLAY_USERNAME,
+        password_hash: hash,
+        role: "display_wall",
+        created_by: "seed",
+      });
+      displayCreated = true;
     }
 
     let configsSeeded = 0;
@@ -109,7 +133,13 @@ export async function runSeed(databaseUrl?: string): Promise<SeedResult> {
       }
     }
 
-    return { adminCreated, configsSeeded, passwordSource: source };
+    return {
+      adminCreated,
+      moderatorCreated,
+      displayCreated,
+      configsSeeded,
+      passwordSource: source,
+    };
   } finally {
     await repo.close();
   }
@@ -128,6 +158,16 @@ if (import.meta.main) {
     }
   } else {
     console.log(`✓ Admin user '${ADMIN_USERNAME}' already exists`);
+  }
+  if (result.moderatorCreated) {
+    console.log(`✓ Created moderator user '${MODERATOR_USERNAME}'`);
+  } else {
+    console.log(`✓ Moderator user '${MODERATOR_USERNAME}' already exists`);
+  }
+  if (result.displayCreated) {
+    console.log(`✓ Created display-wall user '${DISPLAY_USERNAME}'`);
+  } else {
+    console.log(`✓ Display-wall user '${DISPLAY_USERNAME}' already exists`);
   }
   if (result.configsSeeded > 0) {
     console.log(`✓ Seeded ${result.configsSeeded} system config entries`);
