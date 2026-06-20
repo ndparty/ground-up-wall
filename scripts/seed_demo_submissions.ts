@@ -5,21 +5,29 @@ import { normalizeDatabaseUrl } from "../lib/db_url.ts";
 import { loadEnvFile } from "../lib/load_env.ts";
 import { FileStorageService } from "../lib/repositories/file_storage_service.ts";
 import { PostgresRepository } from "../lib/repositories/postgres_repository.ts";
-import { getDemoSubmissionContent } from "../lib/seed/demo_submission_content.ts";
+import {
+  getDemoSubmissionContent,
+  getPendingDemoContent,
+} from "../lib/seed/demo_submission_content.ts";
 import { generateDemoImage } from "../lib/seed/generate_demo_image.ts";
+import { AutoModeratorServiceImpl, SEEDED_DEFAULT_WORD_LIST } from "../lib/services/auto_moderator_service_impl.ts";
 import { MODERATOR_USERNAME, runSeed } from "./seed.ts";
 
 export const DEMO_SEED_SOURCE = "demo_seed";
 export const DEFAULT_DEMO_SEED_COUNT = 40;
+export const DEFAULT_DEMO_PENDING_COUNT = 10;
 
 export interface SeedDemoSubmissionsOptions {
   count?: number;
+  pending?: number;
   force?: boolean;
   databaseUrl?: string;
 }
 
 export interface SeedDemoSubmissionsResult {
   created: number;
+  pendingCreated: number;
+  flaggedCreated: number;
   skipped: boolean;
   removed: number;
 }
@@ -29,8 +37,11 @@ interface DemoSeedRow {
   image_url: string;
 }
 
-export function parseSeedDemoArgs(args: string[]): { count: number; force: boolean } {
+export function parseSeedDemoArgs(
+  args: string[],
+): { count: number; pending: number; force: boolean } {
   let count = DEFAULT_DEMO_SEED_COUNT;
+  let pending = DEFAULT_DEMO_PENDING_COUNT;
   let force = false;
 
   for (const arg of args) {
@@ -41,10 +52,15 @@ export function parseSeedDemoArgs(args: string[]): { count: number; force: boole
     const countMatch = arg.match(/^--count=(\d+)$/);
     if (countMatch) {
       count = Math.max(1, Number.parseInt(countMatch[1], 10));
+      continue;
+    }
+    const pendingMatch = arg.match(/^--pending=(\d+)$/);
+    if (pendingMatch) {
+      pending = Math.max(0, Number.parseInt(pendingMatch[1], 10));
     }
   }
 
-  return { count, force };
+  return { count, pending, force };
 }
 
 async function listDemoSeedRows(client: Client): Promise<DemoSeedRow[]> {
@@ -84,6 +100,7 @@ export async function runSeedDemoSubmissions(
   const config = loadConfig();
   const databaseUrl = normalizeDatabaseUrl(options.databaseUrl ?? config.database.url);
   const count = options.count ?? DEFAULT_DEMO_SEED_COUNT;
+  const pending = options.pending ?? DEFAULT_DEMO_PENDING_COUNT;
   const force = options.force ?? false;
 
   await runSeed(databaseUrl);
@@ -98,7 +115,7 @@ export async function runSeedDemoSubmissions(
   try {
     const existing = await listDemoSeedRows(client);
     if (existing.length > 0 && !force) {
-      return { created: 0, skipped: true, removed: 0 };
+      return { created: 0, pendingCreated: 0, flaggedCreated: 0, skipped: true, removed: 0 };
     }
 
     let removed = 0;
@@ -135,7 +152,36 @@ export async function runSeedDemoSubmissions(
       created++;
     }
 
-    return { created, skipped: false, removed };
+    // Pending (un-approved) submissions to exercise the moderation queue, including
+    // a subset flagged by the seeded auto-moderator (FR-09a) — left in `pending`.
+    const autoModerator = new AutoModeratorServiceImpl();
+    let pendingCreated = 0;
+    let flaggedCreated = 0;
+    for (let i = 0; i < pending; i++) {
+      const sequenceNumber = count + i + 1;
+      const content = getPendingDemoContent(i);
+      const flag = autoModerator.checkMessage(content.message, SEEDED_DEFAULT_WORD_LIST);
+      const image = await generateDemoImage(sequenceNumber);
+      const imagePath = `submissions/${crypto.randomUUID()}.png`;
+      await storage.uploadImage(image, imagePath);
+      const imageUrl = storage.getImageUrl(imagePath);
+
+      await repo.createSubmission({
+        image_url: imageUrl,
+        message: content.message,
+        submitter_name: content.submitterName,
+        social_handle: content.socialHandle,
+        source: DEMO_SEED_SOURCE,
+        source_metadata: { demo_seed: true, demo_pending: true, sequence: sequenceNumber },
+        flagged_words: flag.flagged_words,
+        is_flagged: flag.is_flagged,
+      });
+
+      pendingCreated++;
+      if (flag.is_flagged) flaggedCreated++;
+    }
+
+    return { created, pendingCreated, flaggedCreated, skipped: false, removed };
   } finally {
     await repo.close();
     await client.end();
@@ -143,8 +189,8 @@ export async function runSeedDemoSubmissions(
 }
 
 if (import.meta.main) {
-  const { count, force } = parseSeedDemoArgs(Deno.args);
-  const result = await runSeedDemoSubmissions({ count, force });
+  const { count, pending, force } = parseSeedDemoArgs(Deno.args);
+  const result = await runSeedDemoSubmissions({ count, pending, force });
 
   if (result.skipped) {
     console.log("Demo submissions already seeded. Use --force to replace.");
@@ -153,6 +199,9 @@ if (import.meta.main) {
       console.log(`✓ Removed ${result.removed} prior demo submission(s)`);
     }
     console.log(`✓ Seeded ${result.created} approved demo submission(s)`);
+    console.log(
+      `✓ Seeded ${result.pendingCreated} pending demo submission(s) (${result.flaggedCreated} flagged for moderation)`,
+    );
   }
   console.log("Demo seed complete.");
 }

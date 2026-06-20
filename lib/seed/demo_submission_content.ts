@@ -47,3 +47,31 @@ export function getDemoSubmissionContent(index: number): DemoSubmissionTemplate 
   const template = DEMO_SUBMISSION_TEMPLATES[index % DEMO_SUBMISSION_TEMPLATES.length];
   return { ...template };
 }
+
+/**
+ * Pending (un-approved) demo submissions for exercising the moderation queue.
+ * A subset deliberately trips the seeded auto-moderator word list — including
+ * substitution variants (e.g. `@`->a, `3`->e) — so the moderator UI shows the
+ * flag badge and highlighting. The rest are clean for a realistic mix.
+ */
+export const PENDING_DEMO_TEMPLATES: DemoSubmissionTemplate[] = [
+  { message: "Can't wait for the fireworks tonight!", submitterName: "Wesley Tan" },
+  // flagged: plain "damn"
+  { message: "Damn, this parade is incredible!", submitterName: "Joel Fernandez", socialHandle: "@joelf" },
+  { message: "First NDP with my newborn", submitterName: "Sarah Lim" },
+  // flagged: substitution variant "h3ll" -> hell
+  { message: "What a h3ll of a show tonight!", submitterName: "Ryan Goh" },
+  { message: "Singapore, you beauty", submitterName: "Devi Menon", socialHandle: "@devi.m" },
+  // flagged: substitution variant "cr@p" -> crap
+  { message: "No cr@p, best celebration ever", submitterName: "Marcus Ong" },
+  { message: "Waving my flag with pride", submitterName: "Aishah Yusof" },
+  // flagged: plain "piss" (within "pissed")
+  { message: "Rain won't make me pissed, still celebrating!", submitterName: "Kelvin Soh" },
+  { message: "Heartlands united tonight", submitterName: "Kenneth Teo", socialHandle: "@kenteo" },
+  { message: "Majulah Singapura!", submitterName: "Grace Tan" },
+];
+
+export function getPendingDemoContent(index: number): DemoSubmissionTemplate {
+  const template = PENDING_DEMO_TEMPLATES[index % PENDING_DEMO_TEMPLATES.length];
+  return { ...template };
+}
