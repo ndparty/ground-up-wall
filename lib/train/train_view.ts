@@ -3,7 +3,12 @@ import {
   type TrainCabinNode,
   type TrainChain,
 } from "./chain.ts";
-import { LEFT_RENDER, RIGHT_RENDER, VIEWPORT_K } from "./train_view_constants.ts";
+import {
+  LEFT_RENDER,
+  RIGHT_RENDER,
+  VIEWPORT_K,
+  VISIBLE_SLOT_COUNT,
+} from "./train_view_constants.ts";
 import type { Submission } from "../types.ts";
 
 export interface EphemeralInsert {
@@ -159,6 +164,9 @@ function walkBaseNextSkippingCollapsed(
     node = node!.next;
     if (!node) return null;
     if (state.jump?.collapsedIds.has(node.submission.id)) continue;
+    // Active ephemeral inserts render only at their splice position (a few slots
+    // ahead of center), never at their base-ring tail position, so skip them here.
+    if (state.ephemeralInserts.some((e) => e.submissionId === node!.submission.id)) continue;
     return node.submission.id;
   }
   return null;
@@ -229,12 +237,52 @@ export function isWithinKSlots(state: TrainViewState, submissionId: string): boo
   return dist !== null && dist <= VIEWPORT_K;
 }
 
+/**
+ * Signed slot of a node on the effective (rendered) ring relative to center:
+ * 0 = center, +s = s slots ahead (right), -s = s slots behind (left).
+ * Only resolves within +-(K+1); returns null when farther than that on both sides.
+ * Uses effectiveNextId so it counts rendered cabins (and ephemeral splice position),
+ * not raw base-ring indices.
+ */
+function ephemeralSignedSlot(state: TrainViewState, submissionId: string): number | null {
+  const centerId = state.base.current?.submission.id;
+  if (!centerId) return null;
+  if (submissionId === centerId) return 0;
+
+  let cur = centerId;
+  for (let s = 1; s <= VIEWPORT_K + 1; s++) {
+    const next = effectiveNextId(state, cur);
+    if (!next) break;
+    if (next === submissionId) return s;
+    cur = next;
+    if (cur === centerId) break;
+  }
+
+  cur = submissionId;
+  for (let s = 1; s <= VIEWPORT_K + 1; s++) {
+    const next = effectiveNextId(state, cur);
+    if (!next) break;
+    if (next === centerId) return -s;
+    cur = next;
+    if (cur === submissionId) break;
+  }
+
+  return null;
+}
+
+/**
+ * FR-20a: ephemeral inserts must only enter/leave OUTSIDE the visible band (center +-K).
+ * Mark an insert seen once it is within the band; remove it only after it has been seen
+ * and has moved past the LEFT edge (slot < -K, or beyond resolution), so neither the
+ * insertion nor the removal mutates any cabin currently within the visible band.
+ */
 export function updateEphemeralVisibility(state: TrainViewState): TrainViewState {
   const toRemove = new Set<string>();
   const inserts = state.ephemeralInserts.map((ins) => {
-    const visible = isWithinKSlots(state, ins.submissionId);
+    const slot = ephemeralSignedSlot(state, ins.submissionId);
+    const visible = slot !== null && slot >= -VIEWPORT_K && slot <= VIEWPORT_K;
     if (visible) return { ...ins, seenInViewport: true };
-    if (ins.seenInViewport && !visible) {
+    if (ins.seenInViewport && (slot === null || slot < -VIEWPORT_K)) {
       toRemove.add(ins.submissionId);
       return null;
     }
@@ -282,19 +330,35 @@ export function applyEphemeralInsert(
     return state;
   }
 
+  const current = state.base.current;
+  const n = state.base.nodes.length;
+
+  // Compute anchor/resume on the CURRENT effective ring (before appending the new
+  // node) so the new cabin lands at slot +K+1 — just outside the visible band.
+  let anchorId = current?.submission.id ?? null;
+  if (anchorId) {
+    for (let i = 0; i < VIEWPORT_K; i++) {
+      const next = effectiveNextId(state, anchorId);
+      if (!next) break;
+      anchorId = next;
+    }
+  }
+  const resumeId = anchorId ? effectiveNextId(state, anchorId) : null;
+
   const base = { ...state.base, nodes: [...state.base.nodes] };
   appendToBaseRing(base, submission);
 
-  const current = base.current;
-  if (!current) {
+  // No center, or the whole ring fits on screen (n <= 2K+1): there is no off-screen
+  // region, so appending is unavoidably visible — append chronologically with no
+  // ephemeral surgery (FR-20a small-ring exception).
+  if (!current || !anchorId || !resumeId || n <= VISIBLE_SLOT_COUNT) {
     return { ...state, base, ephemeralInserts: state.ephemeralInserts };
   }
 
-  const resumeId = current.next!.submission.id;
   const insert: EphemeralInsert = {
     submissionId: submission.id,
     seenInViewport: false,
-    afterId: current.submission.id,
+    afterId: anchorId,
     resumeId,
   };
 
@@ -447,8 +511,12 @@ function getJumpRenderWindow(state: TrainViewState): TrainCabinNode[] {
   const ordered: TrainCabinNode[] = [];
   const seen = new Set<number>();
 
+  const ephemeralIds = new Set(state.ephemeralInserts.map((e) => e.submissionId));
   const addNode = (node: TrainCabinNode | null | undefined) => {
     if (!node || collapsed.has(node.submission.id) || seen.has(node.index)) return;
+    // Ephemeral inserts render via the splice in appendEphemeralInserts, not at their
+    // base-ring position (FR-20a) — skip them here.
+    if (ephemeralIds.has(node.submission.id)) return;
     seen.add(node.index);
     ordered.push(node);
   };
@@ -491,6 +559,7 @@ export function getRenderWindow(state: TrainViewState): TrainCabinNode[] {
   const centerIdx = chain.current.index;
   const slotCount = LEFT_RENDER + 1 + RIGHT_RENDER;
   const startIdx = (centerIdx - LEFT_RENDER + n) % n;
+  const ephemeralIds = new Set(state.ephemeralInserts.map((e) => e.submissionId));
 
   const ordered: TrainCabinNode[] = [];
   const seen = new Set<number>();
@@ -498,6 +567,9 @@ export function getRenderWindow(state: TrainViewState): TrainCabinNode[] {
   for (let i = 0; i < slotCount; i++) {
     const idx = (startIdx + i) % n;
     if (seen.has(idx)) continue;
+    // Ephemeral inserts render via the splice (a few slots ahead of center), not at
+    // their base-ring tail position (FR-20a) — skip them in the base walk.
+    if (ephemeralIds.has(chain.nodes[idx]!.submission.id)) continue;
     seen.add(idx);
     ordered.push(chain.nodes[idx]!);
   }

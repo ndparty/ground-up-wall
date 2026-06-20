@@ -14,7 +14,6 @@ import {
   reduceTrainViewEvent,
   shouldCollapseJump,
   snapToCabin,
-  updateEphemeralVisibility,
 } from "./train_view.ts";
 import { LEFT_RENDER, RIGHT_RENDER, VIEWPORT_K } from "./train_view_constants.ts";
 import type { Submission } from "../types.ts";
@@ -183,22 +182,65 @@ Deno.test("wrap jump 40 to 3 uses forward path only", () => {
   assertEquals(getCurrentCabin(state), 3);
 });
 
-Deno.test("ephemeral insert appears after current and evicts after leaving viewport", () => {
+Deno.test("FR-20a: ephemeral insert lands just outside visible band and leaves it unchanged", () => {
   let state = initTrainView(makeSubmissions(20));
-  state = snapToCabin(state, 2);
-  const newSub = makeSubmission("new-1", 99);
-  state = applyEphemeralInsert(state, newSub);
+  state = snapToCabin(state, 8);
+  const centerId = state.base.current!.submission.id;
+  const before = getRenderWindow(state);
+  const beforeCenter = before.findIndex((n) => n.submission.id === centerId);
 
+  state = applyEphemeralInsert(state, makeSubmission("new-1", 99));
   assertEquals(state.ephemeralInserts.length, 1);
 
-  state = advanceOneStep(state);
-  assertEquals(state.base.current?.submission.id, "new-1");
+  const after = getRenderWindow(state);
+  const afterCenter = after.findIndex((n) => n.submission.id === centerId);
+  const newPos = after.findIndex((n) => n.submission.id === "new-1");
 
-  for (let i = 0; i < VIEWPORT_K + 6; i++) {
+  // New cabin renders at +K+1 — one slot beyond the right edge of the visible band.
+  assertEquals(newPos, afterCenter + VIEWPORT_K + 1);
+
+  // Every cabin within the visible band (+-K) is identical before and after the insert.
+  for (let off = -VIEWPORT_K; off <= VIEWPORT_K; off++) {
+    assertEquals(
+      after[afterCenter + off]?.submission.id,
+      before[beforeCenter + off]?.submission.id,
+    );
+  }
+});
+
+Deno.test("FR-20a: ephemeral insert is shown then evicted only after leaving the left edge", () => {
+  let state = initTrainView(makeSubmissions(20));
+  state = snapToCabin(state, 8);
+  state = applyEphemeralInsert(state, makeSubmission("new-1", 99));
+
+  // Not centered yet — it sits off-screen to the right at insert time.
+  assertEquals(state.base.current?.submission.id === "new-1", false);
+
+  let became = false;
+  for (let i = 0; i < VIEWPORT_K + 2; i++) {
     state = applyServerAdvance(state);
-    state = updateEphemeralVisibility(state);
+    if (state.base.current?.submission.id === "new-1") {
+      became = true;
+      break;
+    }
+  }
+  assertEquals(became, true);
+  assertEquals(state.ephemeralInserts.length, 1);
+
+  // Advance past it; eviction happens only once it is beyond the left edge.
+  for (let i = 0; i < VIEWPORT_K + 2; i++) {
+    state = applyServerAdvance(state);
   }
   assertEquals(state.ephemeralInserts.length, 0);
+});
+
+Deno.test("FR-20a: small ring (n <= 2K+1) appends without ephemeral surgery", () => {
+  let state = initTrainView(makeSubmissions(VIEWPORT_K * 2 + 1));
+  state = snapToCabin(state, 1);
+  state = applyEphemeralInsert(state, makeSubmission("new-small", 99));
+
+  assertEquals(state.ephemeralInserts.length, 0);
+  assertEquals(state.base.nodes.some((n) => n.submission.id === "new-small"), true);
 });
 
 Deno.test("reduceTrainViewEvent determinism — same events same state", () => {
