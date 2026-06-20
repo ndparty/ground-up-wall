@@ -188,7 +188,9 @@ function SubmissionCard({
                 </p>
                 {submission.edit_count > 0 && (
                   <p style="margin: 0.25rem 0 0; font-size: 0.8rem; color: #666; font-style: italic;">
-                    Edited{submission.edited_by ? ` (moderator ${submission.edited_by})` : ""}
+                    Edited{submission.edited_by
+                      ? ` (moderator ${submission.edited_by_username ?? submission.edited_by})`
+                      : ""}
                     {submission.edit_count > 1 ? ` · ${submission.edit_count} edits` : ""}
                   </p>
                 )}

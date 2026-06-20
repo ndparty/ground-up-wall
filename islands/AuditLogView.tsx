@@ -77,7 +77,7 @@ export default function AuditLogView() {
               {entries.map((e) => (
                 <tr key={e.id} style="border-bottom: 1px solid #eee;">
                   <td style="padding: 0.5rem;">{new Date(e.timestamp).toISOString()}</td>
-                  <td>{e.moderator_id}</td>
+                  <td>{e.moderator_username ?? e.moderator_id}</td>
                   <td>{e.action_type}</td>
                   <td>{e.target_type}:{e.target_id}</td>
                   <td style="max-width: 160px; overflow: hidden; text-overflow: ellipsis;">

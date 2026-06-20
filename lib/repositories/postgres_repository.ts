@@ -31,6 +31,7 @@ type SubmissionRow = {
   approved_by: string | null;
   approved_at: Date | null;
   edited_by: string | null;
+  edited_by_username?: string | null;
   edited_at: Date | null;
   edit_count: number;
   created_at: Date;
@@ -50,6 +51,7 @@ type UserRow = {
 type AuditRow = {
   id: string;
   moderator_id: string;
+  moderator_username?: string | null;
   action_type: string;
   target_type: string;
   target_id: string;
@@ -85,6 +87,7 @@ function mapSubmission(row: SubmissionRow): Submission {
     approved_by: row.approved_by ?? undefined,
     approved_at: toIso(row.approved_at),
     edited_by: row.edited_by ?? undefined,
+    edited_by_username: row.edited_by_username ?? undefined,
     edited_at: toIso(row.edited_at),
     edit_count: row.edit_count,
     created_at: row.created_at.toISOString(),
@@ -130,6 +133,7 @@ function mapAudit(row: AuditRow): AuditEntry {
   return {
     id: row.id,
     moderator_id: row.moderator_id,
+    moderator_username: row.moderator_username ?? undefined,
     action_type: row.action_type,
     target_type: row.target_type,
     target_id: row.target_id,
@@ -208,7 +212,10 @@ export class PostgresRepository implements Repository {
 
   async getSubmissionsByStatus(status: Submission["status"]): Promise<Submission[]> {
     const rows = await this.query<SubmissionRow>(
-      `SELECT * FROM submissions WHERE status = $1 ORDER BY created_at ASC`,
+      `SELECT s.*, u.username AS edited_by_username
+       FROM submissions s
+       LEFT JOIN users u ON u.id::text = s.edited_by
+       WHERE s.status = $1 ORDER BY s.created_at ASC`,
       [status],
     );
     return rows.map(mapSubmission);
@@ -447,7 +454,10 @@ export class PostgresRepository implements Repository {
 
     const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
     const rows = await this.query<AuditRow>(
-      `SELECT * FROM audit_log ${where} ORDER BY timestamp DESC`,
+      `SELECT a.*, u.username AS moderator_username
+       FROM audit_log a
+       LEFT JOIN users u ON u.id::text = a.moderator_id
+       ${where} ORDER BY a.timestamp DESC`,
       params,
     );
     return rows.map(mapAudit);

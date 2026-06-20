@@ -12,6 +12,7 @@ export interface Submission {
   approved_by?: string;
   approved_at?: string;
   edited_by?: string;
+  edited_by_username?: string;
   edited_at?: string;
   edit_count: number;
   created_at: string;
@@ -85,6 +86,7 @@ export interface DisplayWallUser {
 export interface AuditEntry {
   id: string;
   moderator_id: string;
+  moderator_username?: string;
   action_type: string;
   target_type: string;
   target_id: string;
