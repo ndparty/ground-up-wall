@@ -40,6 +40,16 @@ export function validateParameterValue(key: string, value: string): string | nul
       }
       return null;
     }
+    case "system_killswitch_enabled":
+      if (value !== "true" && value !== "false") {
+        return "system_killswitch_enabled must be 'true' or 'false'";
+      }
+      return null;
+    case "uploads_enabled":
+      if (value !== "true" && value !== "false") {
+        return "uploads_enabled must be 'true' or 'false'";
+      }
+      return null;
     default:
       return `Unknown parameter key: ${key}`;
   }
@@ -76,6 +86,8 @@ export const PARAMETER_LABELS: Record<string, string> = {
   default_placeholder_image: "Default placeholder image URL",
   pow_challenge_enabled: "Proof-of-work challenge (upload + login)",
   qr_cabin_interval: "QR cabin interval (every N cabins, 0 = off)",
+  system_killswitch_enabled: "Event killswitch (disable everything except login + admin)",
+  uploads_enabled: "Public uploads enabled",
 };
 
 export const PARAMETER_CATEGORIES: Record<string, string> = {
@@ -87,4 +99,6 @@ export const PARAMETER_CATEGORIES: Record<string, string> = {
   default_placeholder_image: "Display Override",
   pow_challenge_enabled: "Security",
   qr_cabin_interval: "Display",
+  system_killswitch_enabled: "Event",
+  uploads_enabled: "Event",
 };

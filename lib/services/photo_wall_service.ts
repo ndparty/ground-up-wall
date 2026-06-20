@@ -46,6 +46,8 @@ export class PhotoWallService {
   private readonly playback: TrainPlaybackController;
   private playbackInitialized = false;
   private powFlagCache?: { value: boolean; at: number };
+  private killswitchCache?: { value: boolean; at: number };
+  private uploadsEnabledCache?: { value: boolean; at: number };
 
   constructor(
     private repository: Repository,
@@ -308,6 +310,30 @@ export class PhotoWallService {
     const config = await this.repository.getSystemConfig("pow_challenge_enabled");
     const value = config?.value === "true";
     this.powFlagCache = { value, at: now };
+    return value;
+  }
+
+  /** Event killswitch (NFR): when on, everything except login + admin is disabled. */
+  async isKillswitchEnabled(): Promise<boolean> {
+    const now = Date.now();
+    if (this.killswitchCache && now - this.killswitchCache.at < 5_000) {
+      return this.killswitchCache.value;
+    }
+    const config = await this.repository.getSystemConfig("system_killswitch_enabled");
+    const value = config?.value === "true";
+    this.killswitchCache = { value, at: now };
+    return value;
+  }
+
+  /** Whether public uploads are accepted (admin toggle; defaults to enabled). */
+  async areUploadsEnabled(): Promise<boolean> {
+    const now = Date.now();
+    if (this.uploadsEnabledCache && now - this.uploadsEnabledCache.at < 5_000) {
+      return this.uploadsEnabledCache.value;
+    }
+    const config = await this.repository.getSystemConfig("uploads_enabled");
+    const value = config?.value !== "false";
+    this.uploadsEnabledCache = { value, at: now };
     return value;
   }
 

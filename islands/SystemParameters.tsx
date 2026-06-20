@@ -170,11 +170,13 @@ export default function SystemParameters() {
                     )}
                   </div>
                 )
-                : p.key === "pow_challenge_enabled"
+                : (p.key === "pow_challenge_enabled" ||
+                    p.key === "system_killswitch_enabled" ||
+                    p.key === "uploads_enabled")
                 ? (
                   <select
                     aria-label={PARAMETER_LABELS[p.key] ?? p.key}
-                    value={drafts[p.key] ?? "false"}
+                    value={drafts[p.key] ?? (p.key === "uploads_enabled" ? "true" : "false")}
                     onChange={(e) =>
                       setDrafts({ ...drafts, [p.key]: (e.target as HTMLSelectElement).value })}
                   >

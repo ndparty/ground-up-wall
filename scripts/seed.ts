@@ -29,6 +29,8 @@ const SYSTEM_DEFAULTS = [
   { key: "default_placeholder_image", value: "", default_value: "" },
   { key: "pow_challenge_enabled", value: "false", default_value: "false" },
   { key: "qr_cabin_interval", value: "15", default_value: "15" },
+  { key: "system_killswitch_enabled", value: "false", default_value: "false" },
+  { key: "uploads_enabled", value: "true", default_value: "true" },
 ] as const;
 
 export interface SeedResult {
