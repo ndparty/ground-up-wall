@@ -3,4 +3,5 @@ _fresh/
 *.log
 uploads/
 .env
+.dev/
 node_modules/

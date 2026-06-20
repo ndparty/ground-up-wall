@@ -1,5 +1,5 @@
 import { Client } from "@db/postgres";
-import { normalizeDatabaseUrl } from "../db_url.ts";
+import { createPostgresClient } from "../db_url.ts";
 import type { Repository } from "../interfaces/repository.ts";
 import type {
   AuditEntry,
@@ -154,7 +154,7 @@ export class PostgresRepository implements Repository {
   private connected = false;
 
   constructor(databaseUrl: string) {
-    this.client = new Client(normalizeDatabaseUrl(databaseUrl));
+    this.client = createPostgresClient(databaseUrl);
   }
 
   async connect(): Promise<void> {

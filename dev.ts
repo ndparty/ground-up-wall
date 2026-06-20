@@ -6,5 +6,6 @@ const builder = new Builder(freshConfig);
 if (Deno.args.includes("build")) {
   await builder.build();
 } else {
-  await builder.listen(() => import("./main.ts"));
+  const port = Number(Deno.env.get("PORT") ?? "8000");
+  await builder.listen(() => import("./main.ts"), { port });
 }

@@ -61,6 +61,14 @@ For a step-by-step demo walkthrough, see **[DEMO.md](DEMO.md)**.
    deno task db:seed
    ```
 
+   **Optional — populate the display train** with 40 approved demo submissions (numbered placeholder images):
+
+   ```bash
+   deno task db:seed:demos
+   ```
+
+   Re-run with fresh demo data: `deno run -A scripts/seed_demo_submissions.ts --force`
+
 7. **Start the dev server:**
 
    ```bash
@@ -114,7 +122,7 @@ Automated checks cover audit-log integrity (`deno task test:e2e:smoke --filter a
 routes/          Fresh pages and API handlers
 islands/         Interactive Preact components
 lib/             Services, repositories, validation
-scripts/         migrate.ts, seed.ts
+scripts/         migrate.ts, seed.ts, seed_demo_submissions.ts
 tests/e2e/       End-to-end integration tests
 static/          CSS and assets
 uploads/         Uploaded images (created at runtime)
@@ -128,6 +136,7 @@ Uploaded images are served at `/submissions/`, `/placeholders/`, and `/overrides
 | Problem | Fix |
 |---------|-----|
 | `Connection refused` to Postgres | Ensure PostgreSQL is running; verify `DATABASE_URL` |
+| SSL / TLS errors (`Could not check if server accepts SSL`, response `69` or `0`) | Local dev auto-appends `sslmode=disable` for loopback hosts; ensure Postgres is running (`Get-Service postgresql*` on Windows) |
 | Migration errors | Run `deno task db:migrate` on a clean database |
 | Tests fail with auth errors | Create `ground_up_wall_test`; set `DATABASE_URL_TEST`; avoid running dev server against the test DB during `deno task test` |
 | Seed says admin exists | Idempotent — safe to re-run |
