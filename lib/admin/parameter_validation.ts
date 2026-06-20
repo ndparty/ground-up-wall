@@ -33,6 +33,13 @@ export function validateParameterValue(key: string, value: string): string | nul
         return "pow_challenge_enabled must be 'true' or 'false'";
       }
       return null;
+    case "qr_cabin_interval": {
+      const n = Number.parseInt(value, 10);
+      if (!Number.isFinite(n) || n < 0 || n > 999) {
+        return "qr_cabin_interval must be an integer between 0 and 999 (0 disables)";
+      }
+      return null;
+    }
     default:
       return `Unknown parameter key: ${key}`;
   }
@@ -68,6 +75,7 @@ export const PARAMETER_LABELS: Record<string, string> = {
   auto_moderator_word_list: "Auto-moderator word list",
   default_placeholder_image: "Default placeholder image URL",
   pow_challenge_enabled: "Proof-of-work challenge (upload + login)",
+  qr_cabin_interval: "QR cabin interval (every N cabins, 0 = off)",
 };
 
 export const PARAMETER_CATEGORIES: Record<string, string> = {
@@ -78,4 +86,5 @@ export const PARAMETER_CATEGORIES: Record<string, string> = {
   auto_moderator_word_list: "Moderation",
   default_placeholder_image: "Display Override",
   pow_challenge_enabled: "Security",
+  qr_cabin_interval: "Display",
 };

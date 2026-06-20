@@ -1,13 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
-import type { DisplayOverrideCommand, TrainCommand } from "../interfaces/realtime_service.ts";
-import type { Submission } from "../types.ts";
-import type { User } from "../types.ts";
+import type { TrainCommand, TrainStep } from "../interfaces/realtime_service.ts";
+import type { Submission, User } from "../types.ts";
 import {
+  addApproved,
+  applyServerWindow,
+  advanceJumpStep,
+  beginJump,
+  getCanonicalCount,
   getCurrentCabin,
   initTrainView,
   needsAnimationStep,
-  reduceTrainViewEvent,
+  removeSubmissionFromView,
   type TrainViewState,
+  updateSubmissionInView,
 } from "./train_view.ts";
 
 interface ServerPlaybackState {
@@ -15,6 +20,12 @@ interface ServerPlaybackState {
   currentCabin: number;
   dwellSeconds?: number;
   lastTransitionAt?: number;
+  window?: TrainStep[];
+}
+
+interface PendingAdvance {
+  window: TrainStep[];
+  currentCabin: number;
 }
 
 function parseSseData<T>(event: MessageEvent): T | null {
@@ -25,20 +36,6 @@ function parseSseData<T>(event: MessageEvent): T | null {
   }
 }
 
-function applyServerPlayback(
-  prev: TrainViewState,
-  playback: ServerPlaybackState,
-): TrainViewState {
-  if (prev.jump || needsAnimationStep(prev)) return prev;
-  if (prev.base.nodes.length > 0 && playback.currentCabin) {
-    return reduceTrainViewEvent(prev, {
-      type: "snap",
-      cabinNumber: playback.currentCabin,
-    });
-  }
-  return prev;
-}
-
 export interface UseTrainPlaybackResult {
   trainView: TrainViewState;
   isPlaying: boolean;
@@ -46,7 +43,6 @@ export interface UseTrainPlaybackResult {
   currentCabin: number;
   trainLength: number;
   pendingAdvances: number;
-  setTrainView: (updater: (prev: TrainViewState) => TrainViewState) => void;
   applyAnimationStep: () => void;
   commitAdvance: () => void;
   commitJumpTarget: () => void;
@@ -72,63 +68,44 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
   const [userRole, setUserRole] = useState<User["role"] | null>(null);
   const [bootstrapComplete, setBootstrapComplete] = useState(false);
   const [pendingAdvances, setPendingAdvances] = useState(0);
+
   const isPlayingRef = useRef(isPlaying);
-  const pendingUpdates = useRef<Array<(prev: TrainViewState) => TrainViewState>>([]);
-  const pendingAdvancesRef = useRef(0);
+  const pendingRef = useRef<PendingAdvance[]>([]);
   const trainViewRef = useRef(trainView);
   isPlayingRef.current = isPlaying;
   trainViewRef.current = trainView;
 
-  function enqueueAdvance(): void {
-    pendingAdvancesRef.current += 1;
-    setPendingAdvances(pendingAdvancesRef.current);
-  }
-
-  function clearPendingAdvances(): void {
-    pendingAdvancesRef.current = 0;
+  function clearPending(): void {
+    pendingRef.current = [];
     setPendingAdvances(0);
   }
 
-  const setTrainView = useCallback((updater: (prev: TrainViewState) => TrainViewState) => {
-    if (!bootstrapComplete) {
-      pendingUpdates.current.push(updater);
-      return;
-    }
-    setTrainViewState(updater);
-  }, [bootstrapComplete]);
-
-  function flushPending(base: TrainViewState): TrainViewState {
-    let next = base;
-    for (const updater of pendingUpdates.current) {
-      next = updater(next);
-    }
-    pendingUpdates.current = [];
-    return next;
+  function enqueueAdvance(advance: PendingAdvance): void {
+    pendingRef.current = [...pendingRef.current, advance];
+    setPendingAdvances(pendingRef.current.length);
   }
 
   const applyAnimationStep = useCallback(() => {
-    setTrainViewState((prev) => {
-      if (!needsAnimationStep(prev)) return prev;
-      return reduceTrainViewEvent(prev, { type: "animation_step" });
-    });
+    setTrainViewState((prev) => (needsAnimationStep(prev) ? advanceJumpStep(prev) : prev));
   }, []);
 
   const commitAdvance = useCallback(() => {
-    setTrainViewState((prev) => {
-      if (prev.jump) return prev;
-      return reduceTrainViewEvent(prev, { type: "advance" });
-    });
-    pendingAdvancesRef.current = Math.max(0, pendingAdvancesRef.current - 1);
-    setPendingAdvances(pendingAdvancesRef.current);
+    const next = pendingRef.current[0];
+    pendingRef.current = pendingRef.current.slice(1);
+    setPendingAdvances(pendingRef.current.length);
+    if (!next) return;
+    setTrainViewState((prev) => applyServerWindow(prev, next.window, next.currentCabin));
   }, []);
 
   const commitJumpTarget = useCallback(() => {
     setTrainViewState((prev) => {
       if (!prev.jump) return prev;
-      return reduceTrainViewEvent(prev, {
-        type: "snap",
-        cabinNumber: prev.jump.targetCabin,
-      });
+      return {
+        ...prev,
+        window: prev.jump.pendingWindow,
+        currentCabin: prev.jump.pendingCurrentCabin || prev.currentCabin,
+        jump: null,
+      };
     });
   }, []);
 
@@ -138,8 +115,16 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
     const data = await res.json();
     if (data.playback) {
       setIsPlaying(data.playback.isPlaying ?? true);
-      clearPendingAdvances();
-      setTrainViewState((prev) => applyServerPlayback(prev, data.playback));
+      clearPending();
+      setTrainViewState((prev) => {
+        const withCanon = initTrainView(data.submissions as Submission[]);
+        const merged: TrainViewState = { ...withCanon, currentCabin: prev.currentCabin };
+        return applyServerWindow(
+          merged,
+          (data.playback.window as TrainStep[]) ?? [],
+          data.playback.currentCabin ?? 0,
+        );
+      });
     }
   }, []);
 
@@ -163,16 +148,13 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
         let state = initTrainView(data.submissions as Submission[]);
         if (data.playback) {
           setIsPlaying(data.playback.isPlaying ?? true);
-          if (state.base.nodes.length > 0 && data.playback.currentCabin) {
-            state = reduceTrainViewEvent(state, {
-              type: "snap",
-              cabinNumber: data.playback.currentCabin,
-            });
-          }
+          state = applyServerWindow(
+            state,
+            (data.playback.window as TrainStep[]) ?? [],
+            data.playback.currentCabin ?? 0,
+          );
         }
-        setTrainViewState(flushPending(state));
-      } else {
-        setTrainViewState((prev) => flushPending(prev));
+        setTrainViewState(state);
       }
       setBootstrapComplete(true);
     }
@@ -191,21 +173,19 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
     es.addEventListener("submission_approved", (event) => {
       const submission = parseSseData<Submission>(event);
       if (!submission) return;
-      setTrainViewState((prev) =>
-        reduceTrainViewEvent(prev, { type: "approved", submission })
-      );
+      setTrainViewState((prev) => addApproved(prev, submission));
     });
 
     es.addEventListener("submission_edited", (event) => {
       const submission = parseSseData<Submission>(event);
       if (!submission) return;
-      setTrainViewState((prev) => reduceTrainViewEvent(prev, { type: "edited", submission }));
+      setTrainViewState((prev) => updateSubmissionInView(prev, submission));
     });
 
     es.addEventListener("submission_deleted", (event) => {
       const payload = parseSseData<{ id: string }>(event);
       if (!payload) return;
-      setTrainViewState((prev) => reduceTrainViewEvent(prev, { type: "deleted", id: payload.id }));
+      setTrainViewState((prev) => removeSubmissionFromView(prev, payload.id));
     });
 
     es.addEventListener("train_command", (event) => {
@@ -214,23 +194,23 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
 
       if (command.type === "pause") {
         setIsPlaying(false);
-        clearPendingAdvances();
+        clearPending();
         return;
       }
       if (command.type === "play") {
         setIsPlaying(true);
         return;
       }
-      if (command.type === "advance" && command.cabinNumber !== undefined) {
+      if (command.type === "advance" && command.window) {
         if (!isPlayingRef.current) return;
-        const prev = trainViewRef.current;
-        if (prev.jump || needsAnimationStep(prev)) return;
-        enqueueAdvance();
+        if (needsAnimationStep(trainViewRef.current)) return;
+        enqueueAdvance({ window: command.window, currentCabin: command.currentCabin ?? 0 });
         return;
       }
-      if (command.type === "jump" && command.cabinNumber !== undefined) {
+      if (command.type === "jump" && command.window && command.cabinNumber !== undefined) {
+        clearPending();
         setTrainViewState((prev) =>
-          reduceTrainViewEvent(prev, { type: "jump", cabinNumber: command.cabinNumber! })
+          beginJump(prev, command.cabinNumber!, command.window!, command.currentCabin ?? 0)
         );
       }
     });
@@ -239,12 +219,8 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
       const playback = parseSseData<ServerPlaybackState>(event);
       if (!playback) return;
       setIsPlaying(playback.isPlaying);
-      clearPendingAdvances();
-      setTrainViewState((prev) => applyServerPlayback(prev, playback));
-    });
-
-    es.addEventListener("display_override", () => {
-      // override handled by TrainDisplay
+      clearPending();
+      setTrainViewState((prev) => applyServerWindow(prev, playback.window ?? [], playback.currentCabin));
     });
 
     es.onerror = () => es.close();
@@ -254,11 +230,9 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
   async function pauseTrain(): Promise<boolean> {
     const wasPlaying = isPlaying;
     setIsPlaying(false);
-    clearPendingAdvances();
+    clearPending();
     const ok = await publishTrainCommand({ type: "pause" });
-    if (!ok) {
-      setIsPlaying(wasPlaying);
-    }
+    if (!ok) setIsPlaying(wasPlaying);
     return ok;
   }
 
@@ -279,9 +253,8 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
     isPlaying,
     userRole,
     currentCabin: getCurrentCabin(trainView),
-    trainLength: trainView.base.nodes.length,
+    trainLength: getCanonicalCount(trainView),
     pendingAdvances,
-    setTrainView,
     applyAnimationStep,
     commitAdvance,
     commitJumpTarget,
@@ -293,4 +266,4 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
   };
 }
 
-export type { DisplayOverrideCommand, ServerPlaybackState };
+export type { ServerPlaybackState };

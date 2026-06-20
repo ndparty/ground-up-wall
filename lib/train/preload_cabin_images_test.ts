@@ -48,7 +48,7 @@ Deno.test("imageUrlsForJumpPath skips missing cabins", () => {
 
 Deno.test("cabinsForJumpPreload appends K ring slots after target", () => {
   const path = [8, 9, 10, 11, 12, 16, 17, 18, 19, 20];
-  assertEquals(cabinsForJumpPreload(path, 20, 40), [
+  assertEquals(cabinsForJumpPreload(path, 20, 40, 4), [
     8, 9, 10, 11, 12, 16, 17, 18, 19, 20, 21, 22, 23, 24,
   ]);
 });

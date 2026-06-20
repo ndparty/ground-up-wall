@@ -2,9 +2,22 @@ import type { Submission, SystemConfig } from "../types.ts";
 
 export type UnsubscribeFn = () => void;
 
+/** One generated cabin slot on the display tape (FR-20a generator model). */
+export interface TrainStep {
+  /** Monotonic id, unique per emission — used as the render/DOM key. */
+  seq: number;
+  kind: "post" | "qr";
+  /** Approved submission id for `post` steps (id-based; resolved client-side). */
+  submissionId?: string;
+}
+
 export interface TrainCommand {
   type: "pause" | "play" | "jump" | "advance";
   cabinNumber?: number;
+  /** Server-authoritative window of generated cabins (advance + jump). */
+  window?: TrainStep[];
+  /** Position (1-based) of the centered post within the canonical list. */
+  currentCabin?: number;
 }
 
 export interface DisplayOverrideCommand {

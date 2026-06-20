@@ -2,6 +2,10 @@ import { assertEquals } from "@std/assert";
 import type { TrainCommand } from "../interfaces/realtime_service.ts";
 import { TrainPlaybackController } from "./train_playback_controller.ts";
 
+function ids(n: number): string[] {
+  return Array.from({ length: n }, (_, i) => `c${i + 1}`);
+}
+
 function createTestController(initialNow = 1_000) {
   let now = initialNow;
   let scheduledDelay = -1;
@@ -42,26 +46,38 @@ function createTestController(initialNow = 1_000) {
   };
 }
 
+function rightEdge(cmd: TrainCommand) {
+  return cmd.window?.[cmd.window.length - 1];
+}
+
 Deno.test("initialize schedules tick when playing with cabins", () => {
   const harness = createTestController();
-  harness.controller.initialize(15, 3);
+  harness.controller.initialize(15, ids(10));
   assertEquals(harness.scheduledDelay, 15_000);
+  assertEquals(harness.controller.getState().currentCabin, 1);
+  assertEquals(harness.controller.getState().window.length > 0, true);
 });
 
-Deno.test("advance wraps cabin count and publishes advance command", () => {
+Deno.test("advance emits next sequential post at right edge and moves center", () => {
   const { controller, published, fireScheduled } = createTestController();
-  controller.initialize(10, 3);
-  controller.handleUserCommand({ type: "jump", cabinNumber: 3 });
+  controller.initialize(10, ids(10));
   published.length = 0;
 
   fireScheduled();
-  assertEquals(published, [{ type: "advance", cabinNumber: 1 }]);
-  assertEquals(controller.getState().currentCabin, 1);
+  assertEquals(published.length, 1);
+  const cmd = published[0];
+  assertEquals(cmd.type, "advance");
+  // Center was c1 (index 0); after one step it is c2.
+  assertEquals(cmd.currentCabin, 2);
+  assertEquals(controller.getState().currentCabin, 2);
+  // Right edge is the newly generated sequential post.
+  assertEquals(rightEdge(cmd)?.kind, "post");
+  assertEquals(rightEdge(cmd)?.submissionId, "c6");
 });
 
 Deno.test("pause cancels scheduled tick and publishes pause", () => {
   const { controller, published, hasScheduled } = createTestController();
-  controller.initialize(10, 2);
+  controller.initialize(10, ids(3));
   published.length = 0;
 
   controller.handleUserCommand({ type: "pause" });
@@ -71,7 +87,7 @@ Deno.test("pause cancels scheduled tick and publishes pause", () => {
 
 Deno.test("play resumes scheduling from full dwell", () => {
   const harness = createTestController();
-  harness.controller.initialize(12, 2);
+  harness.controller.initialize(12, ids(3));
   harness.controller.handleUserCommand({ type: "pause" });
   harness.published.length = 0;
 
@@ -80,41 +96,46 @@ Deno.test("play resumes scheduling from full dwell", () => {
   assertEquals(harness.scheduledDelay, 12_000);
 });
 
-Deno.test("jump resets dwell timer and publishes cabin", () => {
+Deno.test("jump recenters the window and publishes target", () => {
   const harness = createTestController();
-  harness.controller.initialize(10, 5);
+  harness.controller.initialize(10, ids(10));
   harness.advanceTime(4_000);
   harness.published.length = 0;
 
   harness.controller.handleUserCommand({ type: "jump", cabinNumber: 4 });
-  assertEquals(harness.published, [{ type: "jump", cabinNumber: 4 }]);
+  const cmd = harness.published[0];
+  assertEquals(cmd.type, "jump");
+  assertEquals(cmd.cabinNumber, 4);
+  assertEquals(cmd.currentCabin, 4);
+  assertEquals(harness.controller.getState().currentCabin, 4);
   assertEquals(harness.scheduledDelay, 10_000);
 });
 
-Deno.test("setCabinCount clamps current cabin", () => {
+Deno.test("setCabinIds clamps current cabin", () => {
   const { controller } = createTestController();
-  controller.initialize(10, 5);
+  controller.initialize(10, ids(5));
   controller.handleUserCommand({ type: "jump", cabinNumber: 5 });
-  controller.setCabinCount(2);
+  controller.setCabinIds(ids(2));
   assertEquals(controller.getState().currentCabin, 2);
 });
 
 Deno.test("setDwellSeconds reschedules with new dwell", () => {
   const harness = createTestController();
-  harness.controller.initialize(10, 2);
+  harness.controller.initialize(10, ids(2));
   harness.controller.setDwellSeconds(20);
   assertEquals(harness.scheduledDelay, 20_000);
 });
 
 Deno.test("zero cabins does not schedule", () => {
   const { controller, hasScheduled } = createTestController();
-  controller.initialize(10, 0);
+  controller.initialize(10, []);
   assertEquals(hasScheduled(), false);
+  assertEquals(controller.getState().window.length, 0);
 });
 
 Deno.test("pauseForOverride cancels timer without changing isPlaying", () => {
   const harness = createTestController();
-  harness.controller.initialize(10, 3);
+  harness.controller.initialize(10, ids(3));
   assertEquals(harness.controller.getState().isPlaying, true);
   harness.controller.pauseForOverride();
   assertEquals(harness.hasScheduled(), false);
@@ -123,8 +144,32 @@ Deno.test("pauseForOverride cancels timer without changing isPlaying", () => {
 
 Deno.test("resumeFromOverride reschedules when playing", () => {
   const harness = createTestController();
-  harness.controller.initialize(10, 3);
+  harness.controller.initialize(10, ids(3));
   harness.controller.pauseForOverride();
   harness.controller.resumeFromOverride();
   assertEquals(harness.scheduledDelay, 10_000);
+});
+
+Deno.test("enqueuePreview emits the preview ahead of the sequential post", () => {
+  const { controller, published, fireScheduled } = createTestController();
+  controller.initialize(10, ids(10));
+  published.length = 0;
+
+  controller.enqueuePreview("c10");
+  fireScheduled();
+  // The preview is emitted at the right edge instead of the next sequential cabin.
+  assertEquals(rightEdge(published[0])?.kind, "post");
+  assertEquals(rightEdge(published[0])?.submissionId, "c10");
+});
+
+Deno.test("qr interval enqueues a QR cabin every N emits (skip if already queued)", () => {
+  const { controller, published, fireScheduled } = createTestController();
+  controller.initialize(10, ids(10));
+  controller.setQrInterval(2);
+  published.length = 0;
+
+  fireScheduled(); // emit 1 -> sequential
+  assertEquals(rightEdge(published[0])?.kind, "post");
+  fireScheduled(); // emit 2 -> QR enqueued and dequeued same tick
+  assertEquals(rightEdge(published[1])?.kind, "qr");
 });

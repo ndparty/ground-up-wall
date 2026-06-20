@@ -21,6 +21,7 @@ export const handlers = define.handlers({
         currentCabin: playback.currentCabin,
         dwellSeconds: playback.dwellSeconds,
         lastTransitionAt: playback.lastTransitionAt,
+        window: playback.window,
       },
     });
   },

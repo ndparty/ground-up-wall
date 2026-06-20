@@ -15,15 +15,13 @@ import {
   waitForTrackTransition,
 } from "../lib/train/center_track.ts";
 import {
-  computeJumpAnimationPath,
-  getForwardSlideTargetId,
+  getCenterKey,
+  getForwardSlideTargetKey,
   getRenderWindow,
+  hasCabins as viewHasCabins,
+  needsAnimationStep,
 } from "../lib/train/train_view.ts";
-import {
-  cabinsForJumpPreload,
-  imageUrlsForJumpPath,
-  preloadCabinImages,
-} from "../lib/train/preload_cabin_images.ts";
+import { preloadCabinImages } from "../lib/train/preload_cabin_images.ts";
 import { slideDurationMs } from "../lib/train/slide_duration.ts";
 import { shouldShowTrainControls } from "../lib/train/playback.ts";
 import { useTrainPlayback } from "../lib/train/use_train_playback.ts";
@@ -48,7 +46,7 @@ export default function TrainDisplay() {
     trainLength,
     pendingAdvances,
     commitAdvance,
-    commitJumpTarget,
+    applyAnimationStep,
     pauseTrain,
     resumeTrain,
     jumpTrain,
@@ -59,27 +57,31 @@ export default function TrainDisplay() {
   const [overrideState, setOverrideState] = useState<OverrideState>({ type: "normal" });
   const [showFullscreenPrompt, setShowFullscreenPrompt] = useState(false);
   const [instantSnap, setInstantSnap] = useState(true);
-  const [jumpPathIds, setJumpPathIds] = useState<Set<string>>(() => new Set());
+  const [baseUrl, setBaseUrl] = useState("");
 
   const stageRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
   const cabinRefs = useRef<Map<string, HTMLElement>>(new Map());
   const trainViewRef = useRef(trainView);
-  const jumpPreloadTargetRef = useRef<number | null>(null);
   const isAnimatingRef = useRef(false);
   const pendingAdvancesRef = useRef(pendingAdvances);
   const isPlayingRef = useRef(isPlaying);
   const runOrchestratorRef = useRef<(() => void) | null>(null);
+  const jumpPreloadKeyRef = useRef<string | null>(null);
   const prevOverrideViewRef = useRef<"train" | "blank" | "placeholder">("train");
   trainViewRef.current = trainView;
   pendingAdvancesRef.current = pendingAdvances;
   isPlayingRef.current = isPlaying;
 
-  const hasCabins = trainView.base.nodes.length > 0;
-  const currentId = trainView.base.current?.submission.id;
   const renderNodes = getRenderWindow(trainView);
+  const hasCabins = viewHasCabins(trainView) && renderNodes.length > 0;
+  const centerKey = getCenterKey(trainView);
   const showControls = shouldShowTrainControls(userRole);
   const overrideView = resolveOverrideView(overrideState);
+
+  useEffect(() => {
+    setBaseUrl(globalThis.location?.host ?? "");
+  }, []);
 
   useEffect(() => {
     const dismissed = globalThis.localStorage?.getItem("display_wall_fullscreen_dismissed");
@@ -122,7 +124,7 @@ export default function TrainDisplay() {
 
     const ro = new ResizeObserver(() => {
       if (isAnimatingRef.current) return;
-      const active = currentId ? cabinRefs.current.get(currentId) : null;
+      const active = centerKey ? cabinRefs.current.get(centerKey) : null;
       if (!active) return;
       track.style.transition = "none";
       centerNow(stage, track, active);
@@ -131,7 +133,7 @@ export default function TrainDisplay() {
     ro.observe(stage);
     ro.observe(track);
     return () => ro.disconnect();
-  }, [hasCabins, currentId]);
+  }, [hasCabins, centerKey]);
 
   /** Flicker-free instant recenter after state commits (before paint). */
   useLayoutEffect(() => {
@@ -140,15 +142,15 @@ export default function TrainDisplay() {
 
     const stage = stageRef.current;
     const track = trackRef.current;
-    const active = currentId ? cabinRefs.current.get(currentId) : null;
+    const active = centerKey ? cabinRefs.current.get(centerKey) : null;
     if (!stage || !track || !active) return;
 
     track.style.transition = "none";
     centerNow(stage, track, active);
     requestAnimationFrame(() => clearTrackTransition(track));
-  }, [hasCabins, bootstrapComplete, currentId, renderNodes.length, overrideView]);
+  }, [hasCabins, bootstrapComplete, centerKey, renderNodes.length, overrideView]);
 
-  /** Snap to server cabin and recenter when returning from display override. */
+  /** Snap to server window and recenter when returning from display override. */
   useEffect(() => {
     const prev = prevOverrideViewRef.current;
     prevOverrideViewRef.current = overrideView;
@@ -167,8 +169,8 @@ export default function TrainDisplay() {
 
       const stage = stageRef.current;
       const track = trackRef.current;
-      const activeId = trainViewRef.current.base.current?.submission.id;
-      const active = activeId ? cabinRefs.current.get(activeId) : null;
+      const activeKey = getCenterKey(trainViewRef.current);
+      const active = activeKey ? cabinRefs.current.get(activeKey) : null;
       if (stage && track && active) {
         track.style.transition = "none";
         centerNow(stage, track, active);
@@ -189,16 +191,14 @@ export default function TrainDisplay() {
 
     let cancelled = false;
 
-    async function slideToElement(
-      targetEl: HTMLElement,
-      steps: number,
-    ): Promise<boolean> {
+    async function slideToKey(targetKey: string, steps: number): Promise<boolean> {
       const stage = stageRef.current;
       const track = trackRef.current;
-      if (!stage || !track) return false;
+      const el = cabinRefs.current.get(targetKey);
+      if (!stage || !track || !el) return false;
 
       const currentTx = readTranslateXFromElement(track);
-      const targetTx = computeTrackTranslateX(stage, track, targetEl);
+      const targetTx = computeTrackTranslateX(stage, track, el);
       if (targetTx > currentTx) return false;
 
       const duration = slideDurationMs(steps);
@@ -211,93 +211,53 @@ export default function TrainDisplay() {
       if (isAnimatingRef.current) return;
 
       const view = trainViewRef.current;
-      const jump = view.jump;
-      const hasJump = (jump?.stepsRemaining ?? 0) > 0;
+      const jumping = needsAnimationStep(view);
       const hasPendingAdvance = pendingAdvancesRef.current > 0;
-      if (!hasJump && !hasPendingAdvance) return;
+      if (!jumping && !hasPendingAdvance) return;
 
       isAnimatingRef.current = true;
       try {
-        if (hasJump && jump) {
-          if (jumpPreloadTargetRef.current !== jump.targetCabin) {
-            jumpPreloadTargetRef.current = jump.targetCabin;
-            const current = view.base.current;
-            if (!current) return;
-
-            const fromCabin = current.index + 1;
-            const path = computeJumpAnimationPath(
-              fromCabin,
-              jump.targetCabin,
-              view.base.nodes.length,
-            );
-            const preloadCabins = cabinsForJumpPreload(
-              path,
-              jump.targetCabin,
-              view.base.nodes.length,
-            );
-            const pathIds = new Set(
-              preloadCabins
-                .map((cabin) => view.base.nodes[cabin - 1]?.submission.id)
-                .filter((id): id is string => id !== undefined),
-            );
-            setJumpPathIds(pathIds);
-            await preloadCabinImages(
-              imageUrlsForJumpPath(preloadCabins, view.base.nodes),
-            );
+        if (jumping && view.jump) {
+          const jumpKey = `${view.jump.targetCabin}:${view.jump.stepsRemaining}`;
+          if (jumpPreloadKeyRef.current !== view.jump.targetCabin.toString()) {
+            jumpPreloadKeyRef.current = view.jump.targetCabin.toString();
+            const urls = view.jump.renderWindow
+              .map((c) => c.submission?.image_url)
+              .filter((u): u is string => !!u);
+            await preloadCabinImages(urls);
             if (cancelled) return;
             await waitForLayout();
           }
-
-          const fromCabin = view.base.current!.index + 1;
-          const path = computeJumpAnimationPath(
-            fromCabin,
-            jump.targetCabin,
-            view.base.nodes.length,
-          );
-          const steps = Math.max(0, path.length - 1);
-          const targetIdx = jump.targetCabin - 1;
-          const targetId = view.base.nodes[targetIdx]?.submission.id;
-          const targetEl = targetId ? cabinRefs.current.get(targetId) : null;
-
-          if (targetEl && steps > 0) {
-            const slid = await slideToElement(targetEl, steps);
+          void jumpKey;
+          const targetKey = getForwardSlideTargetKey(view);
+          if (targetKey) {
+            const ok = await slideToKey(targetKey, 1);
             if (cancelled) return;
-            if (!slid) {
-              commitJumpTarget();
+            if (!ok) {
+              applyAnimationStep();
               return;
             }
           }
-
-          commitJumpTarget();
-          jumpPreloadTargetRef.current = null;
-          setJumpPathIds(new Set());
+          applyAnimationStep();
           return;
         }
 
-        jumpPreloadTargetRef.current = null;
-        setJumpPathIds(new Set());
+        jumpPreloadKeyRef.current = null;
 
         if (pendingAdvancesRef.current > 0 && isPlayingRef.current) {
-          const nextId = getForwardSlideTargetId(view);
-          const nextEl = nextId ? cabinRefs.current.get(nextId) : null;
-
-          if (nextEl) {
-            const slid = await slideToElement(nextEl, 1);
+          const targetKey = getForwardSlideTargetKey(view);
+          if (targetKey) {
+            const ok = await slideToKey(targetKey, 1);
             if (cancelled) return;
-            if (!slid) {
+            if (!ok) {
               commitAdvance();
               return;
             }
           }
-
           commitAdvance();
         }
       } finally {
         isAnimatingRef.current = false;
-        if (!cancelled && !trainViewRef.current.jump && pendingAdvancesRef.current === 0) {
-          jumpPreloadTargetRef.current = null;
-          setJumpPathIds(new Set());
-        }
       }
     }
 
@@ -309,7 +269,7 @@ export default function TrainDisplay() {
       cancelled = true;
       runOrchestratorRef.current = null;
     };
-  }, [hasCabins, bootstrapComplete, commitAdvance, commitJumpTarget]);
+  }, [hasCabins, bootstrapComplete, commitAdvance, applyAnimationStep]);
 
   useEffect(() => {
     if (!hasCabins || !bootstrapComplete) return;
@@ -318,8 +278,8 @@ export default function TrainDisplay() {
     hasCabins,
     bootstrapComplete,
     pendingAdvances,
-    trainView.jump?.targetCabin,
     trainView.jump?.stepsRemaining,
+    trainView.jump?.centerIndex,
   ]);
 
   function dismissFullscreenPrompt() {
@@ -339,6 +299,14 @@ export default function TrainDisplay() {
   return (
     <div class="display-wall">
       <link rel="stylesheet" href="/train.css" />
+
+      {baseUrl && overrideView === "train" && (
+        <div class="display-wall__join-bar" aria-hidden="true">
+          <span class="display-wall__join-text">
+            Want in? Visit <strong>{baseUrl}</strong> on your phone to share a photo
+          </span>
+        </div>
+      )}
 
       {showFullscreenPrompt && (
         <div class="display-wall__fullscreen-prompt" role="dialog" aria-label="Fullscreen options">
@@ -410,18 +378,15 @@ export default function TrainDisplay() {
             >
               {renderNodes.map((node) => (
                 <TrainCabin
-                  key={node.submission.id}
-                  ref={(el) => {
-                    if (el) cabinRefs.current.set(node.submission.id, el);
-                    else cabinRefs.current.delete(node.submission.id);
+                  key={node.key}
+                  ref={(el: HTMLElement | null) => {
+                    if (el) cabinRefs.current.set(node.key, el);
+                    else cabinRefs.current.delete(node.key);
                   }}
+                  kind={node.kind}
                   submission={node.submission}
-                  isActive={node.submission.id === currentId}
-                  index={node.index}
-                  lazyImage={
-                    !jumpPathIds.has(node.submission.id) &&
-                    node.submission.id !== currentId
-                  }
+                  baseUrl={baseUrl}
+                  isActive={node.key === centerKey}
                 />
               ))}
             </div>

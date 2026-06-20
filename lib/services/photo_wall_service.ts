@@ -5,11 +5,12 @@ import type {
   DisplayOverrideCommand,
   RealtimeService,
   TrainCommand,
+  TrainStep,
   UnsubscribeFn,
 } from "../interfaces/realtime_service.ts";
 import type { Repository } from "../interfaces/repository.ts";
 import type { StorageService } from "../interfaces/storage_service.ts";
-import { parseDwellTime } from "../train/display_helpers.ts";
+import { parseDwellTime, parseQrInterval } from "../train/display_helpers.ts";
 import {
   TrainPlaybackController,
   type TrainPlaybackState,
@@ -68,6 +69,7 @@ export class PhotoWallService {
       currentCabin: playback.currentCabin,
       dwellSeconds: playback.dwellSeconds,
       lastTransitionAt: playback.lastTransitionAt,
+      window: playback.window,
     });
   }
 
@@ -189,6 +191,7 @@ export class PhotoWallService {
 
     await this.realtime.publish("submission:approved", submission);
     await this.syncPlaybackCabinCount();
+    this.playback.enqueuePreview(submission.id);
     return submission;
   }
 
@@ -277,14 +280,16 @@ export class PhotoWallService {
     ]);
     const dwell = configs.find((c) => c.key === "train_dwell_time");
     const dwellSeconds = parseDwellTime(dwell?.value ?? dwell?.default_value);
-    this.playback.initialize(dwellSeconds, approved.length);
+    const qrInterval = configs.find((c) => c.key === "qr_cabin_interval");
+    this.playback.setQrInterval(parseQrInterval(qrInterval?.value ?? qrInterval?.default_value));
+    this.playback.initialize(dwellSeconds, approved.map((s) => s.id));
     this.playbackInitialized = true;
   }
 
   private async syncPlaybackCabinCount(): Promise<void> {
     await this.ensurePlaybackInitialized();
     const approved = await this.getApprovedSubmissions();
-    this.playback.setCabinCount(approved.length);
+    this.playback.setCabinIds(approved.map((s) => s.id));
   }
 
   subscribeToTrainCommands(callback: (command: TrainCommand) => void): UnsubscribeFn {
@@ -312,6 +317,7 @@ export class PhotoWallService {
       currentCabin: number;
       dwellSeconds: number;
       lastTransitionAt: number;
+      window: TrainStep[];
     }) => void,
   ): UnsubscribeFn {
     return this.realtime.subscribe("train:playback_state", (payload) =>
@@ -320,6 +326,7 @@ export class PhotoWallService {
         currentCabin: number;
         dwellSeconds: number;
         lastTransitionAt: number;
+        window: TrainStep[];
       }));
   }
 
@@ -422,6 +429,10 @@ export class PhotoWallService {
       await this.ensurePlaybackInitialized();
       this.playback.setDwellSeconds(parseDwellTime(value));
     }
+    if (key === "qr_cabin_interval") {
+      await this.ensurePlaybackInitialized();
+      this.playback.setQrInterval(parseQrInterval(value));
+    }
   }
 
   async resetSystemParameterToDefault(key: string, adminId: string): Promise<void> {
@@ -442,6 +453,10 @@ export class PhotoWallService {
     if (key === "train_dwell_time") {
       await this.ensurePlaybackInitialized();
       this.playback.setDwellSeconds(parseDwellTime(config.value));
+    }
+    if (key === "qr_cabin_interval") {
+      await this.ensurePlaybackInitialized();
+      this.playback.setQrInterval(parseQrInterval(config.value));
     }
   }
 

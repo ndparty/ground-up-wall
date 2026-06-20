@@ -1,76 +1,10 @@
-import {
-  initTrain,
-  type TrainCabinNode,
-  type TrainChain,
-} from "./chain.ts";
-import {
-  LEFT_RENDER,
-  RIGHT_RENDER,
-  VIEWPORT_K,
-  VISIBLE_SLOT_COUNT,
-} from "./train_view_constants.ts";
+import { LEFT_RENDER, RIGHT_RENDER, VIEWPORT_K } from "./train_view_constants.ts";
 import type { Submission } from "../types.ts";
+import type { TrainStep } from "../interfaces/realtime_service.ts";
 
-export interface EphemeralInsert {
-  submissionId: string;
-  /** Detached submission — not in the base ring until eviction (FR-20a overlay). */
-  submission: Submission;
-  seenInViewport: boolean;
-  /** Effective-ring node id this insert follows (anchor at slot +K+1 from center). */
-  afterId: string;
-  /** Node id to continue to after this ephemeral cabin (slot +K+2 from center). */
-  resumeId: string;
-}
-
-export interface JumpAnimation {
-  targetCabin: number;
-  collapsedIds: Set<string>;
-  stepsRemaining: number;
-}
-
-export interface TrainViewState {
-  base: TrainChain;
-  ephemeralInserts: EphemeralInsert[];
-  jump: JumpAnimation | null;
-}
-
-export function initTrainView(submissions: Submission[]): TrainViewState {
-  return {
-    base: initTrain(submissions),
-    ephemeralInserts: [],
-    jump: null,
-  };
-}
-
-export function cabinNumberForNode(node: TrainCabinNode): number {
-  return node.index + 1;
-}
-
-export function getNodeById(chain: TrainChain, id: string): TrainCabinNode | null {
-  return chain.nodes.find((n) => n.submission.id === id) ?? null;
-}
-
-function ephemeralNodeFromInsert(ins: EphemeralInsert, orderIndex: number): TrainCabinNode {
-  return {
-    submission: ins.submission,
-    index: -(orderIndex + 1),
-    next: null,
-    prev: null,
-  };
-}
-
-function getEffectiveNode(state: TrainViewState, id: string): TrainCabinNode | null {
-  const baseNode = getNodeById(state.base, id);
-  if (baseNode) return baseNode;
-  const idx = state.ephemeralInserts.findIndex((e) => e.submissionId === id);
-  if (idx >= 0) return ephemeralNodeFromInsert(state.ephemeralInserts[idx]!, idx);
-  return null;
-}
-
-export function getCurrentCabin(state: TrainViewState): number {
-  if (!state.base.current || state.base.nodes.length === 0) return 0;
-  return cabinNumberForNode(state.base.current);
-}
+// ---------------------------------------------------------------------------
+// Pure jump-path math (canonical cabin numbers; representation-independent).
+// ---------------------------------------------------------------------------
 
 export function forwardDistance(fromIdx: number, toIdx: number, length: number): number {
   if (length === 0) return 0;
@@ -87,7 +21,7 @@ export function forwardPathIndices(fromIdx: number, toIdx: number, length: numbe
   return path;
 }
 
-/** True when V+K / T−K buffers overlap or touch — no collapse (d <= 2K). */
+/** True when V+K / T-K buffers overlap or touch — no collapse (d <= 2K). */
 export function shouldCollapseJump(
   fromIdx: number,
   toIdx: number,
@@ -99,7 +33,7 @@ export function shouldCollapseJump(
   return computeCollapsedIndices(fromIdx, toIdx, length, k).size > 0;
 }
 
-/** Indices to collapse on forward path V→T, strictly between V+K and T−K. */
+/** Indices to collapse on forward path V->T, strictly between V+K and T-K. */
 export function computeCollapsedIndices(
   fromIdx: number,
   toIdx: number,
@@ -126,7 +60,7 @@ export function computeCollapsedIndices(
   return collapsed;
 }
 
-/** Canonical 1-based cabin animation path for jump V→T. */
+/** Canonical 1-based cabin animation path for jump V->T. */
 export function computeJumpAnimationPath(
   fromCabin: number,
   toCabin: number,
@@ -173,537 +107,225 @@ export function computeJumpStepCount(
   return Math.max(0, path.length - 1);
 }
 
-function walkBaseNextSkippingCollapsed(
-  state: TrainViewState,
-  from: TrainCabinNode,
-): string | null {
-  const chain = state.base;
-  let node: TrainCabinNode | null = from;
-  for (let guard = 0; guard < chain.nodes.length + 1; guard++) {
-    node = node!.next;
-    if (!node) return null;
-    if (state.jump?.collapsedIds.has(node.submission.id)) continue;
-    return node.submission.id;
-  }
-  return null;
+// ---------------------------------------------------------------------------
+// Display tape model (server-authoritative generator window, FR-20a).
+// ---------------------------------------------------------------------------
+
+export interface RenderCabin {
+  /** Unique key (generator seq, or jump-synthetic) used as the DOM key. */
+  key: string;
+  kind: "post" | "qr";
+  /** Resolved snapshot for post cabins (kept even if later deleted, until off-screen). */
+  submission?: Submission;
 }
 
-export function effectiveNextId(state: TrainViewState, fromId: string): string | null {
-  const from = getEffectiveNode(state, fromId);
-  if (!from) return null;
-
-  const queued = state.ephemeralInserts;
-  const afterCurrent = queued.filter((e) => e.afterId === fromId);
-  if (afterCurrent.length > 0) {
-    return afterCurrent[0]!.submissionId;
-  }
-
-  const asEphemeral = queued.find((e) => e.submissionId === fromId);
-  if (asEphemeral) {
-    const sameAnchor = queued.filter((e) => e.afterId === asEphemeral.afterId);
-    const idx = sameAnchor.findIndex((e) => e.submissionId === fromId);
-    if (idx >= 0 && idx < sameAnchor.length - 1) {
-      return sameAnchor[idx + 1]!.submissionId;
-    }
-    return asEphemeral.resumeId;
-  }
-
-  if (from.index < 0) return null;
-  return walkBaseNextSkippingCollapsed(state, from);
+export interface JumpAnimation {
+  targetCabin: number;
+  stepsRemaining: number;
+  /** Cabins to slide through during the jump (left context + collapse path + right). */
+  renderWindow: RenderCabin[];
+  /** Index of the centered cabin within `renderWindow` (advances each step). */
+  centerIndex: number;
+  /** Window to settle on once the jump completes (server-authoritative). */
+  pendingWindow: RenderCabin[];
+  pendingCurrentCabin: number;
 }
 
-function stepEffectiveNext(state: TrainViewState): TrainViewState {
-  const current = state.base.current;
-  if (!current) return state;
+export interface TrainViewState {
+  canonical: Submission[];
+  /** Resolved display tape (server window), left -> right. Center at LEFT_RENDER. */
+  window: RenderCabin[];
+  currentCabin: number;
+  jump: JumpAnimation | null;
+}
 
-  const nextId = effectiveNextId(state, current.submission.id);
-  if (!nextId) return state;
-
-  const nextNode = getEffectiveNode(state, nextId);
-  if (!nextNode) return state;
-
-  const next: TrainViewState = {
-    ...state,
-    base: { ...state.base, current: nextNode },
-    ephemeralInserts: [...state.ephemeralInserts],
-    jump: state.jump ? { ...state.jump, collapsedIds: new Set(state.jump.collapsedIds) } : null,
+export function initTrainView(submissions: Submission[]): TrainViewState {
+  return {
+    canonical: [...submissions],
+    window: [],
+    currentCabin: submissions.length > 0 ? 1 : 0,
+    jump: null,
   };
-
-  return updateEphemeralVisibility(next);
 }
 
-export function slotDistanceFromCenter(
+function byId(canonical: Submission[]): Map<string, Submission> {
+  return new Map(canonical.map((s) => [s.id, s]));
+}
+
+function resolveStep(
+  step: TrainStep,
+  lookup: Map<string, Submission>,
+  priorByKey: Map<string, RenderCabin>,
+): RenderCabin {
+  const key = `s${step.seq}`;
+  if (step.kind === "qr") return { key, kind: "qr" };
+  const submission = (step.submissionId ? lookup.get(step.submissionId) : undefined) ??
+    priorByKey.get(key)?.submission;
+  return { key, kind: "post", submission };
+}
+
+function resolveWindow(
+  window: TrainStep[],
+  lookup: Map<string, Submission>,
+  prior: RenderCabin[],
+): RenderCabin[] {
+  const priorByKey = new Map(prior.map((c) => [c.key, c]));
+  return window.map((step) => resolveStep(step, lookup, priorByKey));
+}
+
+/** Apply a server-authoritative window (bootstrap / advance commit / playback sync). */
+export function applyServerWindow(
   state: TrainViewState,
-  submissionId: string,
-): number | null {
-  const centerId = state.base.current?.submission.id;
-  if (!centerId) return null;
-  if (submissionId === centerId) return 0;
-
-  const chain = state.base;
-  const n = chain.nodes.length;
-  const centerIdx = state.base.current!.index;
-  const target = getNodeById(chain, submissionId);
-  if (!target) return null;
-
-  return forwardDistance(centerIdx, target.index, n);
-}
-
-export function isWithinKSlots(state: TrainViewState, submissionId: string): boolean {
-  const dist = slotDistanceFromCenter(state, submissionId);
-  return dist !== null && dist <= VIEWPORT_K;
-}
-
-/**
- * Signed slot of a node on the effective (rendered) ring relative to center:
- * 0 = center, +s = s slots ahead (right), -s = s slots behind (left).
- * Only resolves within +-(K+1); returns null when farther than that on both sides.
- * Uses effectiveNextId so it counts rendered cabins (and ephemeral splice position),
- * not raw base-ring indices.
- */
-function ephemeralSignedSlot(state: TrainViewState, submissionId: string): number | null {
-  const centerId = state.base.current?.submission.id;
-  if (!centerId) return null;
-  if (submissionId === centerId) return 0;
-
-  let cur = centerId;
-  for (let s = 1; s <= VIEWPORT_K + 1; s++) {
-    const next = effectiveNextId(state, cur);
-    if (!next) break;
-    if (next === submissionId) return s;
-    cur = next;
-    if (cur === centerId) break;
-  }
-
-  cur = submissionId;
-  for (let s = 1; s <= VIEWPORT_K + 1; s++) {
-    const next = effectiveNextId(state, cur);
-    if (!next) break;
-    if (next === centerId) return -s;
-    cur = next;
-    if (cur === submissionId) break;
-  }
-
-  return null;
-}
-
-/**
- * FR-20a: ephemeral inserts must only enter/leave OUTSIDE the visible band (center +-K).
- * Mark an insert seen once it is within the band; remove it only after it has been seen
- * and has moved past the LEFT edge (slot < -K, or beyond resolution), so neither the
- * insertion nor the removal mutates any cabin currently within the visible band.
- */
-export function updateEphemeralVisibility(state: TrainViewState): TrainViewState {
-  const evict: EphemeralInsert[] = [];
-  const inserts = state.ephemeralInserts.map((ins) => {
-    const slot = ephemeralSignedSlot(state, ins.submissionId);
-    const visible = slot !== null && slot >= -VIEWPORT_K && slot <= VIEWPORT_K;
-    if (visible) return { ...ins, seenInViewport: true };
-    if (ins.seenInViewport && (slot === null || slot < -VIEWPORT_K)) {
-      evict.push(ins);
-      return null;
-    }
-    return ins;
-  }).filter((x): x is EphemeralInsert => x !== null);
-
-  if (evict.length === 0) {
-    return { ...state, ephemeralInserts: inserts };
-  }
-
-  const base = { ...state.base, nodes: [...state.base.nodes] };
-  for (const ins of evict) {
-    appendToBaseRing(base, ins.submission);
-  }
-
-  return { ...state, base, ephemeralInserts: inserts };
-}
-
-function appendToBaseRing(chain: TrainChain, submission: Submission): TrainCabinNode {
-  const node: TrainCabinNode = {
-    submission,
-    index: chain.nodes.length,
-    next: null,
-    prev: null,
-  };
-
-  if (chain.nodes.length === 0) {
-    chain.nodes.push(node);
-    node.next = node;
-    node.prev = node;
-    chain.head = node;
-    chain.current = node;
-    return node;
-  }
-
-  const tail = chain.head!.prev!;
-  node.prev = tail;
-  node.next = chain.head;
-  tail.next = node;
-  chain.head!.prev = node;
-  chain.nodes.push(node);
-  node.index = chain.nodes.length - 1;
-  return node;
-}
-
-export function applyEphemeralInsert(
-  state: TrainViewState,
-  submission: Submission,
+  window: TrainStep[],
+  currentCabin: number,
 ): TrainViewState {
-  if (state.base.nodes.some((n) => n.submission.id === submission.id)) {
-    return state;
-  }
-  if (state.ephemeralInserts.some((e) => e.submissionId === submission.id)) {
-    return state;
-  }
-
-  const current = state.base.current;
-  const n = state.base.nodes.length;
-
-  // No center or empty ring: append directly.
-  if (!current || n === 0) {
-    const base = { ...state.base, nodes: [...state.base.nodes] };
-    appendToBaseRing(base, submission);
-    return { ...state, base };
-  }
-
-  // Whole ring fits on screen (n <= 2K+1): no off-screen region — append chronologically
-  // with no overlay (FR-20a small-ring exception).
-  if (n <= VISIBLE_SLOT_COUNT) {
-    const base = { ...state.base, nodes: [...state.base.nodes] };
-    appendToBaseRing(base, submission);
-    return { ...state, base, ephemeralInserts: state.ephemeralInserts };
-  }
-
-  // Overlay: anchor at slot +K+1, resume at +K+2; preview renders at +K+2 (safety margin).
-  let anchorId = current.submission.id;
-  for (let i = 0; i < VIEWPORT_K + 1; i++) {
-    const next = effectiveNextId(state, anchorId);
-    if (!next) return state;
-    anchorId = next;
-  }
-  const resumeId = effectiveNextId(state, anchorId);
-  if (!resumeId) return state;
-
-  const insert: EphemeralInsert = {
-    submissionId: submission.id,
-    submission,
-    seenInViewport: false,
-    afterId: anchorId,
-    resumeId,
-  };
-
   return {
     ...state,
-    ephemeralInserts: [...state.ephemeralInserts, insert],
-  };
-}
-
-export function beginJump(state: TrainViewState, targetCabin: number): TrainViewState {
-  const n = state.base.nodes.length;
-  if (n === 0) return state;
-
-  const targetIdx = Math.max(0, Math.min(n - 1, targetCabin - 1));
-  const currentIdx = state.base.current?.index ?? 0;
-  if (targetIdx === currentIdx) return { ...state, jump: null };
-
-  const fromCabin = currentIdx + 1;
-  const collapsedIds = new Set<string>();
-  if (shouldCollapseJump(currentIdx, targetIdx, n)) {
-    for (const idx of computeCollapsedIndices(currentIdx, targetIdx, n)) {
-      const node = state.base.nodes[idx];
-      if (node) collapsedIds.add(node.submission.id);
-    }
-  }
-
-  const steps = computeJumpStepCount(fromCabin, targetCabin, n);
-  return beginJumpWithSteps(state, targetCabin, collapsedIds, steps);
-}
-
-function beginJumpWithSteps(
-  state: TrainViewState,
-  targetCabin: number,
-  collapsedIds: Set<string>,
-  knownSteps: number | null,
-): TrainViewState {
-  const targetIdx = targetCabin - 1;
-  const targetId = state.base.nodes[targetIdx]?.submission.id;
-  if (!targetId) return snapToCabin(state, targetCabin);
-
-  let sim: TrainViewState = {
-    ...state,
-    jump: { targetCabin, collapsedIds, stepsRemaining: 0 },
-    ephemeralInserts: [...state.ephemeralInserts],
-  };
-
-  let steps = knownSteps ?? 0;
-  if (knownSteps === null) {
-    const guard = state.base.nodes.length + state.ephemeralInserts.length + 5;
-    while (sim.base.current?.submission.id !== targetId && steps < guard) {
-      sim = stepEffectiveNext(sim);
-      steps++;
-    }
-    if (sim.base.current?.submission.id !== targetId) {
-      return snapToCabin(state, targetCabin);
-    }
-  }
-
-  return {
-    ...state,
-    jump: { targetCabin, collapsedIds, stepsRemaining: steps },
-  };
-}
-
-export function advanceOneStep(state: TrainViewState): TrainViewState {
-  if (state.jump && state.jump.stepsRemaining > 0) {
-    let next = stepEffectiveNext(state);
-    const remaining = state.jump.stepsRemaining - 1;
-    const targetIdx = state.jump.targetCabin - 1;
-    const atTarget = next.base.current?.index === targetIdx;
-
-    if (remaining <= 0 || atTarget) {
-      next = { ...next, jump: null };
-      return updateEphemeralVisibility(next);
-    }
-
-    return {
-      ...next,
-      jump: { ...state.jump, stepsRemaining: remaining },
-    };
-  }
-
-  const next = stepEffectiveNext({ ...state, jump: null });
-  return updateEphemeralVisibility(next);
-}
-
-export function snapToCabin(state: TrainViewState, cabinNumber: number): TrainViewState {
-  const n = state.base.nodes.length;
-  if (n === 0) return { ...state, jump: null };
-
-  const idx = Math.max(0, Math.min(n - 1, cabinNumber - 1));
-  const node = state.base.nodes[idx] ?? null;
-  return updateEphemeralVisibility({
-    ...state,
-    base: { ...state.base, current: node },
-    jump: null,
-  });
-}
-
-export function applyServerAdvance(state: TrainViewState): TrainViewState {
-  if (state.jump) return state;
-  return advanceOneStep({ ...state, jump: null });
-}
-
-/** Next cabin id on the effective forward ring (slide animation target). */
-export function getForwardSlideTargetId(state: TrainViewState): string | null {
-  const current = state.base.current;
-  if (!current) return null;
-  return effectiveNextId(state, current.submission.id);
-}
-
-function appendEphemeralInserts(
-  state: TrainViewState,
-  ordered: TrainCabinNode[],
-  seen: Set<number>,
-): TrainCabinNode[] {
-  const result = [...ordered];
-  state.ephemeralInserts.forEach((ins, orderIndex) => {
-    const node = ephemeralNodeFromInsert(ins, orderIndex);
-    if (seen.has(node.index)) return;
-    const anchorPos = result.findIndex((x) => x.submission.id === ins.afterId);
-    if (anchorPos >= 0) {
-      result.splice(anchorPos + 1, 0, node);
-    } else {
-      result.push(node);
-    }
-    seen.add(node.index);
-  });
-  return result;
-}
-
-/** Jump-mode window: K left of start + effective path to target + K right of target. */
-function getJumpRenderWindow(state: TrainViewState): TrainCabinNode[] {
-  const chain = state.base;
-  const n = chain.nodes.length;
-  const center = chain.current!;
-  const jump = state.jump!;
-  const collapsed = jump.collapsedIds;
-  const targetIdx = jump.targetCabin - 1;
-  const targetId = chain.nodes[targetIdx]?.submission.id;
-
-  const ordered: TrainCabinNode[] = [];
-  const seen = new Set<number>();
-
-  const addNode = (node: TrainCabinNode | null | undefined) => {
-    if (!node || collapsed.has(node.submission.id) || seen.has(node.index)) return;
-    seen.add(node.index);
-    ordered.push(node);
-  };
-
-  for (let i = LEFT_RENDER; i >= 1; i--) {
-    const idx = (center.index - i + n) % n;
-    addNode(chain.nodes[idx]);
-  }
-  addNode(center);
-
-  if (targetId) {
-    let walkId = center.submission.id;
-    const guard = n + state.ephemeralInserts.length + 2;
-    for (let g = 0; g < guard; g++) {
-      if (walkId === targetId) break;
-      const nextId = effectiveNextId(state, walkId);
-      if (!nextId || nextId === walkId) break;
-      addNode(getEffectiveNode(state, nextId));
-      walkId = nextId;
-    }
-  }
-
-  for (let i = 1; i <= VIEWPORT_K; i++) {
-    const idx = (targetIdx + i) % n;
-    addNode(chain.nodes[idx]);
-  }
-
-  return appendEphemeralInserts(state, ordered, seen);
-}
-
-export function getRenderWindow(state: TrainViewState): TrainCabinNode[] {
-  const chain = state.base;
-  const n = chain.nodes.length;
-  if (n === 0 || !chain.current) return [];
-
-  if (state.jump && state.jump.stepsRemaining > 0) {
-    return getJumpRenderWindow(state);
-  }
-
-  const centerIdx = chain.current.index;
-  const slotCount = LEFT_RENDER + 1 + RIGHT_RENDER;
-  const startIdx = (centerIdx - LEFT_RENDER + n) % n;
-
-  const ordered: TrainCabinNode[] = [];
-  const seen = new Set<number>();
-
-  for (let i = 0; i < slotCount; i++) {
-    const idx = (startIdx + i) % n;
-    if (seen.has(idx)) continue;
-    seen.add(idx);
-    ordered.push(chain.nodes[idx]!);
-  }
-
-  return appendEphemeralInserts(state, ordered, seen);
-}
-
-export function rebuildBase(state: TrainViewState, submissions: Submission[]): TrainViewState {
-  const currentId = state.base.current?.submission.id;
-  const fresh = initTrain(submissions);
-  if (currentId && fresh.nodes.length > 0) {
-    fresh.current = fresh.nodes.find((n) => n.submission.id === currentId) ?? fresh.head;
-  }
-  return {
-    base: fresh,
-    ephemeralInserts: state.ephemeralInserts.filter(
-      (e) => !fresh.nodes.some((n) => n.submission.id === e.submissionId),
-    ),
+    window: resolveWindow(window, byId(state.canonical), state.window),
+    currentCabin: currentCabin || state.currentCabin,
     jump: null,
   };
 }
 
-export function removeSubmissionFromView(state: TrainViewState, submissionId: string): TrainViewState {
-  const onlyEphemeral = state.ephemeralInserts.some((e) => e.submissionId === submissionId) &&
-    !state.base.nodes.some((n) => n.submission.id === submissionId);
-  if (onlyEphemeral) {
-    return {
-      ...state,
-      ephemeralInserts: state.ephemeralInserts.filter((e) => e.submissionId !== submissionId),
-    };
-  }
+function activeWindow(state: TrainViewState): RenderCabin[] {
+  return state.jump ? state.jump.renderWindow : state.window;
+}
 
-  const chain = { ...state.base, nodes: [...state.base.nodes] };
-  const idx = chain.nodes.findIndex((n) => n.submission.id === submissionId);
-  if (idx === -1) return state;
+function centerSlot(state: TrainViewState): number {
+  return state.jump ? state.jump.centerIndex : LEFT_RENDER;
+}
 
-  const node = chain.nodes[idx]!;
-  const wasCurrent = chain.current === node;
-  const nextNode = node.next;
+export function getRenderWindow(state: TrainViewState): RenderCabin[] {
+  return activeWindow(state);
+}
 
-  if (chain.nodes.length === 1) {
-    return initTrainView([]);
-  }
+export function getCurrentCabin(state: TrainViewState): number {
+  return state.currentCabin;
+}
 
-  node.prev!.next = node.next;
-  node.next!.prev = node.prev;
-  chain.nodes.splice(idx, 1);
-  chain.nodes.forEach((n, i) => {
-    n.index = i;
-  });
-  chain.head = chain.nodes[0] ?? null;
+export function getCanonicalCount(state: TrainViewState): number {
+  return state.canonical.length;
+}
 
-  if (wasCurrent) {
-    chain.current = nextNode === node
-      ? chain.head
-      : (chain.nodes.includes(nextNode!) ? nextNode : chain.head);
-  }
+export function hasCabins(state: TrainViewState): boolean {
+  return state.window.length > 0 || state.canonical.length > 0;
+}
 
-  return updateEphemeralVisibility({
-    ...state,
-    base: chain,
-    ephemeralInserts: state.ephemeralInserts.filter((e) => e.submissionId !== submissionId),
-    jump: null,
-  });
+export function getCenterKey(state: TrainViewState): string | null {
+  return activeWindow(state)[centerSlot(state)]?.key ?? null;
+}
+
+/** The cabin that will become center after one forward step (slide target). */
+export function getForwardSlideTargetKey(state: TrainViewState): string | null {
+  return activeWindow(state)[centerSlot(state) + 1]?.key ?? null;
+}
+
+// --- Canonical list maintenance (content resolution + jump numbering) ------
+
+export function addApproved(state: TrainViewState, submission: Submission): TrainViewState {
+  if (state.canonical.some((s) => s.id === submission.id)) return state;
+  return { ...state, canonical: [...state.canonical, submission] };
 }
 
 export function updateSubmissionInView(
   state: TrainViewState,
   submission: Submission,
 ): TrainViewState {
-  const node = state.base.nodes.find((n) => n.submission.id === submission.id);
-  const inEphemeral = state.ephemeralInserts.some((e) => e.submissionId === submission.id);
-  if (!node && !inEphemeral) return state;
+  const canonical = state.canonical.map((s) => (s.id === submission.id ? submission : s));
+  const window = state.window.map((c) =>
+    c.submission?.id === submission.id ? { ...c, submission } : c
+  );
+  return { ...state, canonical, window };
+}
 
-  let next = state;
-  if (node) {
-    node.submission = submission;
-    next = { ...next, base: { ...state.base, nodes: [...state.base.nodes] } };
-  }
-  if (inEphemeral) {
-    next = {
-      ...next,
-      ephemeralInserts: state.ephemeralInserts.map((e) =>
-        e.submissionId === submission.id ? { ...e, submission } : e
-      ),
+export function removeSubmissionFromView(
+  state: TrainViewState,
+  submissionId: string,
+): TrainViewState {
+  const canonical = state.canonical.filter((s) => s.id !== submissionId);
+  // Keep window snapshots so an on-screen cabin finishes scrolling off (id-based, no snap).
+  return {
+    ...state,
+    canonical,
+    currentCabin: Math.min(state.currentCabin, canonical.length || 1),
+  };
+}
+
+// --- Jump animation (client-visual collapse over canonical numbers) --------
+
+/** Render window for a jump: K left context + collapse path + K right context. */
+function buildJumpRenderWindow(state: TrainViewState, path: number[]): RenderCabin[] {
+  const length = state.canonical.length;
+  const out: RenderCabin[] = [];
+  let synthetic = 0;
+  const push = (cabin: number) => {
+    out.push({ key: `j${synthetic++}`, kind: "post", submission: state.canonical[cabin - 1] });
+  };
+
+  const first = path[0]!;
+  for (let i = LEFT_RENDER; i >= 1; i--) push(((first - 1 - i + length) % length) + 1);
+  for (const cabin of path) push(cabin);
+  const last = path[path.length - 1]!;
+  for (let i = 1; i <= RIGHT_RENDER; i++) push(((last - 1 + i) % length) + 1);
+  return out;
+}
+
+export function beginJump(
+  state: TrainViewState,
+  targetCabin: number,
+  pendingWindow: TrainStep[],
+  pendingCurrentCabin: number,
+): TrainViewState {
+  const length = state.canonical.length;
+  const resolvedPending = resolveWindow(pendingWindow, byId(state.canonical), state.window);
+  const settle = (): TrainViewState => ({
+    ...state,
+    window: resolvedPending,
+    currentCabin: pendingCurrentCabin || state.currentCabin,
+    jump: null,
+  });
+
+  if (length === 0) return settle();
+
+  const fromCabin = state.currentCabin || 1;
+  const path = computeJumpAnimationPath(fromCabin, targetCabin, length);
+  const steps = Math.max(0, path.length - 1);
+  if (steps === 0) return settle();
+
+  return {
+    ...state,
+    jump: {
+      targetCabin,
+      stepsRemaining: steps,
+      renderWindow: buildJumpRenderWindow(state, path),
+      centerIndex: LEFT_RENDER,
+      pendingWindow: resolvedPending,
+      pendingCurrentCabin,
+    },
+  };
+}
+
+export function advanceJumpStep(state: TrainViewState): TrainViewState {
+  if (!state.jump) return state;
+  const remaining = state.jump.stepsRemaining - 1;
+  if (remaining <= 0) {
+    return {
+      ...state,
+      window: state.jump.pendingWindow,
+      currentCabin: state.jump.pendingCurrentCabin || state.currentCabin,
+      jump: null,
     };
   }
-  return next;
+  return {
+    ...state,
+    jump: {
+      ...state.jump,
+      stepsRemaining: remaining,
+      centerIndex: state.jump.centerIndex + 1,
+    },
+  };
 }
 
 export function needsAnimationStep(state: TrainViewState): boolean {
   return state.jump !== null && state.jump.stepsRemaining > 0;
-}
-
-export function reduceTrainViewEvent(
-  state: TrainViewState,
-  event:
-    | { type: "advance" }
-    | { type: "jump"; cabinNumber: number; instant?: boolean }
-    | { type: "snap"; cabinNumber: number }
-    | { type: "approved"; submission: Submission }
-    | { type: "edited"; submission: Submission }
-    | { type: "deleted"; id: string }
-    | { type: "animation_step" },
-): TrainViewState {
-  switch (event.type) {
-    case "advance":
-      return applyServerAdvance(state);
-    case "jump":
-      if (event.instant) return snapToCabin(state, event.cabinNumber);
-      return beginJump(state, event.cabinNumber);
-    case "snap":
-      return snapToCabin(state, event.cabinNumber);
-    case "approved":
-      return applyEphemeralInsert(state, event.submission);
-    case "edited":
-      return updateSubmissionInView(state, event.submission);
-    case "deleted":
-      return removeSubmissionFromView(state, event.id);
-    case "animation_step":
-      return advanceOneStep(state);
-  }
 }
