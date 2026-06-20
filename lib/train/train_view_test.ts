@@ -196,8 +196,12 @@ Deno.test("FR-20a: ephemeral insert lands just outside visible band and leaves i
   const afterCenter = after.findIndex((n) => n.submission.id === centerId);
   const newPos = after.findIndex((n) => n.submission.id === "new-1");
 
-  // New cabin renders at +K+1 — one slot beyond the right edge of the visible band.
-  assertEquals(newPos, afterCenter + VIEWPORT_K + 1);
+  // New cabin renders at +K+2 — safety margin past the right edge of the visible band.
+  assertEquals(newPos, afterCenter + VIEWPORT_K + 2);
+
+  // Base ring is unchanged by the overlay insert.
+  assertEquals(state.base.nodes.length, 20);
+  assertEquals(state.base.nodes.some((n) => n.submission.id === "new-1"), false);
 
   // Every cabin within the visible band (+-K) is identical before and after the insert.
   for (let off = -VIEWPORT_K; off <= VIEWPORT_K; off++) {
@@ -206,6 +210,58 @@ Deno.test("FR-20a: ephemeral insert lands just outside visible band and leaves i
       before[beforeCenter + off]?.submission.id,
     );
   }
+});
+
+Deno.test("FR-20a: head-centered approval renders at +K+2 with no visible-band change", () => {
+  let state = initTrainView(makeSubmissions(40));
+  state = snapToCabin(state, 1);
+  assertEquals(getCurrentCabin(state), 1);
+
+  const centerId = state.base.current!.submission.id;
+  const before = getRenderWindow(state);
+  const beforeCenter = before.findIndex((n) => n.submission.id === centerId);
+
+  state = applyEphemeralInsert(state, makeSubmission("new-head", 99));
+  assertEquals(state.ephemeralInserts.length, 1);
+  assertEquals(state.base.nodes.length, 40);
+
+  const after = getRenderWindow(state);
+  const afterCenter = after.findIndex((n) => n.submission.id === centerId);
+  const newPos = after.findIndex((n) => n.submission.id === "new-head");
+
+  assertEquals(newPos, afterCenter + VIEWPORT_K + 2);
+
+  for (let off = -VIEWPORT_K; off <= VIEWPORT_K; off++) {
+    assertEquals(
+      after[afterCenter + off]?.submission.id,
+      before[beforeCenter + off]?.submission.id,
+    );
+  }
+});
+
+Deno.test("FR-20a: ephemeral retires into base ring tail once after scroll-past", () => {
+  let state = initTrainView(makeSubmissions(20));
+  state = snapToCabin(state, 8);
+  state = applyEphemeralInsert(state, makeSubmission("new-1", 99));
+  assertEquals(state.base.nodes.some((n) => n.submission.id === "new-1"), false);
+
+  let became = false;
+  for (let i = 0; i < VIEWPORT_K + 3; i++) {
+    state = applyServerAdvance(state);
+    if (state.base.current?.submission.id === "new-1") {
+      became = true;
+      break;
+    }
+  }
+  assertEquals(became, true);
+  assertEquals(state.ephemeralInserts.length, 1);
+
+  for (let i = 0; i < VIEWPORT_K + 2; i++) {
+    state = applyServerAdvance(state);
+  }
+  assertEquals(state.ephemeralInserts.length, 0);
+  assertEquals(state.base.nodes.some((n) => n.submission.id === "new-1"), true);
+  assertEquals(state.base.nodes.filter((n) => n.submission.id === "new-1").length, 1);
 });
 
 Deno.test("FR-20a: ephemeral insert is shown then evicted only after leaving the left edge", () => {

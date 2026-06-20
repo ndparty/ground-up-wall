@@ -13,10 +13,12 @@ import type { Submission } from "../types.ts";
 
 export interface EphemeralInsert {
   submissionId: string;
+  /** Detached submission — not in the base ring until eviction (FR-20a overlay). */
+  submission: Submission;
   seenInViewport: boolean;
-  /** Base-ring node id this insert follows in the effective ring. */
+  /** Effective-ring node id this insert follows (anchor at slot +K+1 from center). */
   afterId: string;
-  /** Node id to continue to after this ephemeral cabin. */
+  /** Node id to continue to after this ephemeral cabin (slot +K+2 from center). */
   resumeId: string;
 }
 
@@ -46,6 +48,23 @@ export function cabinNumberForNode(node: TrainCabinNode): number {
 
 export function getNodeById(chain: TrainChain, id: string): TrainCabinNode | null {
   return chain.nodes.find((n) => n.submission.id === id) ?? null;
+}
+
+function ephemeralNodeFromInsert(ins: EphemeralInsert, orderIndex: number): TrainCabinNode {
+  return {
+    submission: ins.submission,
+    index: -(orderIndex + 1),
+    next: null,
+    prev: null,
+  };
+}
+
+function getEffectiveNode(state: TrainViewState, id: string): TrainCabinNode | null {
+  const baseNode = getNodeById(state.base, id);
+  if (baseNode) return baseNode;
+  const idx = state.ephemeralInserts.findIndex((e) => e.submissionId === id);
+  if (idx >= 0) return ephemeralNodeFromInsert(state.ephemeralInserts[idx]!, idx);
+  return null;
 }
 
 export function getCurrentCabin(state: TrainViewState): number {
@@ -164,19 +183,16 @@ function walkBaseNextSkippingCollapsed(
     node = node!.next;
     if (!node) return null;
     if (state.jump?.collapsedIds.has(node.submission.id)) continue;
-    // Active ephemeral inserts render only at their splice position (a few slots
-    // ahead of center), never at their base-ring tail position, so skip them here.
-    if (state.ephemeralInserts.some((e) => e.submissionId === node!.submission.id)) continue;
     return node.submission.id;
   }
   return null;
 }
 
 export function effectiveNextId(state: TrainViewState, fromId: string): string | null {
-  const from = getNodeById(state.base, fromId);
+  const from = getEffectiveNode(state, fromId);
   if (!from) return null;
 
-  const queued = state.ephemeralInserts.filter((e) => getNodeById(state.base, e.submissionId));
+  const queued = state.ephemeralInserts;
   const afterCurrent = queued.filter((e) => e.afterId === fromId);
   if (afterCurrent.length > 0) {
     return afterCurrent[0]!.submissionId;
@@ -192,6 +208,7 @@ export function effectiveNextId(state: TrainViewState, fromId: string): string |
     return asEphemeral.resumeId;
   }
 
+  if (from.index < 0) return null;
   return walkBaseNextSkippingCollapsed(state, from);
 }
 
@@ -202,7 +219,7 @@ function stepEffectiveNext(state: TrainViewState): TrainViewState {
   const nextId = effectiveNextId(state, current.submission.id);
   if (!nextId) return state;
 
-  const nextNode = getNodeById(state.base, nextId);
+  const nextNode = getEffectiveNode(state, nextId);
   if (!nextNode) return state;
 
   const next: TrainViewState = {
@@ -277,19 +294,28 @@ function ephemeralSignedSlot(state: TrainViewState, submissionId: string): numbe
  * insertion nor the removal mutates any cabin currently within the visible band.
  */
 export function updateEphemeralVisibility(state: TrainViewState): TrainViewState {
-  const toRemove = new Set<string>();
+  const evict: EphemeralInsert[] = [];
   const inserts = state.ephemeralInserts.map((ins) => {
     const slot = ephemeralSignedSlot(state, ins.submissionId);
     const visible = slot !== null && slot >= -VIEWPORT_K && slot <= VIEWPORT_K;
     if (visible) return { ...ins, seenInViewport: true };
     if (ins.seenInViewport && (slot === null || slot < -VIEWPORT_K)) {
-      toRemove.add(ins.submissionId);
+      evict.push(ins);
       return null;
     }
     return ins;
   }).filter((x): x is EphemeralInsert => x !== null);
 
-  return { ...state, ephemeralInserts: inserts.filter((e) => !toRemove.has(e.submissionId)) };
+  if (evict.length === 0) {
+    return { ...state, ephemeralInserts: inserts };
+  }
+
+  const base = { ...state.base, nodes: [...state.base.nodes] };
+  for (const ins of evict) {
+    appendToBaseRing(base, ins.submission);
+  }
+
+  return { ...state, base, ephemeralInserts: inserts };
 }
 
 function appendToBaseRing(chain: TrainChain, submission: Submission): TrainCabinNode {
@@ -333,30 +359,34 @@ export function applyEphemeralInsert(
   const current = state.base.current;
   const n = state.base.nodes.length;
 
-  // Compute anchor/resume on the CURRENT effective ring (before appending the new
-  // node) so the new cabin lands at slot +K+1 — just outside the visible band.
-  let anchorId = current?.submission.id ?? null;
-  if (anchorId) {
-    for (let i = 0; i < VIEWPORT_K; i++) {
-      const next = effectiveNextId(state, anchorId);
-      if (!next) break;
-      anchorId = next;
-    }
+  // No center or empty ring: append directly.
+  if (!current || n === 0) {
+    const base = { ...state.base, nodes: [...state.base.nodes] };
+    appendToBaseRing(base, submission);
+    return { ...state, base };
   }
-  const resumeId = anchorId ? effectiveNextId(state, anchorId) : null;
 
-  const base = { ...state.base, nodes: [...state.base.nodes] };
-  appendToBaseRing(base, submission);
-
-  // No center, or the whole ring fits on screen (n <= 2K+1): there is no off-screen
-  // region, so appending is unavoidably visible — append chronologically with no
-  // ephemeral surgery (FR-20a small-ring exception).
-  if (!current || !anchorId || !resumeId || n <= VISIBLE_SLOT_COUNT) {
+  // Whole ring fits on screen (n <= 2K+1): no off-screen region — append chronologically
+  // with no overlay (FR-20a small-ring exception).
+  if (n <= VISIBLE_SLOT_COUNT) {
+    const base = { ...state.base, nodes: [...state.base.nodes] };
+    appendToBaseRing(base, submission);
     return { ...state, base, ephemeralInserts: state.ephemeralInserts };
   }
 
+  // Overlay: anchor at slot +K+1, resume at +K+2; preview renders at +K+2 (safety margin).
+  let anchorId = current.submission.id;
+  for (let i = 0; i < VIEWPORT_K + 1; i++) {
+    const next = effectiveNextId(state, anchorId);
+    if (!next) return state;
+    anchorId = next;
+  }
+  const resumeId = effectiveNextId(state, anchorId);
+  if (!resumeId) return state;
+
   const insert: EphemeralInsert = {
     submissionId: submission.id,
+    submission,
     seenInViewport: false,
     afterId: anchorId,
     resumeId,
@@ -364,7 +394,6 @@ export function applyEphemeralInsert(
 
   return {
     ...state,
-    base,
     ephemeralInserts: [...state.ephemeralInserts, insert],
   };
 }
@@ -473,28 +502,21 @@ export function getForwardSlideTargetId(state: TrainViewState): string | null {
 
 function appendEphemeralInserts(
   state: TrainViewState,
-  chain: TrainChain,
   ordered: TrainCabinNode[],
   seen: Set<number>,
 ): TrainCabinNode[] {
   const result = [...ordered];
-  for (const ins of state.ephemeralInserts) {
-    const node = getNodeById(chain, ins.submissionId);
-    if (!node || seen.has(node.index)) continue;
-    const anchor = getNodeById(chain, ins.afterId);
-    if (!anchor) {
-      result.push(node);
-      seen.add(node.index);
-      continue;
-    }
-    const anchorPos = result.findIndex((x) => x.index === anchor.index);
+  state.ephemeralInserts.forEach((ins, orderIndex) => {
+    const node = ephemeralNodeFromInsert(ins, orderIndex);
+    if (seen.has(node.index)) return;
+    const anchorPos = result.findIndex((x) => x.submission.id === ins.afterId);
     if (anchorPos >= 0) {
       result.splice(anchorPos + 1, 0, node);
     } else {
       result.push(node);
     }
     seen.add(node.index);
-  }
+  });
   return result;
 }
 
@@ -511,12 +533,8 @@ function getJumpRenderWindow(state: TrainViewState): TrainCabinNode[] {
   const ordered: TrainCabinNode[] = [];
   const seen = new Set<number>();
 
-  const ephemeralIds = new Set(state.ephemeralInserts.map((e) => e.submissionId));
   const addNode = (node: TrainCabinNode | null | undefined) => {
     if (!node || collapsed.has(node.submission.id) || seen.has(node.index)) return;
-    // Ephemeral inserts render via the splice in appendEphemeralInserts, not at their
-    // base-ring position (FR-20a) — skip them here.
-    if (ephemeralIds.has(node.submission.id)) return;
     seen.add(node.index);
     ordered.push(node);
   };
@@ -534,7 +552,7 @@ function getJumpRenderWindow(state: TrainViewState): TrainCabinNode[] {
       if (walkId === targetId) break;
       const nextId = effectiveNextId(state, walkId);
       if (!nextId || nextId === walkId) break;
-      addNode(getNodeById(chain, nextId));
+      addNode(getEffectiveNode(state, nextId));
       walkId = nextId;
     }
   }
@@ -544,7 +562,7 @@ function getJumpRenderWindow(state: TrainViewState): TrainCabinNode[] {
     addNode(chain.nodes[idx]);
   }
 
-  return appendEphemeralInserts(state, chain, ordered, seen);
+  return appendEphemeralInserts(state, ordered, seen);
 }
 
 export function getRenderWindow(state: TrainViewState): TrainCabinNode[] {
@@ -559,7 +577,6 @@ export function getRenderWindow(state: TrainViewState): TrainCabinNode[] {
   const centerIdx = chain.current.index;
   const slotCount = LEFT_RENDER + 1 + RIGHT_RENDER;
   const startIdx = (centerIdx - LEFT_RENDER + n) % n;
-  const ephemeralIds = new Set(state.ephemeralInserts.map((e) => e.submissionId));
 
   const ordered: TrainCabinNode[] = [];
   const seen = new Set<number>();
@@ -567,14 +584,11 @@ export function getRenderWindow(state: TrainViewState): TrainCabinNode[] {
   for (let i = 0; i < slotCount; i++) {
     const idx = (startIdx + i) % n;
     if (seen.has(idx)) continue;
-    // Ephemeral inserts render via the splice (a few slots ahead of center), not at
-    // their base-ring tail position (FR-20a) — skip them in the base walk.
-    if (ephemeralIds.has(chain.nodes[idx]!.submission.id)) continue;
     seen.add(idx);
     ordered.push(chain.nodes[idx]!);
   }
 
-  return appendEphemeralInserts(state, chain, ordered, seen);
+  return appendEphemeralInserts(state, ordered, seen);
 }
 
 export function rebuildBase(state: TrainViewState, submissions: Submission[]): TrainViewState {
@@ -585,14 +599,23 @@ export function rebuildBase(state: TrainViewState, submissions: Submission[]): T
   }
   return {
     base: fresh,
-    ephemeralInserts: state.ephemeralInserts.filter((e) =>
-      fresh.nodes.some((n) => n.submission.id === e.submissionId)
+    ephemeralInserts: state.ephemeralInserts.filter(
+      (e) => !fresh.nodes.some((n) => n.submission.id === e.submissionId),
     ),
     jump: null,
   };
 }
 
 export function removeSubmissionFromView(state: TrainViewState, submissionId: string): TrainViewState {
+  const onlyEphemeral = state.ephemeralInserts.some((e) => e.submissionId === submissionId) &&
+    !state.base.nodes.some((n) => n.submission.id === submissionId);
+  if (onlyEphemeral) {
+    return {
+      ...state,
+      ephemeralInserts: state.ephemeralInserts.filter((e) => e.submissionId !== submissionId),
+    };
+  }
+
   const chain = { ...state.base, nodes: [...state.base.nodes] };
   const idx = chain.nodes.findIndex((n) => n.submission.id === submissionId);
   if (idx === -1) return state;
@@ -632,9 +655,23 @@ export function updateSubmissionInView(
   submission: Submission,
 ): TrainViewState {
   const node = state.base.nodes.find((n) => n.submission.id === submission.id);
-  if (!node) return state;
-  node.submission = submission;
-  return { ...state, base: { ...state.base, nodes: [...state.base.nodes] } };
+  const inEphemeral = state.ephemeralInserts.some((e) => e.submissionId === submission.id);
+  if (!node && !inEphemeral) return state;
+
+  let next = state;
+  if (node) {
+    node.submission = submission;
+    next = { ...next, base: { ...state.base, nodes: [...state.base.nodes] } };
+  }
+  if (inEphemeral) {
+    next = {
+      ...next,
+      ephemeralInserts: state.ephemeralInserts.map((e) =>
+        e.submissionId === submission.id ? { ...e, submission } : e
+      ),
+    };
+  }
+  return next;
 }
 
 export function needsAnimationStep(state: TrainViewState): boolean {
