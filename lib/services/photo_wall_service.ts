@@ -409,7 +409,7 @@ export class PhotoWallService {
 
     await this.audit.logAction({
       moderator_id: adminId,
-      action_type: "change_config",
+      action_type: key === "default_placeholder_image" ? "set_default_placeholder" : "change_config",
       target_type: "system_config",
       target_id: key,
       old_value: existing?.value,
@@ -625,5 +625,11 @@ export class PhotoWallService {
     await this.storage.uploadImage(image, path);
     const imageUrl = this.storage.getImageUrl(path);
     await this.updateSystemParameter("default_placeholder_image", imageUrl, adminId);
+  }
+
+  /** FR-13a: remove the default placeholder image (delete stored file + clear config). */
+  async clearDefaultPlaceholder(adminId: string): Promise<void> {
+    await this.storage.deleteImage("placeholders/default.jpg").catch(() => undefined);
+    await this.updateSystemParameter("default_placeholder_image", "", adminId);
   }
 }

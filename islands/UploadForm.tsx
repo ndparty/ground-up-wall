@@ -85,9 +85,12 @@ export default function UploadForm({
   messageLengthLimit,
   messageLengthUnit,
 }: UploadFormProps) {
+  const [promptText, setPromptText] = useState(messagePromptText);
+  const [lengthLimit, setLengthLimit] = useState(messageLengthLimit);
+  const [lengthUnit, setLengthUnit] = useState<"characters" | "words">(messageLengthUnit);
   const lengthConfig: MessageLengthConfig = normalizeMessageLengthConfig({
-    limit: messageLengthLimit,
-    unit: messageLengthUnit,
+    limit: lengthLimit,
+    unit: lengthUnit,
   });
 
   const [photo, setPhoto] = useState<File | null>(null);
@@ -109,6 +112,25 @@ export default function UploadForm({
     const profile = loadFormProfile();
     setSubmitterName(profile.submitterName);
     setSocialHandle(profile.socialHandle);
+  }, []);
+
+  // FR-13a: live-reload prompt/length config when an admin changes it.
+  useEffect(() => {
+    const es = new EventSource("/api/upload-config/events");
+    es.addEventListener("system_config_changed", (e) => {
+      try {
+        const cfg = JSON.parse((e as MessageEvent).data) as { key: string; value: string };
+        if (cfg.key === "message_prompt_text") setPromptText(cfg.value);
+        else if (cfg.key === "message_length_limit") setLengthLimit(Number(cfg.value));
+        else if (cfg.key === "message_length_unit") {
+          setLengthUnit(cfg.value === "words" ? "words" : "characters");
+        }
+      } catch {
+        // ignore malformed payloads
+      }
+    });
+    es.onerror = () => es.close();
+    return () => es.close();
   }, []);
 
   function persistProfile(name: string, handle: string) {
@@ -372,7 +394,7 @@ export default function UploadForm({
           onInput={(e) => applyMessageInput(e.currentTarget as HTMLTextAreaElement)}
           onKeyDown={handleMessageKeyDown}
           onPaste={handleMessagePaste}
-          placeholder={messagePromptText}
+          placeholder={promptText}
           rows={4}
           style="display: block; width: 100%; margin-top: 0.25rem; padding: 0.5rem;"
         />

@@ -76,6 +76,17 @@ export default function SystemParameters() {
     await load();
   }
 
+  async function clearPlaceholder() {
+    const res = await fetch("/api/admin/parameters/clear-placeholder", { method: "POST" });
+    const body = await res.json();
+    if (!res.ok) {
+      setMessage(body.error ?? "Remove failed");
+      return;
+    }
+    setMessage("Placeholder image removed");
+    await load();
+  }
+
   const grouped = new Map<string, SystemConfig[]>();
   const paramsByKey = new Map(params.map((p) => [p.key, p]));
   for (const p of params) {
@@ -145,6 +156,15 @@ export default function SystemParameters() {
                         if (file) uploadPlaceholder(file);
                       }}
                     />
+                    {drafts[p.key] && (
+                      <button
+                        type="button"
+                        style="margin-left: 0.5rem;"
+                        onClick={() => clearPlaceholder()}
+                      >
+                        Remove
+                      </button>
+                    )}
                   </div>
                 )
                 : p.key === "pow_challenge_enabled"

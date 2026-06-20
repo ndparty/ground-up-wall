@@ -215,6 +215,40 @@ Deno.test({
 });
 
 Deno.test({
+  name: "testDefaultPlaceholderUploadAndClearAuditAsSetDefaultPlaceholder",
+  async fn() {
+    const dir = await Deno.makeTempDir();
+    try {
+      await cleanupTestData();
+      const { service, repo } = await createTestService(dir);
+
+      const image = new Blob([new Uint8Array([1, 2, 3])], { type: "image/jpeg" });
+      await service.uploadDefaultPlaceholder(image, "admin-1");
+
+      let configs = await service.getSystemParameters();
+      assertEquals(
+        (configs.find((c) => c.key === "default_placeholder_image")?.value ?? "").length > 0,
+        true,
+      );
+
+      await service.clearDefaultPlaceholder("admin-1");
+      configs = await service.getSystemParameters();
+      assertEquals(configs.find((c) => c.key === "default_placeholder_image")?.value, "");
+
+      // Both upload and clear audit as set_default_placeholder, not change_config.
+      const setLogs = await service.getAuditLog({ action_type: "set_default_placeholder" });
+      assertEquals(setLogs.length, 2);
+      const changeLogs = await service.getAuditLog({ action_type: "change_config" });
+      assertEquals(changeLogs.length, 0);
+      await repo.close();
+    } finally {
+      await cleanupTestData();
+      await Deno.remove(dir, { recursive: true });
+    }
+  },
+});
+
+Deno.test({
   name: "testSubmitWithFlaggedMessage",
   async fn() {
     const dir = await Deno.makeTempDir();
