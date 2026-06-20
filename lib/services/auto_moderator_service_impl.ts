@@ -20,7 +20,7 @@ export const SEEDED_DEFAULT_WORD_LIST = [
   "whore",
 ];
 
-const SUBSTITUTIONS: Record<string, string> = {
+export const SUBSTITUTIONS: Record<string, string> = {
   "@": "a",
   "0": "o",
   "$": "s",

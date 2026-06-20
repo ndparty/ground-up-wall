@@ -13,3 +13,17 @@ Deno.test("testNoFlaggedWords", () => {
   const segments = highlightFlaggedWords("clean message", []);
   assertEquals(segments, [{ text: "clean message", highlighted: false }]);
 });
+
+Deno.test("testSubstitutionVariantHighlighted", () => {
+  // word list has "crap"; message uses leetspeak "cr@p" — original span highlighted.
+  const segments = highlightFlaggedWords("no cr@p here", ["crap"]);
+  assertEquals(segments[0], { text: "no ", highlighted: false });
+  assertEquals(segments[1], { text: "cr@p", highlighted: true });
+  assertEquals(segments[2], { text: " here", highlighted: false });
+});
+
+Deno.test("testCaseInsensitiveHighlight", () => {
+  const segments = highlightFlaggedWords("HELL yeah", ["hell"]);
+  assertEquals(segments[0], { text: "HELL", highlighted: true });
+  assertEquals(segments[1], { text: " yeah", highlighted: false });
+});

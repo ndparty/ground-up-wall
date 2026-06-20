@@ -14,15 +14,15 @@
 | FR-01 | Satisfied | `routes/upload.tsx`, `routes/api/submissions/index.ts`, `photo_wall_service.submitPublicSubmission` | Public upload without auth |
 | FR-02 | Satisfied | `islands/UploadForm.tsx`, `lib/upload_config.ts`, `lib/validation/message_length.ts`, `scripts/seed.ts` | Configurable prompt/limit/unit + counter. Update 04: seed default prompt aligned to `"Share your National Day moment!"` (matches code fallback). |
 | FR-02a | Satisfied | `lib/copy/privacy_notice.ts`, `islands/UploadForm.tsx`, `lib/api/submission_request.ts` | Notice + mandatory acknowledgment. Update 04: spec reworded to validate-on-submit — `handleSubmit` blocks via `collectValidationErrors` (incl. acknowledge hint) and server rejects without `acknowledged`. |
-| FR-02b | Partial | `lib/copy/disclaimers.ts`, `islands/UploadForm.tsx` | Re-submit + moderator-edit notice. **Gap:** no explicit “we will not notify you of rejection” wording |
+| FR-02b | Satisfied | `lib/copy/disclaimers.ts`, `islands/UploadForm.tsx` | Re-submit + moderator-edit notice. Update 04: added explicit "we won't send you a notification" wording. |
 | FR-03 | Satisfied | `db/schema.sql` (pending default), `postgres_repository.createSubmission`, `routes/api/display/submissions.ts` | Pending excluded from display |
 | FR-04 | Satisfied | `islands/UploadForm.tsx` success UI | Confirmation message |
 | FR-05 | Partial | `routes/index.tsx` → `/upload`, `routes/upload.tsx` | Short URL routable; QR is external artifact |
 | FR-06 | Satisfied | `routes/login.tsx`, `auth_service.login`, `routes/moderate.tsx` | Protected organiser login |
 | FR-07 | Satisfied | `ModerationQueue.tsx`, `routes/api/moderate/pending.ts` | Pending queue after login |
 | FR-08 | Satisfied | `ModerationQueue.tsx`, `photo_wall_service.rejectSubmission` | No participant notification path |
-| FR-09 | Partial | `ModerationQueue.tsx`, `photo_wall_service.editSubmission/deleteSubmission` | Edit/delete + audit old values. **Gap:** `edited_by` shows moderator ID not username |
-| FR-09a | Partial | `auto_moderator_service_impl.ts`, `photo_wall_service`, `ModerationQueue.tsx`, `scripts/seed.ts` | Filter + highlight + seeded list. **Gap:** highlight may miss substitution-normalized spans |
+| FR-09 | Satisfied | `ModerationQueue.tsx`, `photo_wall_service.editSubmission/deleteSubmission` | Edit/delete + audit old values. Update 04: `edited_by` now resolves to username via LEFT JOIN. |
+| FR-09a | Satisfied | `auto_moderator_service_impl.ts`, `highlight_flagged_words.ts`, `ModerationQueue.tsx`, `scripts/seed.ts` | Filter + highlight + seeded list. Update 04: highlight is now substitution-aware (shared SUBSTITUTIONS, 1:1 span mapping). |
 | FR-10 | Satisfied | `postgres_repository` ORDER BY created_at ASC, `approveSubmission` | Chronological rotation |
 | FR-11 | Satisfied | `ChangePasswordForm.tsx`, `auth_service.changePassword` | Self-service password change |
 | FR-12 | Satisfied | `ChangePasswordForm.tsx`, `routes/api/auth/change-password.ts` | Current + new + confirm |
@@ -33,7 +33,7 @@
 | FR-15b | Satisfied | `delete.ts`, `deleteModerator` | Delete with audit retention |
 | FR-15c | Satisfied | `UserManagement.tsx` Active/Disabled column | Status visible |
 | FR-16 | Satisfied | `scripts/seed.ts`, `createUser` | Developer-seeded admin |
-| FR-13a | Partial | `SystemParameters.tsx`, parameter APIs, `photo_wall_service` | All params editable + reset. **Gaps:** upload form doesn’t live-reload config; no placeholder remove; placeholder upload audits as `change_config` not `set_default_placeholder` |
+| FR-13a | Satisfied | `SystemParameters.tsx`, parameter APIs, `photo_wall_service` | All params editable + reset. Update 04: placeholder upload/clear audit as `set_default_placeholder`; clear-placeholder action added; upload form live-reloads prompt/length via `/api/upload-config/events`. |
 | FR-17 | Partial | `TrainDisplay.tsx`, `train.css`, `center_track.ts` | RTL scroll + red/white cabins. **Gap:** cabin cards, not full SMRT train silhouette |
 | FR-18 | Satisfied | `TrainCabin.tsx` | Photo + message + name + handle |
 | FR-19 | Satisfied | `train_playback_controller.ts`, `clampDwellSeconds`, `SystemParameters.tsx` | 3–60s configurable dwell |
@@ -44,7 +44,7 @@
 | FR-24 | Satisfied | `TrainDisplay.tsx`, `train.css` fixed fullscreen | TV-oriented layout |
 | FR-24a | Satisfied | `TrainControls.tsx`, `train-command.ts`, `train_playback_controller.ts`, `use_train_playback.ts` | Pause/play/jump for mod/admin; pause freezes; jump clamped. Update 04: spec reworded so refresh restoring server `currentCabin`/`isPlaying` is the intended behavior (in-memory, single-instance). |
 | FR-24b | Satisfied | `routes/display.tsx` 403 message, display API role gates | Auth-only display |
-| FR-24c | Partial | `DisplayOverrideControls.tsx`, `AdminDisplayOverride.tsx`, `commandDisplayOverride` | Blank/placeholder/resume + DB + SSE. **Gap:** mod panel lacks per-action placeholder upload (admin has it) |
+| FR-24c | Satisfied | `DisplayOverrideControls.tsx`, `AdminDisplayOverride.tsx`, `commandDisplayOverride` | Blank/placeholder/resume + DB + SSE. Update 04: moderation panel now has per-action placeholder upload too. |
 
 ---
 
@@ -93,12 +93,14 @@ All three flags were resolved by rewording the spec to match the (correct) code 
 
 Also added in Update 04: **FR-20a** (off-screen node-list mutation invariant) — Satisfied (`train_view.ts` ephemeral insert/remove now strictly outside the visible band; tests in `train_view_test.ts`). **NFR-07** reworded to a single-screen completion standard — Satisfied. **NFR-23** (public-surface hardening) — implemented in Phase 2 (see below).
 
-## Partial implementations (acceptable or backlog)
+## Partial implementations (backlog)
 
-- **FR-09** — Editor shown as ID not username.
-- **FR-13a** — No live upload-config refresh; no placeholder remove.
-- **FR-24c** — Moderation panel placeholder upload (admin only).
-- **FR-17 / DR-01** — Cabin-card train vs realistic SMRT body.
+Resolved in Update 04: FR-09 (username), FR-09a (substitution-aware highlight), FR-13a (audit type + clear + live reload), FR-24c (moderation placeholder upload), FR-02b (no-notification wording).
+
+Remaining backlog (Update 04 phases 4-6):
+- **FR-17 / DR-01** — Cabin-card train vs realistic SMRT body (Phase 4).
+- **DR-02 / DR-03 / FR-23** — Richer National Day theming (Phase 5).
+- **NFR-16** — Full WCAG 2.1 AA pass (Phase 6).
 
 ## Not verifiable from static code
 
