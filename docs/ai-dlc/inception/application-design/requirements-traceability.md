@@ -55,17 +55,17 @@ This document maps all functional requirements (FR), non-functional requirements
 
 | Requirement | Description | Components | Services | Verification |
 |-------------|-------------|------------|----------|--------------|
-| FR-17 | Display wall shows moving SMRT train animation scrolling right to left | DisplayComponent | PhotoWallService | Test: Animation renders |
-| FR-18 | Train consists of cabins, each displaying photo + message + name + optional social handle | DisplayComponent | PhotoWallService | Test: Cabin display |
-| FR-19 | Configurable dwell time per cabin (default ~15s, range 3-60s, 1s increments) | DisplayComponent | PhotoWallService, Repository | Test: Configurable timing |
-| FR-20 | Transition between cabins uses smooth scroll animation — train physically moves left | DisplayComponent | PhotoWallService | Test: Smooth transition |
-| FR-21 | Cabin order is chronological (oldest first) | DisplayComponent | PhotoWallService, Repository | Test: Chronological order |
-| FR-22 | New approved submissions added automatically in real-time (within 30s) | DisplayComponent | PhotoWallService, RealtimeService | Test: Real-time update |
-| FR-23 | Branded waiting screen when no submissions approved | DisplayComponent | PhotoWallService | Test: Empty state |
-| FR-24 | Display wall runs full-screen in browser on laptop/PC connected to TV via HDMI | DisplayComponent | - | Test: Full-screen mode |
-| FR-24a | Pause/play/jump-to-cabin controls on display wall (moderator/admin only); on refresh, restart from cabin 0 in playing state | DisplayComponent, AuthComponent | PhotoWallService, RealtimeService | Test: Pause/play/jump |
-| FR-24b | Display wall requires authentication (Display Wall User / Mod / Admin only); 403 for unauthenticated/participants; persisted auth model | DisplayComponent, AuthComponent | PhotoWallService, Repository | Test: Auth-only access |
-| FR-24c | Display override controls (blank/placeholder/resume) from mod/admin panel; broadcast via RealtimeService; persisted state; auditable | ModerationComponent, AdminComponent, DisplayComponent | PhotoWallService, RealtimeService, Repository, AuditService | Test: Display override commands |
+| FR-17 | Display wall shows moving SMRT train animation scrolling right to left | DisplayComponent | PhotoWallService | Code: `TrainDisplay.tsx`, `train.css`, `center_track.ts` |
+| FR-18 | Train consists of cabins, each displaying photo + message + name + optional social handle | DisplayComponent | PhotoWallService | Code: `TrainCabin.tsx` |
+| FR-19 | Configurable dwell time per cabin (default ~15s, range 3-60s, 1s increments) | DisplayComponent | PhotoWallService, Repository | Code: `train_playback_controller.ts`, `SystemParameters.tsx` |
+| FR-20 | Transition between cabins uses smooth scroll animation — train physically moves left | DisplayComponent | PhotoWallService | Code: `TrainDisplay.tsx`, `center_track.ts`, `slide_duration.ts` |
+| FR-21 | Cabin order is chronological (oldest first) | DisplayComponent | PhotoWallService, Repository | Code: `postgres_repository.getSubmissionsByStatus`, `train_view.ts` |
+| FR-22 | New approved submissions added automatically in real-time (within 30s) | DisplayComponent | PhotoWallService, RealtimeService | Code: `events.ts` SSE, `use_train_playback.ts` |
+| FR-23 | Branded waiting screen when no submissions approved | DisplayComponent | PhotoWallService | Code: `TrainDisplay.tsx` empty state |
+| FR-24 | Display wall runs full-screen in browser on laptop/PC connected to TV via HDMI | DisplayComponent | - | Code: `train.css` fixed layout |
+| FR-24a | Pause/play/jump-to-cabin controls on display wall (moderator/admin only); on refresh, restart from cabin 0 in playing state | DisplayComponent, AuthComponent | PhotoWallService, RealtimeService | Code: `TrainControls.tsx`, `train-command.ts`, `use_train_playback.ts` — see verification note |
+| FR-24b | Display wall requires authentication (Display Wall User / Mod / Admin only); 403 for unauthenticated/participants; persisted auth model | DisplayComponent, AuthComponent | PhotoWallService, Repository | Code: `routes/display.tsx` |
+| FR-24c | Display override controls (blank/placeholder/resume) from mod/admin panel; broadcast via RealtimeService; persisted state; auditable | ModerationComponent, AdminComponent, DisplayComponent | PhotoWallService, RealtimeService, Repository, AuditService | Code: `commandDisplayOverride`, `DisplayOverrideControls.tsx` |
 
 ---
 
