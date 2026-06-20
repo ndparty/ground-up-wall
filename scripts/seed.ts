@@ -26,6 +26,7 @@ const SYSTEM_DEFAULTS = [
     value: seededWordListJson(),
     default_value: seededWordListJson(),
   },
+  { key: "default_placeholder_image", value: "", default_value: "" },
 ] as const;
 
 export interface SeedResult {

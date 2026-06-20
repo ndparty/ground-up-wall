@@ -26,6 +26,7 @@ cp .env.example .env
 export ADMIN_INITIAL_PASSWORD="YourStrongPass123!"   # optional locally
 deno task db:migrate
 deno task db:seed
+deno task db:seed:demos
 deno task start
 ```
 
@@ -38,12 +39,15 @@ Copy-Item .env.example .env
 $env:ADMIN_INITIAL_PASSWORD = "YourStrongPass123!"
 deno task db:migrate
 deno task db:seed
+deno task db:seed:demos
 deno task start
 ```
 
 Open **http://localhost:8000**
 
 The app loads variables from `.env` automatically at startup (via `lib/load_env.ts`). You do not need to export every variable to your shell unless you want to override `.env` values.
+
+**Local dev tip:** Sessions are persisted to `.dev/sessions.json`, so you stay logged in across `deno task dev` restarts when you save files. Log in once as **`admin`** to access `/admin`, `/moderate`, and `/display` in separate tabs. `/upload` is public and needs no login.
 
 ---
 
@@ -58,6 +62,8 @@ After `deno task db:seed`:
 | Display wall | `display` | `DEMO_DISPLAY_PASSWORD` env value, or `demo123` |
 
 Set passwords in `.env` before seeding if you want non-default credentials. Re-running seed is idempotent — existing accounts are not recreated.
+
+**Optional:** `deno task db:seed:demos` adds 40 approved submissions with numbered placeholder images so `/display` shows a full train without manual moderation.
 
 ---
 
@@ -88,9 +94,20 @@ Use separate browser windows or profiles so sessions do not overwrite each other
 ### Window 1 — Participant upload (no login)
 
 1. Open **http://localhost:8000/upload**
-2. Choose a photo (JPEG/PNG, max 10 MB)
+2. Choose a photo (max 10 MB)
 3. Enter name and message; check the privacy acknowledgment
 4. Submit — you should see a success confirmation
+
+#### Mobile image format smoke test (manual)
+
+| Device / browser | Photo source | Expected |
+|------------------|--------------|----------|
+| iPhone Safari | Camera roll HEIC | Picks file, processes, submits successfully |
+| Android Chrome | JPEG or WebP from gallery | Picks file, processes, submits successfully |
+| Desktop Chrome | `.heic` file from disk | WASM fallback converts; submits successfully |
+| Any | PDF or other non-image | "Unsupported image type" on pick or submit |
+
+If HEIC fails on a device, ask the participant to enable **Settings → Camera → Formats → Most Compatible (JPEG)** on iPhone and retry.
 
 ### Window 2 — Moderator approval
 
@@ -105,8 +122,9 @@ Use separate browser windows or profiles so sessions do not overwrite each other
 1. Open **http://localhost:8000/login** in a new window
 2. Log in as `display` / `demo123`
 3. You are redirected to **/display**
-4. The approved photo should appear on the SMRT train within a few seconds (SSE realtime)
-5. Optional (moderator or admin session): pause/play train, jump to cabin
+4. If the fullscreen prompt appears, choose **Go fullscreen** or **Not now** (or press F11 later)
+5. The approved photo should appear on the SMRT train within a few seconds (SSE realtime)
+6. Optional (moderator or admin session): pause/play train, jump to cabin
 
 ### Optional — Admin panel
 
@@ -150,6 +168,7 @@ Automated audit integrity checks: `deno task test:e2e:smoke --filter audit`
 | `deno task start` | Dev server with hot reload (port 8000) |
 | `deno task db:migrate` | Create/update database schema |
 | `deno task db:seed` | Admin + demo users + default system parameters |
+| `deno task db:seed:demos` | 40 approved demo submissions with numbered images |
 | `deno task test` | Full test suite |
 | `deno task test:e2e:smoke` | Smoke E2E scenarios |
 | `deno task check` | Format, lint, and type-check |
