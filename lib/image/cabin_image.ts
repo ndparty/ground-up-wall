@@ -1,5 +1,5 @@
-/** Cabin photo aspect ratio (width / height) matching display CSS proportions. */
-export const CABIN_PHOTO_ASPECT = 480 / 446;
+/** Cabin photo aspect ratio (width / height). Square (1:1) to match the display window. */
+export const CABIN_PHOTO_ASPECT = 1;
 
 /** Maximum output pixel count (8 megapixels). */
 export const MAX_IMAGE_PIXELS = 8_000_000;

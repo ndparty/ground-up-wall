@@ -99,8 +99,7 @@ body.display-wall-mode main {
 .train-cabin {
   flex: 0 0 var(--cabin-width);
   width: var(--cabin-width);
-  height: 72vh;
-  max-height: 720px;
+  height: auto;
   background:
     linear-gradient(180deg, #f5f7fa 0%, var(--mrt-silver) 18%, var(--mrt-silver-dark) 100%);
   border-radius: 40px 40px 16px 16px;
@@ -114,19 +113,6 @@ body.display-wall-mode main {
   opacity: 0.72;
   transition: opacity 0.4s ease;
   position: relative;
-}
-
-/* Bold red livery stripe across the body — signature metro look. */
-.train-cabin::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 7%;
-  height: 14%;
-  background: linear-gradient(180deg, #ff4d57 0%, var(--sg-red) 45%, #c41e2a 100%);
-  z-index: 1;
-  pointer-events: none;
 }
 
 /* Coupler stub linking adjacent carriages, sitting in the inter-cabin gap. */
@@ -149,13 +135,14 @@ body.display-wall-mode main {
   box-shadow: 0 16px 48px rgba(239, 51, 64, 0.5);
 }
 
-/* Roof band with destination line indicator above the red livery stripe. */
+/* Roof band with destination line indicator; the bold red livery stripe sits along its
+   bottom edge (above the photo, never over it). */
 .train-cabin__roof {
   flex: 0 0 auto;
-  height: 8%;
-  min-height: 44px;
+  min-height: 52px;
+  padding: 0.5rem 0;
   background: linear-gradient(180deg, #a8b0ba 0%, var(--mrt-roof) 55%, #727b87 100%);
-  border-bottom: 2px solid rgba(0, 0, 0, 0.15);
+  border-bottom: 8px solid var(--sg-red);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -176,44 +163,20 @@ body.display-wall-mode main {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
-/* Sliding-door window: dark frame, two vertical mullions, photo behind glass. */
+/* Square (1:1) photo window with a dark frame. Nothing is overlaid on the photo. */
 .train-cabin__window {
-  flex: 1 1 auto;
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  aspect-ratio: 1 / 1;
   position: relative;
-  margin: 10px 14px 6px;
+  margin: 12px 14px 8px;
   border: 10px solid var(--mrt-frame);
   border-radius: 6px;
   overflow: hidden;
   background: var(--mrt-frame);
-  z-index: 2;
   box-shadow:
     inset 0 0 0 2px rgba(255, 255, 255, 0.08),
     inset 0 2px 8px rgba(0, 0, 0, 0.35);
-}
-
-.train-cabin__window::before,
-.train-cabin__window::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 5px;
-  background: linear-gradient(
-    90deg,
-    rgba(255, 255, 255, 0.12) 0%,
-    rgba(0, 0, 0, 0.25) 50%,
-    rgba(255, 255, 255, 0.08) 100%
-  );
-  z-index: 3;
-  pointer-events: none;
-}
-
-.train-cabin__window::before {
-  left: calc(50% - 14px);
-}
-
-.train-cabin__window::after {
-  left: calc(50% + 9px);
 }
 
 .train-cabin__photo-wrap {
@@ -232,45 +195,62 @@ body.display-wall-mode main {
   object-fit: cover;
 }
 
-/* Dark information panel (keeps white text legible on the silver body). */
+/* Dark information panel (keeps white text legible on the silver body).
+   Constant height so every cabin is identical regardless of message length. */
 .train-cabin__body {
   flex: 0 0 auto;
+  box-sizing: border-box;
+  height: 138px;
   margin: 0 14px;
-  padding: 0.85rem 1rem 1rem;
+  padding: 0.8rem 1rem;
   background: linear-gradient(180deg, #252a36 0%, #14171f 100%);
   border-radius: 8px;
   border-top: 4px solid var(--sg-red);
   position: relative;
   z-index: 2;
+  overflow: hidden;
 }
 
-/* Undercarriage with two bogies/wheels. */
+/* Undercarriage with two clearly-wheel bogies. */
 .train-cabin__undercarriage {
   flex: 0 0 auto;
-  height: 36px;
+  height: 56px;
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-around;
-  padding: 0 10% 2px;
+  padding: 0 16%;
   position: relative;
   z-index: 2;
-  background: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.12) 100%);
 }
 
 .train-cabin__bogie {
-  width: 34px;
-  height: 34px;
+  width: 58px;
+  height: 58px;
   border-radius: 50%;
-  background: radial-gradient(circle at 50% 35%, #6a707a 0%, #343942 55%, #12151a 100%);
-  border: 3px solid #2e333c;
-  box-shadow: inset 0 -2px 4px rgba(0, 0, 0, 0.4);
+  background: radial-gradient(
+    circle at 50% 50%,
+    #16191f 0%,
+    #16191f 24%,
+    #555d68 28%,
+    #79828e 44%,
+    #2c313a 66%,
+    #101317 100%
+  );
+  border: 4px solid #2e333c;
+  box-shadow:
+    inset 0 0 6px rgba(0, 0, 0, 0.6),
+    0 3px 6px rgba(0, 0, 0, 0.4);
 }
 
 .train-cabin__message {
   margin: 0 0 0.5rem;
-  font-size: 1.25rem;
-  line-height: 1.35;
+  font-size: 1.2rem;
+  line-height: 1.3;
   font-weight: 500;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .train-cabin__name {
