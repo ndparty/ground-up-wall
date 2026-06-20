@@ -7,6 +7,7 @@ import {
   tooManyRequests,
 } from "../../../lib/security/rate_limit.ts";
 import { verifyPowToken } from "../../../lib/security/pow_challenge_store.ts";
+import { securityGatesDisabled } from "../../../lib/security/gate_mode.ts";
 import { define } from "../../../utils.ts";
 
 // Public upload endpoint: cap request size before buffering, and rate-limit per IP (NFR-23).
@@ -15,9 +16,10 @@ const uploadRateLimiter = new RateLimiter(15, 60_000);
 
 export const handlers = define.handlers({
   async POST(ctx) {
+    const gatesOn = !securityGatesDisabled();
     // Proof-of-work gate (NFR-23) — when enabled, verified as a cheap early no-op
     // BEFORE buffering the multipart body or touching storage/DB.
-    if (await ctx.state.services.photoWall.isPowChallengeEnabled()) {
+    if (gatesOn && await ctx.state.services.photoWall.isPowChallengeEnabled()) {
       const ok = await verifyPowToken(ctx.req.headers.get("x-pow"));
       if (!ok) {
         return ctx.json({ error: "Proof-of-work required", powRequired: true }, { status: 428 });
@@ -26,9 +28,11 @@ export const handlers = define.handlers({
     if (exceedsBodyLimit(ctx.req, MAX_UPLOAD_REQUEST_BYTES)) {
       return ctx.json({ error: "Upload too large" }, { status: 413 });
     }
-    const limit = uploadRateLimiter.check(clientKey(ctx.req, ctx.info));
-    if (!limit.allowed) {
-      return tooManyRequests(limit.retryAfterMs);
+    if (gatesOn) {
+      const limit = uploadRateLimiter.check(clientKey(ctx.req, ctx.info));
+      if (!limit.allowed) {
+        return tooManyRequests(limit.retryAfterMs);
+      }
     }
     try {
       const form = await ctx.req.formData();

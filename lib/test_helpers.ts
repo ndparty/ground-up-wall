@@ -2,6 +2,11 @@ import { runMigrations } from "../scripts/migrate.ts";
 import { normalizeDatabaseUrl } from "./db_url.ts";
 import { PostgresRepository } from "./repositories/postgres_repository.ts";
 
+// Disable per-request security gates (rate limit / login lockout / PoW) in the shared
+// single-process test run so their in-memory singletons do not accumulate across tests.
+// Gate logic itself is covered by rate_limit_test, login_throttle_test, and pow_test.
+Deno.env.set("SECURITY_GATES_DISABLED", "1");
+
 const DEFAULT_TEST_DB = "postgres://localhost:5432/ground_up_wall_test";
 
 export function getTestDatabaseUrl(): string {
