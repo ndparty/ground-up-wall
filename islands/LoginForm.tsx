@@ -1,7 +1,13 @@
 import { useState } from "preact/hooks";
+import { loginRedirectPath } from "../lib/auth/login_redirect.ts";
+import type { User } from "../lib/types.ts";
 
-export default function LoginForm() {
-  const [error, setError] = useState("");
+export interface LoginFormProps {
+  initialError?: string;
+}
+
+export default function LoginForm({ initialError = "" }: LoginFormProps) {
+  const [error, setError] = useState(initialError);
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: Event) {
@@ -24,11 +30,9 @@ export default function LoginForm() {
         return;
       }
       const body = await res.json();
-      const role = body.user?.role as string | undefined;
-      if (role === "display_wall") {
-        globalThis.location.href = "/display";
-      } else if (role === "moderator" || role === "admin") {
-        globalThis.location.href = "/moderate";
+      const role = body.user?.role as User["role"] | undefined;
+      if (role) {
+        globalThis.location.href = loginRedirectPath(role);
       } else {
         globalThis.location.href = "/upload";
       }
@@ -40,7 +44,7 @@ export default function LoginForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit}>
+    <form method="post" action="/login" onSubmit={handleSubmit}>
       <label style="display: block; margin-bottom: 1rem;">
         Username
         <input

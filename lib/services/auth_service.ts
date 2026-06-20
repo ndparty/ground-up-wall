@@ -2,6 +2,8 @@ import * as bcrypt from "bcrypt";
 import type { AuditService } from "../interfaces/audit_service.ts";
 import type { Repository } from "../interfaces/repository.ts";
 import type { User } from "../types.ts";
+import type { SessionStore } from "./session_store.ts";
+import { MemorySessionStore } from "./session_store.ts";
 
 export interface AuthUser {
   id: string;
@@ -16,20 +18,16 @@ export interface AuthResult {
   error?: string;
 }
 
-interface SessionEntry {
-  user: AuthUser;
-  expires: Date;
-}
-
 const SESSION_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 export class AuthService {
-  private readonly sessions = new Map<string, SessionEntry>();
-
   constructor(
     private readonly repository: Repository,
     private readonly audit: AuditService,
-  ) {}
+    private readonly sessions: SessionStore = new MemorySessionStore(),
+  ) {
+    this.sessions.load();
+  }
 
   async login(username: string, password: string): Promise<AuthResult> {
     const user = await this.repository.authenticateUser(username);
@@ -87,15 +85,12 @@ export class AuthService {
     }
     const authUser = toAuthUser(dbUser);
     session.user = authUser;
+    this.sessions.set(token, session);
     return authUser;
   }
 
   invalidateSessionsForUser(userId: string, exceptToken?: string): void {
-    for (const [token, session] of this.sessions) {
-      if (session.user.id === userId && token !== exceptToken) {
-        this.sessions.delete(token);
-      }
-    }
+    this.sessions.deleteByUserId(userId, exceptToken);
   }
 
   isAuthenticated(token: string | null | undefined): boolean {

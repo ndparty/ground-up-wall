@@ -37,7 +37,7 @@ export default function ChangePasswordForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit}>
+    <form method="post" action="/change-password" onSubmit={handleSubmit}>
       <label style="display: block; margin-bottom: 1rem;">
         Current password
         <input

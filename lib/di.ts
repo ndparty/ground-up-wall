@@ -10,6 +10,7 @@ import { MemoryRealtimeService } from "./repositories/memory_realtime_service.ts
 import { AuditServiceImpl } from "./services/audit_service_impl.ts";
 import { AutoModeratorServiceImpl } from "./services/auto_moderator_service_impl.ts";
 import { AuthService } from "./services/auth_service.ts";
+import { createSessionStore } from "./services/session_store.ts";
 import { PhotoWallService } from "./services/photo_wall_service.ts";
 
 export interface AppState {
@@ -56,6 +57,6 @@ export function createAppState(config: AppConfig): AppState {
     deps.audit,
     deps.autoModerator,
   );
-  const auth = new AuthService(deps.repository, deps.audit);
+  const auth = new AuthService(deps.repository, deps.audit, createSessionStore());
   return { auth, photoWall, repository: deps.repository };
 }
