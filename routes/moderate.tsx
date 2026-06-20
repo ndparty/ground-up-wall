@@ -1,5 +1,6 @@
 import DisplayOverrideControls from "../islands/DisplayOverrideControls.tsx";
 import ModerationQueue from "../islands/ModerationQueue.tsx";
+import ModeratorTrainPanel from "../islands/ModeratorTrainPanel.tsx";
 import { define } from "../utils.ts";
 
 export const handlers = define.handlers({
@@ -17,6 +18,7 @@ export default define.page(function ModeratePage() {
     <div style="padding: 2rem 1.5rem; max-width: 900px; margin: 0 auto;">
       <h2 style="color: #ef3340;">Moderation</h2>
       <DisplayOverrideControls />
+      <ModeratorTrainPanel />
       <ModerationQueue />
     </div>
   );

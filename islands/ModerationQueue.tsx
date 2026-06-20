@@ -32,14 +32,18 @@ function SubmissionCard({
   onReject,
   onEdit,
   onDelete,
+  onShowOnDisplay,
   showDelete,
+  cabinNumber,
 }: {
   submission: Submission;
   onApprove?: () => void;
   onReject?: () => void;
   onEdit?: (data: { message: string; submitter_name: string; social_handle: string }) => void;
   onDelete?: () => void;
+  onShowOnDisplay?: () => void;
   showDelete?: boolean;
+  cabinNumber?: number;
 }) {
   const [editing, setEditing] = useState(false);
   const [message, setMessage] = useState(submission.message);
@@ -234,6 +238,16 @@ function SubmissionCard({
               Delete
             </button>
           )}
+          {onShowOnDisplay && cabinNumber !== undefined && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void onShowOnDisplay()}
+              style="padding: 0.4rem 0.8rem; background: #6a1b9a; color: white; border: none; border-radius: 4px; cursor: pointer;"
+            >
+              Show on display (cabin {cabinNumber})
+            </button>
+          )}
         </div>
       )}
       {error && <p style="color: #c62828; margin: 0.5rem 0 0; font-size: 0.9rem;">{error}</p>}
@@ -316,6 +330,16 @@ export default function ModerationQueue() {
     return () => es.close();
   }, []);
 
+  async function showOnDisplay(cabinNumber: number): Promise<void> {
+    const res = await fetch("/api/display/train-command", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "jump", cabinNumber }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error ?? "Jump failed");
+  }
+
   async function apiAction(
     url: string,
     method: string,
@@ -371,11 +395,12 @@ export default function ModerationQueue() {
       <h3 style="color: #ef3340; margin-top: 2rem;">Approved on wall</h3>
       {approved.length === 0
         ? <p style="color: #666;">No approved submissions</p>
-        : approved.map((sub) => (
+        : approved.map((sub, index) => (
           <SubmissionCard
             key={sub.id}
             submission={sub}
             showDelete
+            cabinNumber={index + 1}
             onEdit={async (data) => {
               const res = await fetch(`/api/moderate/edit/${sub.id}`, {
                 method: "POST",
@@ -389,6 +414,9 @@ export default function ModerationQueue() {
             onDelete={async () => {
               await apiAction(`/api/moderate/delete/${sub.id}`, "POST");
               setApproved((prev) => prev.filter((s) => s.id !== sub.id));
+            }}
+            onShowOnDisplay={async () => {
+              await showOnDisplay(index + 1);
             }}
           />
         ))}

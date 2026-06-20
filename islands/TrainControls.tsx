@@ -7,6 +7,7 @@ export interface TrainControlsProps {
   onJump: (cabinNumber: number) => void;
   trainLength: number;
   currentCabin: number;
+  variant?: "display" | "moderate";
 }
 
 export default function TrainControls({
@@ -16,6 +17,7 @@ export default function TrainControls({
   onJump,
   trainLength,
   currentCabin,
+  variant = "display",
 }: TrainControlsProps) {
   const [jumpInput, setJumpInput] = useState("");
 
@@ -26,8 +28,12 @@ export default function TrainControls({
     setJumpInput("");
   }
 
+  const rootClass = variant === "moderate"
+    ? "train-controls train-controls--moderate"
+    : "train-controls";
+
   return (
-    <div class="train-controls">
+    <div class={rootClass}>
       <span class="train-controls__status">
         Cabin {currentCabin} of {trainLength}
       </span>
@@ -38,19 +44,21 @@ export default function TrainControls({
       >
         {isPlaying ? "Pause" : "Play"}
       </button>
-      <label class="train-controls__jump">
-        Jump to cabin #
-        <input
-          type="number"
-          min={1}
-          max={trainLength}
-          value={jumpInput}
-          onInput={(e) => setJumpInput((e.target as HTMLInputElement).value)}
-        />
-      </label>
-      <button type="button" class="train-controls__btn" onClick={handleJump}>
-        Jump
-      </button>
+      <div class="train-controls__jump">
+        <label class="train-controls__jump-label">
+          Jump to cabin #
+          <input
+            type="number"
+            min={1}
+            max={trainLength}
+            value={jumpInput}
+            onInput={(e) => setJumpInput((e.target as HTMLInputElement).value)}
+          />
+        </label>
+        <button type="button" class="train-controls__btn" onClick={handleJump}>
+          Jump
+        </button>
+      </div>
     </div>
   );
 }
