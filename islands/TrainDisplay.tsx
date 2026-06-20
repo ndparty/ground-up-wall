@@ -1,85 +1,85 @@
-import { useEffect, useRef, useState } from "preact/hooks";
-import type {
-  DisplayOverrideCommand,
-  TrainCommand,
-} from "../lib/interfaces/realtime_service.ts";
+import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
+import type { DisplayOverrideCommand } from "../lib/interfaces/realtime_service.ts";
 import {
   mapCommandToOverrideState,
-  resolveOverrideView,
   type OverrideState,
+  resolveOverrideView,
 } from "../lib/train/display_override.ts";
 import {
-  addSubmission,
-  cloneChain,
-  initTrain,
-  jumpToCabin,
-  removeSubmission,
-  transitionToNext,
-  updateSubmission,
-  type TrainChain,
-} from "../lib/train/chain.ts";
-import { clampDwellSeconds, parseDwellTime } from "../lib/train/display_helpers.ts";
+  centerNow,
+  clearTrackTransition,
+  computeTrackTranslateX,
+  readTranslateXFromElement,
+  slideTo,
+  waitForLayout,
+  waitForTrackTransition,
+} from "../lib/train/center_track.ts";
 import {
-  applyApprovedWhilePaused,
-  resumeFromPause,
-  shouldShowTrainControls,
-} from "../lib/train/playback.ts";
-import type { Submission } from "../lib/types.ts";
-import type { User } from "../lib/types.ts";
+  computeJumpAnimationPath,
+  getForwardSlideTargetId,
+  getRenderWindow,
+} from "../lib/train/train_view.ts";
+import {
+  cabinsForJumpPreload,
+  imageUrlsForJumpPath,
+  preloadCabinImages,
+} from "../lib/train/preload_cabin_images.ts";
+import { slideDurationMs } from "../lib/train/slide_duration.ts";
+import { shouldShowTrainControls } from "../lib/train/playback.ts";
+import { useTrainPlayback } from "../lib/train/use_train_playback.ts";
+import { VIEWPORT_K } from "../lib/train/train_view_constants.ts";
 import TrainCabin from "./TrainCabin.tsx";
 import TrainControls from "./TrainControls.tsx";
 
-const CABIN_STEP_PX = 512; // --cabin-width + --cabin-gap
-
-async function publishTrainCommand(command: TrainCommand): Promise<boolean> {
-  const res = await fetch("/api/display/train-command", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(command),
-  });
-  return res.ok;
-}
-
 function parseSseData<T>(event: MessageEvent): T | null {
   try {
-    return JSON.parse(event.data) as T;
+    return JSON.parse(event.data as string) as T;
   } catch {
     return null;
   }
 }
 
 export default function TrainDisplay() {
-  const [chain, setChain] = useState<TrainChain>(() => initTrain([]));
-  const [dwellTime, setDwellTime] = useState(15);
-  const [isPlaying, setIsPlaying] = useState(true);
-  const [userRole, setUserRole] = useState<User["role"] | null>(null);
-  const [showFullscreenPrompt, setShowFullscreenPrompt] = useState(false);
+  const {
+    trainView,
+    isPlaying,
+    userRole,
+    currentCabin,
+    trainLength,
+    pendingAdvances,
+    commitAdvance,
+    commitJumpTarget,
+    pauseTrain,
+    resumeTrain,
+    jumpTrain,
+    syncPlaybackFromServer,
+    bootstrapComplete,
+  } = useTrainPlayback();
+
   const [overrideState, setOverrideState] = useState<OverrideState>({ type: "normal" });
+  const [showFullscreenPrompt, setShowFullscreenPrompt] = useState(false);
+  const [instantSnap, setInstantSnap] = useState(true);
+  const [jumpPathIds, setJumpPathIds] = useState<Set<string>>(() => new Set());
+
+  const stageRef = useRef<HTMLDivElement>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
+  const cabinRefs = useRef<Map<string, HTMLElement>>(new Map());
+  const trainViewRef = useRef(trainView);
+  const jumpPreloadTargetRef = useRef<number | null>(null);
+  const isAnimatingRef = useRef(false);
+  const pendingAdvancesRef = useRef(pendingAdvances);
   const isPlayingRef = useRef(isPlaying);
-  const initialLoadDone = useRef(false);
-  const pendingChainUpdates = useRef<Array<(prev: TrainChain) => TrainChain>>([]);
+  const runOrchestratorRef = useRef<(() => void) | null>(null);
+  const prevOverrideViewRef = useRef<"train" | "blank" | "placeholder">("train");
+  trainViewRef.current = trainView;
+  pendingAdvancesRef.current = pendingAdvances;
   isPlayingRef.current = isPlaying;
 
-  const currentIndex = chain.current?.index ?? 0;
-  const hasCabins = chain.nodes.length > 0;
-  const currentCabin = hasCabins ? currentIndex + 1 : 0;
-
-  function applyChainUpdate(updater: (prev: TrainChain) => TrainChain) {
-    if (!initialLoadDone.current) {
-      pendingChainUpdates.current.push(updater);
-      return;
-    }
-    setChain(updater);
-  }
-
-  function flushPendingChainUpdates(base: TrainChain) {
-    let next = base;
-    for (const updater of pendingChainUpdates.current) {
-      next = updater(next);
-    }
-    pendingChainUpdates.current = [];
-    return next;
-  }
+  const hasCabins = trainView.base.nodes.length > 0;
+  const currentId = trainView.base.current?.submission.id;
+  const renderNodes = getRenderWindow(trainView);
+  const showControls = shouldShowTrainControls(userRole);
+  const overrideView = resolveOverrideView(overrideState);
 
   useEffect(() => {
     const dismissed = globalThis.localStorage?.getItem("display_wall_fullscreen_dismissed");
@@ -89,183 +89,238 @@ export default function TrainDisplay() {
   }, []);
 
   useEffect(() => {
-    let cancelled = false;
-
-    async function bootstrap() {
-      const [meRes, overrideRes, submissionsRes] = await Promise.all([
-        fetch("/api/auth/me"),
-        fetch("/api/display/override-state"),
-        fetch("/api/display/submissions"),
-      ]);
-
-      if (cancelled) return;
-
-      if (meRes.ok) {
-        const me = await meRes.json();
-        setUserRole(me.user?.role ?? null);
-      }
-
-      if (overrideRes.ok) {
-        const override = await overrideRes.json();
-        setOverrideState(override as OverrideState);
-      }
-
-      if (submissionsRes.ok) {
-        const data = await submissionsRes.json();
-        setDwellTime(clampDwellSeconds(data.dwellTimeSeconds ?? 15));
-        const loaded = initTrain(data.submissions as Submission[]);
-        initialLoadDone.current = true;
-        setChain(flushPendingChainUpdates(loaded));
-      } else {
-        initialLoadDone.current = true;
-        setChain((prev) => flushPendingChainUpdates(prev));
-      }
-    }
-
-    bootstrap().catch(() => {
-      initialLoadDone.current = true;
-    });
-
-    return () => {
-      cancelled = true;
-    };
+    fetch("/api/display/override-state")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((override) => {
+        if (override) setOverrideState(override as OverrideState);
+      })
+      .catch(() => undefined);
   }, []);
-
-  function applyDisplayOverride(command: DisplayOverrideCommand) {
-    setOverrideState(mapCommandToOverrideState(command.type, command.imageUrl));
-  }
-
-  function applyTrainCommand(command: TrainCommand) {
-    if (command.type === "pause") {
-      setIsPlaying(false);
-      return;
-    }
-    if (command.type === "play") {
-      setIsPlaying(true);
-      applyChainUpdate((prev) => {
-        const next = cloneChain(prev);
-        resumeFromPause(next);
-        return { ...next, nodes: [...next.nodes] };
-      });
-      return;
-    }
-    if (command.type === "jump" && command.cabinNumber !== undefined) {
-      applyChainUpdate((prev) => {
-        const next = cloneChain(prev);
-        jumpToCabin(next, command.cabinNumber!);
-        return { ...next, nodes: [...next.nodes] };
-      });
-    }
-  }
 
   useEffect(() => {
     const es = new EventSource("/api/display/events");
-
-    es.addEventListener("submission_approved", (event) => {
-      const submission = parseSseData<Submission>(event);
-      if (!submission) return;
-      applyChainUpdate((prev) => {
-        const next = cloneChain(prev);
-        if (isPlayingRef.current) {
-          addSubmission(next, submission);
-        } else {
-          applyApprovedWhilePaused(next, submission, false);
-        }
-        return { ...next, nodes: [...next.nodes] };
-      });
-    });
-
-    es.addEventListener("submission_edited", (event) => {
-      const submission = parseSseData<Submission>(event);
-      if (!submission) return;
-      applyChainUpdate((prev) => {
-        const next = cloneChain(prev);
-        updateSubmission(next, submission);
-        return { ...next, nodes: [...next.nodes] };
-      });
-    });
-
-    es.addEventListener("submission_deleted", (event) => {
-      const payload = parseSseData<{ id: string }>(event);
-      if (!payload) return;
-      applyChainUpdate((prev) => {
-        const next = cloneChain(prev);
-        removeSubmission(next, payload.id);
-        return { ...next, nodes: [...next.nodes] };
-      });
-    });
-
-    es.addEventListener("train_command", (event) => {
-      const command = parseSseData<TrainCommand>(event);
-      if (command) applyTrainCommand(command);
-    });
-
     es.addEventListener("display_override", (event) => {
       const command = parseSseData<DisplayOverrideCommand>(event);
-      if (command) applyDisplayOverride(command);
-    });
-
-    es.addEventListener("system_config_changed", (event) => {
-      const config = parseSseData<{ key: string; value: string }>(event);
-      if (config?.key === "train_dwell_time") {
-        setDwellTime(clampDwellSeconds(parseDwellTime(config.value)));
+      if (command) {
+        setOverrideState(mapCommandToOverrideState(command.type, command.imageUrl));
       }
     });
-
-    es.onerror = () => {
-      es.close();
-    };
-
+    es.onerror = () => es.close();
     return () => es.close();
   }, []);
 
   useEffect(() => {
-    if (!isPlaying || !hasCabins) return;
-    const timer = setTimeout(() => {
-      applyChainUpdate((prev) => {
-        const next = cloneChain(prev);
-        transitionToNext(next);
-        return { ...next, nodes: [...next.nodes] };
-      });
-    }, dwellTime * 1000);
-    return () => clearTimeout(timer);
-  }, [isPlaying, dwellTime, currentIndex, hasCabins]);
+    if (!bootstrapComplete) return;
+    const t = setTimeout(() => setInstantSnap(false), 50);
+    return () => clearTimeout(t);
+  }, [bootstrapComplete]);
 
-  async function pauseTrain() {
-    const wasPlaying = isPlaying;
-    setIsPlaying(false);
-    const ok = await publishTrainCommand({ type: "pause" });
-    if (!ok) setIsPlaying(wasPlaying);
-  }
+  useEffect(() => {
+    const stage = stageRef.current;
+    const track = trackRef.current;
+    if (!stage || !track || !hasCabins) return;
 
-  async function resumeTrain() {
-    const wasPlaying = isPlaying;
-    setIsPlaying(true);
-    applyChainUpdate((prev) => {
-      const next = cloneChain(prev);
-      resumeFromPause(next);
-      return { ...next, nodes: [...next.nodes] };
+    const ro = new ResizeObserver(() => {
+      if (isAnimatingRef.current) return;
+      const active = currentId ? cabinRefs.current.get(currentId) : null;
+      if (!active) return;
+      track.style.transition = "none";
+      centerNow(stage, track, active);
+      requestAnimationFrame(() => clearTrackTransition(track));
     });
-    const ok = await publishTrainCommand({ type: "play" });
-    if (!ok) setIsPlaying(wasPlaying);
-  }
+    ro.observe(stage);
+    ro.observe(track);
+    return () => ro.disconnect();
+  }, [hasCabins, currentId]);
 
-  async function jumpTrain(cabinNumber: number) {
-    const previousIndex = currentIndex;
-    applyChainUpdate((prev) => {
-      const next = cloneChain(prev);
-      jumpToCabin(next, cabinNumber);
-      return { ...next, nodes: [...next.nodes] };
-    });
-    const ok = await publishTrainCommand({ type: "jump", cabinNumber });
-    if (!ok) {
-      applyChainUpdate((prev) => {
-        const next = cloneChain(prev);
-        jumpToCabin(next, previousIndex + 1);
-        return { ...next, nodes: [...next.nodes] };
-      });
+  /** Flicker-free instant recenter after state commits (before paint). */
+  useLayoutEffect(() => {
+    if (!hasCabins || !bootstrapComplete || overrideView !== "train") return;
+    if (isAnimatingRef.current) return;
+
+    const stage = stageRef.current;
+    const track = trackRef.current;
+    const active = currentId ? cabinRefs.current.get(currentId) : null;
+    if (!stage || !track || !active) return;
+
+    track.style.transition = "none";
+    centerNow(stage, track, active);
+    requestAnimationFrame(() => clearTrackTransition(track));
+  }, [hasCabins, bootstrapComplete, currentId, renderNodes.length, overrideView]);
+
+  /** Snap to server cabin and recenter when returning from display override. */
+  useEffect(() => {
+    const prev = prevOverrideViewRef.current;
+    prevOverrideViewRef.current = overrideView;
+
+    if (!bootstrapComplete || !hasCabins) return;
+    if (overrideView !== "train" || prev === "train") return;
+
+    let cancelled = false;
+    setInstantSnap(true);
+
+    void (async () => {
+      await syncPlaybackFromServer();
+      if (cancelled) return;
+      await waitForLayout();
+      if (cancelled) return;
+
+      const stage = stageRef.current;
+      const track = trackRef.current;
+      const activeId = trainViewRef.current.base.current?.submission.id;
+      const active = activeId ? cabinRefs.current.get(activeId) : null;
+      if (stage && track && active) {
+        track.style.transition = "none";
+        centerNow(stage, track, active);
+        requestAnimationFrame(() => clearTrackTransition(track));
+      }
+      setTimeout(() => {
+        if (!cancelled) setInstantSnap(false);
+      }, 50);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [overrideView, bootstrapComplete, hasCabins, syncPlaybackFromServer]);
+
+  useEffect(() => {
+    if (!hasCabins || !bootstrapComplete) return;
+
+    let cancelled = false;
+
+    async function slideToElement(
+      targetEl: HTMLElement,
+      steps: number,
+    ): Promise<boolean> {
+      const stage = stageRef.current;
+      const track = trackRef.current;
+      if (!stage || !track) return false;
+
+      const currentTx = readTranslateXFromElement(track);
+      const targetTx = computeTrackTranslateX(stage, track, targetEl);
+      if (targetTx > currentTx) return false;
+
+      const duration = slideDurationMs(steps);
+      slideTo(track, targetTx, duration);
+      await waitForTrackTransition(track, duration + 150);
+      return !cancelled;
     }
-  }
+
+    async function drainQueue() {
+      if (isAnimatingRef.current) return;
+
+      const view = trainViewRef.current;
+      const jump = view.jump;
+      const hasJump = (jump?.stepsRemaining ?? 0) > 0;
+      const hasPendingAdvance = pendingAdvancesRef.current > 0;
+      if (!hasJump && !hasPendingAdvance) return;
+
+      isAnimatingRef.current = true;
+      try {
+        if (hasJump && jump) {
+          if (jumpPreloadTargetRef.current !== jump.targetCabin) {
+            jumpPreloadTargetRef.current = jump.targetCabin;
+            const current = view.base.current;
+            if (!current) return;
+
+            const fromCabin = current.index + 1;
+            const path = computeJumpAnimationPath(
+              fromCabin,
+              jump.targetCabin,
+              view.base.nodes.length,
+            );
+            const preloadCabins = cabinsForJumpPreload(
+              path,
+              jump.targetCabin,
+              view.base.nodes.length,
+            );
+            const pathIds = new Set(
+              preloadCabins
+                .map((cabin) => view.base.nodes[cabin - 1]?.submission.id)
+                .filter((id): id is string => id !== undefined),
+            );
+            setJumpPathIds(pathIds);
+            await preloadCabinImages(
+              imageUrlsForJumpPath(preloadCabins, view.base.nodes),
+            );
+            if (cancelled) return;
+            await waitForLayout();
+          }
+
+          const fromCabin = view.base.current!.index + 1;
+          const path = computeJumpAnimationPath(
+            fromCabin,
+            jump.targetCabin,
+            view.base.nodes.length,
+          );
+          const steps = Math.max(0, path.length - 1);
+          const targetIdx = jump.targetCabin - 1;
+          const targetId = view.base.nodes[targetIdx]?.submission.id;
+          const targetEl = targetId ? cabinRefs.current.get(targetId) : null;
+
+          if (targetEl && steps > 0) {
+            const slid = await slideToElement(targetEl, steps);
+            if (cancelled) return;
+            if (!slid) {
+              commitJumpTarget();
+              return;
+            }
+          }
+
+          commitJumpTarget();
+          jumpPreloadTargetRef.current = null;
+          setJumpPathIds(new Set());
+          return;
+        }
+
+        jumpPreloadTargetRef.current = null;
+        setJumpPathIds(new Set());
+
+        if (pendingAdvancesRef.current > 0 && isPlayingRef.current) {
+          const nextId = getForwardSlideTargetId(view);
+          const nextEl = nextId ? cabinRefs.current.get(nextId) : null;
+
+          if (nextEl) {
+            const slid = await slideToElement(nextEl, 1);
+            if (cancelled) return;
+            if (!slid) {
+              commitAdvance();
+              return;
+            }
+          }
+
+          commitAdvance();
+        }
+      } finally {
+        isAnimatingRef.current = false;
+        if (!cancelled && !trainViewRef.current.jump && pendingAdvancesRef.current === 0) {
+          jumpPreloadTargetRef.current = null;
+          setJumpPathIds(new Set());
+        }
+      }
+    }
+
+    runOrchestratorRef.current = () => {
+      void drainQueue();
+    };
+
+    return () => {
+      cancelled = true;
+      runOrchestratorRef.current = null;
+    };
+  }, [hasCabins, bootstrapComplete, commitAdvance, commitJumpTarget]);
+
+  useEffect(() => {
+    if (!hasCabins || !bootstrapComplete) return;
+    runOrchestratorRef.current?.();
+  }, [
+    hasCabins,
+    bootstrapComplete,
+    pendingAdvances,
+    trainView.jump?.targetCabin,
+    trainView.jump?.stepsRemaining,
+  ]);
 
   function dismissFullscreenPrompt() {
     globalThis.localStorage?.setItem("display_wall_fullscreen_dismissed", "1");
@@ -276,69 +331,108 @@ export default function TrainDisplay() {
     try {
       await document.documentElement.requestFullscreen();
     } catch {
-      // Fullscreen requires user gesture; ignore NotAllowedError
+      // ignore
     }
     dismissFullscreenPrompt();
   }
-
-  const translateX = -currentIndex * CABIN_STEP_PX;
-  const showControls = shouldShowTrainControls(userRole);
-  const overrideView = resolveOverrideView(overrideState);
 
   return (
     <div class="display-wall">
       <link rel="stylesheet" href="/train.css" />
 
       {showFullscreenPrompt && (
-        <div class="display-wall__fullscreen-prompt">
-          <button type="button" onClick={enterFullscreen}>
-            Click to go fullscreen
-          </button>
+        <div class="display-wall__fullscreen-prompt" role="dialog" aria-label="Fullscreen options">
+          <div class="display-wall__fullscreen-prompt-panel">
+            <button
+              type="button"
+              class="display-wall__fullscreen-dismiss"
+              aria-label="Dismiss"
+              onClick={dismissFullscreenPrompt}
+            >
+              ×
+            </button>
+            <p class="display-wall__fullscreen-prompt-text">
+              Go fullscreen for the best display experience.
+            </p>
+            <div class="display-wall__fullscreen-prompt-actions">
+              <button type="button" onClick={() => void enterFullscreen()}>Go fullscreen</button>
+              <button
+                type="button"
+                class="display-wall__fullscreen-prompt-secondary"
+                onClick={dismissFullscreenPrompt}
+              >
+                Not now
+              </button>
+            </div>
+            <p class="display-wall__fullscreen-hint">You can press F11 anytime.</p>
+          </div>
         </div>
       )}
 
       {overrideView === "blank" && <div class="display-wall__override-blank" />}
 
       {overrideView === "placeholder" && (
-        <div class="display-wall__override-placeholder">
-          {overrideState.imageUrl
-            ? <img src={overrideState.imageUrl} alt="Placeholder" />
-            : <p>Placeholder</p>}
-        </div>
+        overrideState.imageUrl
+          ? (
+            <div class="display-wall__override-placeholder">
+              <img src={overrideState.imageUrl} alt="Placeholder" />
+            </div>
+          )
+          : (
+            <div class="display-wall__empty">
+              <img src="/logo-dark.png" alt="National Day" class="display-wall__logo" />
+            </div>
+          )
       )}
 
       {overrideView === "train" && !hasCabins && (
         <div class="display-wall__empty">
-          <h2>🇸🇬 Ground Up Wall</h2>
+          <img src="/logo-dark.png" alt="National Day" class="display-wall__logo" />
           <p>Submissions coming soon!</p>
         </div>
       )}
 
       {overrideView === "train" && hasCabins && (
-        <div class="display-wall__track-wrap">
+        <div class="display-wall__stage-outer">
+          <div class="display-wall__stage-fade display-wall__stage-fade--left" aria-hidden="true" />
           <div
-            class="display-wall__track"
-            style={{ transform: `translateX(${translateX}px)` }}
+            ref={stageRef}
+            class="display-wall__stage"
+            data-viewport-k={VIEWPORT_K}
           >
-            {chain.nodes.map((node) => (
-              <TrainCabin
-                key={node.submission.id}
-                submission={node.submission}
-                isActive={node.index === currentIndex}
-                index={node.index}
-              />
-            ))}
+            <div
+              ref={trackRef}
+              class={`display-wall__track${instantSnap ? " display-wall__track--instant" : ""}`}
+            >
+              {renderNodes.map((node) => (
+                <TrainCabin
+                  key={node.submission.id}
+                  ref={(el) => {
+                    if (el) cabinRefs.current.set(node.submission.id, el);
+                    else cabinRefs.current.delete(node.submission.id);
+                  }}
+                  submission={node.submission}
+                  isActive={node.submission.id === currentId}
+                  index={node.index}
+                  lazyImage={
+                    !jumpPathIds.has(node.submission.id) &&
+                    node.submission.id !== currentId
+                  }
+                />
+              ))}
+            </div>
           </div>
+          <div class="display-wall__stage-fade display-wall__stage-fade--right" aria-hidden="true" />
         </div>
       )}
 
       {showControls && hasCabins && (
         <TrainControls
           isPlaying={isPlaying}
-          onPause={pauseTrain}
-          onPlay={resumeTrain}
-          onJump={jumpTrain}
-          trainLength={chain.nodes.length}
+          onPause={() => void pauseTrain()}
+          onPlay={() => void resumeTrain()}
+          onJump={(n) => void jumpTrain(n)}
+          trainLength={trainLength}
           currentCabin={currentCabin}
         />
       )}
