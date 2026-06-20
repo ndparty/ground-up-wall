@@ -4,6 +4,7 @@ import type { Repository } from "../interfaces/repository.ts";
 import type { User } from "../types.ts";
 import type { SessionStore } from "./session_store.ts";
 import { MemorySessionStore } from "./session_store.ts";
+import { LoginThrottle } from "../security/login_throttle.ts";
 
 export interface AuthUser {
   id: string;
@@ -25,25 +26,45 @@ export class AuthService {
     private readonly repository: Repository,
     private readonly audit: AuditService,
     private readonly sessions: SessionStore = new MemorySessionStore(),
+    private readonly throttle: LoginThrottle = new LoginThrottle(),
   ) {
     this.sessions.load();
   }
 
-  async login(username: string, password: string): Promise<AuthResult> {
+  async login(
+    username: string,
+    password: string,
+    clientKey = "global",
+  ): Promise<AuthResult> {
+    const throttleKey = `${username}::${clientKey}`;
+
+    // Temporary lockout after repeated failures (NFR-23) — checked before bcrypt.
+    if (this.throttle.isLocked(throttleKey)) {
+      await this.logLoginFailure(username, "locked");
+      return {
+        success: false,
+        error: "Too many failed attempts. Please try again in a few minutes.",
+      };
+    }
+
     const user = await this.repository.authenticateUser(username);
     if (!user) {
+      this.throttle.recordFailure(throttleKey);
       await this.logLoginFailure(username, "invalid_credentials");
       return { success: false, error: "Invalid credentials" };
     }
     if (user.disabled) {
+      this.throttle.recordFailure(throttleKey);
       await this.logLoginFailure(username, "account_disabled");
       return { success: false, error: "Account disabled" };
     }
     const valid = await bcrypt.verify(password, user.password_hash);
     if (!valid) {
+      this.throttle.recordFailure(throttleKey);
       await this.logLoginFailure(username, "invalid_credentials");
       return { success: false, error: "Invalid credentials" };
     }
+    this.throttle.recordSuccess(throttleKey);
     const token = crypto.randomUUID();
     const authUser = toAuthUser(user);
     this.sessions.set(token, {

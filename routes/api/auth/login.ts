@@ -12,7 +12,11 @@ export const handlers = define.handlers({
       return tooManyRequests(limit.retryAfterMs);
     }
     const { username, password } = await ctx.req.json();
-    const result = await ctx.state.services.auth.login(username, password);
+    const result = await ctx.state.services.auth.login(
+      username,
+      password,
+      clientKey(ctx.req, ctx.info),
+    );
     if (!result.success || !result.token || !result.user) {
       return ctx.json({ error: result.error ?? "Invalid credentials" }, { status: 401 });
     }
