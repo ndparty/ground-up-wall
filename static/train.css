@@ -29,7 +29,11 @@ body.display-wall-mode main {
 .display-wall {
   position: fixed;
   inset: 0;
-  background: linear-gradient(180deg, #1a1a2e 0%, #2d1b2e 40%, #1a1a2e 100%);
+  background:
+    radial-gradient(ellipse at 50% -10%, rgba(239, 51, 64, 0.28), transparent 55%),
+    radial-gradient(circle at 12% 18%, rgba(255, 255, 255, 0.06), transparent 22%),
+    radial-gradient(circle at 86% 24%, rgba(255, 255, 255, 0.05), transparent 20%),
+    linear-gradient(180deg, #1a1a2e 0%, #2d1b2e 40%, #1a1a2e 100%);
   overflow: hidden;
   color: var(--sg-white);
 }
@@ -289,6 +293,43 @@ body.display-wall-mode main {
   margin: 0;
   font-size: 1.5rem;
   opacity: 0.9;
+}
+
+.display-wall__empty-title {
+  font-weight: 700;
+  color: var(--sg-white);
+}
+
+.display-wall__empty-subtitle {
+  margin-top: 0.75rem !important;
+  font-size: 1.15rem !important;
+  max-width: 36ch;
+  color: #ffd7db;
+  opacity: 0.95;
+}
+
+/* Subtle festive sparkle field behind the waiting screen (does not overpower content, DR-02). */
+.display-wall__sparkles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(2px 2px at 20% 30%, rgba(255, 255, 255, 0.8), transparent),
+    radial-gradient(2px 2px at 70% 20%, rgba(255, 215, 0, 0.8), transparent),
+    radial-gradient(2px 2px at 40% 70%, rgba(255, 255, 255, 0.6), transparent),
+    radial-gradient(2px 2px at 85% 65%, rgba(239, 51, 64, 0.8), transparent),
+    radial-gradient(2px 2px at 55% 45%, rgba(255, 255, 255, 0.5), transparent);
+  opacity: 0.5;
+  animation: display-wall-twinkle 4s ease-in-out infinite alternate;
+}
+
+@keyframes display-wall-twinkle {
+  from {
+    opacity: 0.25;
+  }
+  to {
+    opacity: 0.6;
+  }
 }
 
 .display-wall__fullscreen-prompt {

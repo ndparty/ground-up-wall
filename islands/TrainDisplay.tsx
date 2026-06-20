@@ -387,8 +387,12 @@ export default function TrainDisplay() {
 
       {overrideView === "train" && !hasCabins && (
         <div class="display-wall__empty">
+          <div class="display-wall__sparkles" aria-hidden="true" />
           <img src="/logo-dark.png" alt="National Day" class="display-wall__logo" />
-          <p>Submissions coming soon!</p>
+          <p class="display-wall__empty-title">Submissions coming soon!</p>
+          <p class="display-wall__empty-subtitle">
+            Happy National Day! Snap a photo, share your moment, and hop aboard the wall.
+          </p>
         </div>
       )}
 
