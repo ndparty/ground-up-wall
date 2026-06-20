@@ -59,6 +59,7 @@ This document maps all functional requirements (FR), non-functional requirements
 | FR-18 | Train consists of cabins, each displaying photo + message + name + optional social handle | DisplayComponent | PhotoWallService | Code: `TrainCabin.tsx` |
 | FR-19 | Configurable dwell time per cabin (default ~15s, range 3-60s, 1s increments) | DisplayComponent | PhotoWallService, Repository | Code: `train_playback_controller.ts`, `SystemParameters.tsx` |
 | FR-20 | Transition between cabins uses smooth scroll animation — train physically moves left | DisplayComponent | PhotoWallService | Code: `TrainDisplay.tsx`, `center_track.ts`, `slide_duration.ts` |
+| FR-20a | Off-screen node-list mutation invariant: ephemeral insert/remove and jump collapse/restore occur strictly outside the visible band (center +-K); no visible-band cabin changes | DisplayComponent | - | Code: `train_view.ts` (`applyEphemeralInsert`, `updateEphemeralVisibility`, `getRenderWindow`, `walkBaseNextSkippingCollapsed`); tests `train_view_test.ts` |
 | FR-21 | Cabin order is chronological (oldest first) | DisplayComponent | PhotoWallService, Repository | Code: `postgres_repository.getSubmissionsByStatus`, `train_view.ts` |
 | FR-22 | New approved submissions added automatically in real-time (within 30s) | DisplayComponent | PhotoWallService, RealtimeService | Code: `events.ts` SSE, `use_train_playback.ts` |
 | FR-23 | Branded waiting screen when no submissions approved | DisplayComponent | PhotoWallService | Code: `TrainDisplay.tsx` empty state |

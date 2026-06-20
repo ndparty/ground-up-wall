@@ -12,8 +12,8 @@
 | ID | Status | Code evidence | Notes |
 |----|--------|---------------|-------|
 | FR-01 | Satisfied | `routes/upload.tsx`, `routes/api/submissions/index.ts`, `photo_wall_service.submitPublicSubmission` | Public upload without auth |
-| FR-02 | Partial | `islands/UploadForm.tsx`, `lib/upload_config.ts`, `lib/validation/message_length.ts`, `scripts/seed.ts` | Configurable prompt/limit/unit + counter. **Gap:** code fallback prompt is `"Share your National Day moment!"`; seed DB default is `"What does National Day mean to you?"` |
-| FR-02a | Partial | `lib/copy/privacy_notice.ts`, `islands/UploadForm.tsx`, `lib/api/submission_request.ts` | Notice + server `acknowledged` required. **Gap:** submit button only `disabled={loading}` — not gated on checkbox until submit validation |
+| FR-02 | Satisfied | `islands/UploadForm.tsx`, `lib/upload_config.ts`, `lib/validation/message_length.ts`, `scripts/seed.ts` | Configurable prompt/limit/unit + counter. Update 04: seed default prompt aligned to `"Share your National Day moment!"` (matches code fallback). |
+| FR-02a | Satisfied | `lib/copy/privacy_notice.ts`, `islands/UploadForm.tsx`, `lib/api/submission_request.ts` | Notice + mandatory acknowledgment. Update 04: spec reworded to validate-on-submit — `handleSubmit` blocks via `collectValidationErrors` (incl. acknowledge hint) and server rejects without `acknowledged`. |
 | FR-02b | Partial | `lib/copy/disclaimers.ts`, `islands/UploadForm.tsx` | Re-submit + moderator-edit notice. **Gap:** no explicit “we will not notify you of rejection” wording |
 | FR-03 | Satisfied | `db/schema.sql` (pending default), `postgres_repository.createSubmission`, `routes/api/display/submissions.ts` | Pending excluded from display |
 | FR-04 | Satisfied | `islands/UploadForm.tsx` success UI | Confirmation message |
@@ -42,7 +42,7 @@
 | FR-22 | Satisfied | `routes/api/display/events.ts`, `use_train_playback.ts` | SSE append on approve |
 | FR-23 | Partial | `TrainDisplay.tsx` empty state, `train.css` | Logo + gradient waiting screen |
 | FR-24 | Satisfied | `TrainDisplay.tsx`, `train.css` fixed fullscreen | TV-oriented layout |
-| FR-24a | Partial | `TrainControls.tsx`, `train-command.ts`, `train_playback_controller.ts`, `use_train_playback.ts` | Pause/play/jump for mod/admin; pause freezes; jump clamped. **Spec flag:** refresh bootstraps server `currentCabin`/`isPlaying` — conflicts with Phase 1 “restart cabin 0 playing” text |
+| FR-24a | Satisfied | `TrainControls.tsx`, `train-command.ts`, `train_playback_controller.ts`, `use_train_playback.ts` | Pause/play/jump for mod/admin; pause freezes; jump clamped. Update 04: spec reworded so refresh restoring server `currentCabin`/`isPlaying` is the intended behavior (in-memory, single-instance). |
 | FR-24b | Satisfied | `routes/display.tsx` 403 message, display API role gates | Auth-only display |
 | FR-24c | Partial | `DisplayOverrideControls.tsx`, `AdminDisplayOverride.tsx`, `commandDisplayOverride` | Blank/placeholder/resume + DB + SSE. **Gap:** mod panel lacks per-action placeholder upload (admin has it) |
 
@@ -83,13 +83,15 @@
 
 ---
 
-## Spec violations requiring product decision
+## Spec violations requiring product decision — RESOLVED in Update 04
 
-These are explicit requirement text vs observed runtime behavior. Code is primary unless you direct a behavior change:
+All three flags were resolved by rewording the spec to match the (correct) code behavior; no behavioral regressions:
 
-1. **FR-02a** — Checkbox does not disable submit button (validation on submit only).
-2. **FR-24a vs NFR-11** — Refresh restores server playback position instead of “cabin 0 playing.”
-3. **FR-02** — Fallback prompt text differs from spec default when DB param unset in client path.
+1. **FR-02a** — RESOLVED: spec reworded to validate-on-submit (submission blocked inline with a clear acknowledge hint; server enforces acknowledgment). No code change.
+2. **FR-24a vs NFR-11** — RESOLVED: spec reworded so refresh restoring the server-authoritative `currentCabin`/`isPlaying` is the intended Phase 1 behavior (in-memory, single-instance).
+3. **FR-02** — RESOLVED: seed default prompt aligned to `"Share your National Day moment!"` (matches the code fallback).
+
+Also added in Update 04: **FR-20a** (off-screen node-list mutation invariant) — Satisfied (`train_view.ts` ephemeral insert/remove now strictly outside the visible band; tests in `train_view_test.ts`). **NFR-07** reworded to a single-screen completion standard — Satisfied. **NFR-23** (public-surface hardening) — implemented in Phase 2 (see below).
 
 ## Partial implementations (acceptable or backlog)
 

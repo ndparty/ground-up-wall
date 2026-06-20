@@ -70,7 +70,7 @@ This document provides detailed method signatures for all components. Business r
 
 **Purpose**: Load configurable prompt text from system parameters
 
-**Returns**: Prompt text string (default: "What does National Day mean to you?")
+**Returns**: Prompt text string (default: "Share your National Day moment!", Update 04)
 
 **Business Rules**:
 - Fetches from system parameters via PhotoWallService
