@@ -29,6 +29,26 @@ Deno.test({
 });
 
 Deno.test({
+  name: "testRejectAdvanceCommandFromClient",
+  async fn() {
+    const handler = await createTestHandler();
+    const { token } = await loginAsModerator(handler);
+
+    const res = await handler(
+      authedRequest("http://localhost/api/display/train-command", token, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "advance", cabinNumber: 2 }),
+      }),
+      serveInfo,
+    );
+    assertEquals(res.status, 400);
+
+    await cleanupTestData();
+  },
+});
+
+Deno.test({
   name: "testDisplayWallUserCannotPublishCommand",
   async fn() {
     const handler = await createTestHandler();

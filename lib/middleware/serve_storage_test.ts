@@ -31,7 +31,7 @@ Deno.test({
   async fn() {
     const dir = await Deno.makeTempDir();
     try {
-      const res = await serveStorageFile(dir, "/static/logo.svg");
+      const res = await serveStorageFile(dir, "/static/logo-dark.png");
       assertEquals(res, null);
     } finally {
       await Deno.remove(dir, { recursive: true });

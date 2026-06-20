@@ -46,3 +46,33 @@ Deno.test({
     await cleanupTestData();
   },
 });
+
+Deno.test({
+  name: "testResolvesDefaultPlaceholder",
+  async fn() {
+    const handler = await createTestHandler();
+    const { token } = await loginAsDisplayWall(handler);
+    const repo = await createTestRepository();
+    await repo.upsertSystemConfig(
+      "default_placeholder_image",
+      "/placeholders/default.jpg",
+      "admin-1",
+    );
+    await repo.setDisplayOverrideState({
+      type: "placeholder",
+      commanded_by: "admin-1",
+      commanded_at: new Date().toISOString(),
+    });
+    await repo.close();
+
+    const res = await handler(
+      authedRequest("http://localhost/api/display/override-state", token),
+      serveInfo,
+    );
+    assertEquals(res.status, 200);
+    const body = await res.json();
+    assertEquals(body.type, "placeholder");
+    assertEquals(body.imageUrl, "/placeholders/default.jpg");
+    await cleanupTestData();
+  },
+});

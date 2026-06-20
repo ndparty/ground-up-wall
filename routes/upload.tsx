@@ -1,3 +1,4 @@
+import { page } from "fresh";
 import UploadForm from "../islands/UploadForm.tsx";
 import { UPLOAD_FOOTER_NOTE } from "../lib/copy/disclaimers.ts";
 import { getUploadFormConfig } from "../lib/upload_config.ts";
@@ -6,7 +7,7 @@ import { define } from "../utils.ts";
 export const handlers = define.handlers({
   async GET(ctx) {
     const config = await getUploadFormConfig(ctx.state.services.photoWall);
-    return config;
+    return page(config);
   },
 });
 
@@ -14,12 +15,18 @@ export default define.page<typeof handlers>(function UploadPage({ data }) {
   return (
     <div style="padding: 2rem 1.5rem;">
       <h2 style="color: #ef3340; text-align: center;">Share your moment</h2>
-      <UploadForm {...data} />
-      <p
-        style="max-width: 520px; margin: 2rem auto 0; font-size: 0.85rem; color: #666; text-align: center;"
-      >
-        {UPLOAD_FOOTER_NOTE}
-      </p>
+      <UploadForm
+        messagePromptText={data.messagePromptText}
+        messageLengthLimit={data.messageLengthLimit}
+        messageLengthUnit={data.messageLengthUnit}
+      />
+      {UPLOAD_FOOTER_NOTE && (
+        <p
+          style="max-width: 520px; margin: 2rem auto 0; font-size: 0.85rem; color: #666; text-align: center;"
+        >
+          {UPLOAD_FOOTER_NOTE}
+        </p>
+      )}
     </div>
   );
 });

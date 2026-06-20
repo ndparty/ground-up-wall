@@ -105,6 +105,7 @@ export default function UserManagement() {
   return (
     <div>
       <form
+        method="post"
         onSubmit={createAccount}
         style="margin-bottom: 1.5rem; padding: 1rem; border: 1px solid #ddd; border-radius: 8px;"
       >

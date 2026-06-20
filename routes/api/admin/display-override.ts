@@ -2,7 +2,7 @@ import { define } from "../../../utils.ts";
 
 export const handlers = define.handlers({
   async GET(ctx) {
-    const state = await ctx.state.services.photoWall.getDisplayOverrideState();
+    const state = await ctx.state.services.photoWall.getResolvedDisplayOverrideState();
     return ctx.json(state ?? { type: "normal" });
   },
   async POST(ctx) {

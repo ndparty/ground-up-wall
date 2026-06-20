@@ -3,7 +3,12 @@ import { define } from "../utils.ts";
 export default define.page(function NotFound() {
   return (
     <div style="padding: 3rem 1.5rem; text-align: center;">
-      <h1 style="font-size: 4rem; margin: 0; color: #ef3340;">404</h1>
+      <img
+        src="/logo-light.png"
+        alt="National Day"
+        style="width: min(360px, 80vw); height: auto; margin-bottom: 1.5rem;"
+      />
+      <h1 style="font-size: 4rem; margin: 0; color: #a72517;">404</h1>
       <p style="font-size: 1.25rem; margin-top: 1rem;">
         Oops! This page wandered off the parade route.
       </p>

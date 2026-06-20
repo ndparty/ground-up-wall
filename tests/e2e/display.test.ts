@@ -110,6 +110,17 @@ Deno.test({
   async fn() {
     const handler = await createTestHandler();
     const { token } = await loginAsAdmin(handler);
+    const blob = new Blob([new Uint8Array([1, 2, 3])], { type: "image/jpeg" });
+    const uploadForm = new FormData();
+    uploadForm.append("image", blob, "default.jpg");
+    await handler(
+      authedRequest("http://localhost/api/admin/parameters/upload-placeholder", token, {
+        method: "POST",
+        body: uploadForm,
+      }),
+      serveInfo,
+    );
+
     const placeholderForm = new FormData();
     placeholderForm.append("type", "placeholder");
     await handler(
@@ -123,7 +134,9 @@ Deno.test({
       authedRequest("http://localhost/api/display/override-state", token),
       serveInfo,
     );
-    assertEquals((await state.json()).type, "placeholder");
+    const body = await state.json();
+    assertEquals(body.type, "placeholder");
+    assertEquals(body.imageUrl, "/placeholders/default.jpg");
     await teardownTestDb();
   },
 });

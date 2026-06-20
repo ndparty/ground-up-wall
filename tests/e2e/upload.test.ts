@@ -122,6 +122,36 @@ Deno.test({
 });
 
 Deno.test({
+  name: "smoke: US-02a upload counter shows remaining characters",
+  async fn() {
+    const handler = await createTestHandler();
+    const res = await handler(new Request("http://localhost/upload"), serveInfo);
+    const html = await res.text();
+    assertStringIncludes(html, "50 characters remaining");
+    assertEquals(html.includes("NaN"), false);
+    assertStringIncludes(html, "Share your National Day moment!");
+    await teardownTestDb();
+  },
+});
+
+Deno.test({
+  name: "smoke: US-02a upload counter shows remaining words",
+  async fn() {
+    const handler = await createTestHandler();
+    const repo = await createTestRepository();
+    await repo.upsertSystemConfig("message_length_limit", "3", "test");
+    await repo.upsertSystemConfig("message_length_unit", "words", "test");
+    await repo.close();
+
+    const res = await handler(new Request("http://localhost/upload"), serveInfo);
+    const html = await res.text();
+    assertStringIncludes(html, "3 words remaining");
+    assertEquals(html.includes("characters remaining"), false);
+    await teardownTestDb();
+  },
+});
+
+Deno.test({
   name: "smoke: US-02a privacy notice on upload page",
   async fn() {
     const handler = await createTestHandler();

@@ -1,4 +1,4 @@
-import { assertEquals } from "@std/assert";
+import { assertEquals, assertStringIncludes } from "@std/assert";
 import * as bcrypt from "bcrypt";
 import {
   authedRequest,
@@ -118,6 +118,78 @@ Deno.test({
       serveInfo,
     );
     assertEquals(res.status, 400);
+    await teardownTestDb();
+  },
+});
+
+Deno.test({
+  name: "smoke: login strips credentials from query string",
+  async fn() {
+    const handler = await createTestHandler();
+    const res = await handler(
+      new Request("http://localhost/login?username=demo&password=demo123"),
+      serveInfo,
+    );
+    assertEquals(res.status, 302);
+    const location = res.headers.get("location") ?? "";
+    assertEquals(location.includes("username="), false);
+    assertEquals(location.includes("password="), false);
+    assertStringIncludes(location, "/login");
+    await teardownTestDb();
+  },
+});
+
+Deno.test({
+  name: "smoke: login form uses POST method",
+  async fn() {
+    const handler = await createTestHandler();
+    const res = await handler(new Request("http://localhost/login"), serveInfo);
+    assertEquals(res.status, 200);
+    const html = await res.text();
+    assertStringIncludes(html, 'method="post"');
+    assertStringIncludes(html, 'action="/login"');
+    await teardownTestDb();
+  },
+});
+
+Deno.test({
+  name: "smoke: POST /login form authenticates and redirects",
+  async fn() {
+    const handler = await createTestHandler();
+    await cleanupTestData();
+    const password = "pass123";
+    const repo = await createTestRepository();
+    const mod = await repo.createModerator({
+      username: `mod_${crypto.randomUUID().slice(0, 8)}`,
+      password_hash: await bcrypt.hash(password),
+      role: "moderator",
+    });
+    await repo.close();
+
+    const form = new FormData();
+    form.append("username", mod.username);
+    form.append("password", password);
+    const res = await handler(
+      new Request("http://localhost/login", { method: "POST", body: form }),
+      serveInfo,
+    );
+    assertEquals(res.status, 302);
+    assertStringIncludes(res.headers.get("location") ?? "", "/moderate");
+    assertStringIncludes(res.headers.get("set-cookie") ?? "", "session=");
+    await teardownTestDb();
+  },
+});
+
+Deno.test({
+  name: "smoke: POST /api/auth/login JSON unchanged",
+  async fn() {
+    const handler = await createTestHandler();
+    const { token } = await loginAsModerator(handler);
+    const meRes = await handler(
+      authedRequest("http://localhost/api/auth/me", token),
+      serveInfo,
+    );
+    assertEquals(meRes.status, 200);
     await teardownTestDb();
   },
 });

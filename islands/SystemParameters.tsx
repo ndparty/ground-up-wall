@@ -77,10 +77,22 @@ export default function SystemParameters() {
   }
 
   const grouped = new Map<string, SystemConfig[]>();
+  const paramsByKey = new Map(params.map((p) => [p.key, p]));
   for (const p of params) {
     const cat = PARAMETER_CATEGORIES[p.key] ?? "Other";
     if (!grouped.has(cat)) grouped.set(cat, []);
     grouped.get(cat)!.push(p);
+  }
+  for (const [key, category] of Object.entries(PARAMETER_CATEGORIES)) {
+    if (paramsByKey.has(key)) continue;
+    const placeholder: SystemConfig = {
+      key,
+      value: "",
+      default_value: "",
+      updated_at: "",
+    };
+    if (!grouped.has(category)) grouped.set(category, []);
+    grouped.get(category)!.push(placeholder);
   }
 
   return (

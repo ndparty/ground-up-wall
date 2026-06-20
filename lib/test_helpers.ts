@@ -21,8 +21,8 @@ export async function createTestRepository(): Promise<PostgresRepository> {
 }
 
 export async function cleanupTestData(): Promise<void> {
-  const { Client } = await import("@db/postgres");
-  const client = new Client(normalizeDatabaseUrl(getTestDatabaseUrl()));
+  const { createPostgresClient } = await import("./db_url.ts");
+  const client = createPostgresClient(getTestDatabaseUrl());
   await client.connect();
   try {
     await client.queryArray("DELETE FROM audit_log");

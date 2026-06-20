@@ -1,6 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
-  <rect width="120" height="120" rx="12" fill="#ef3340"/>
-  <circle cx="60" cy="55" r="28" fill="#ffffff" opacity="0.95"/>
-  <path d="M60 35 L68 55 L88 55 L72 67 L78 87 L60 75 L42 87 L48 67 L32 55 L52 55 Z" fill="#ef3340"/>
-  <text x="60" y="108" text-anchor="middle" fill="#ffffff" font-size="10" font-family="sans-serif">NDP</text>
-</svg>

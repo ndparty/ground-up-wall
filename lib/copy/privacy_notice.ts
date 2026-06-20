@@ -1,5 +1,8 @@
-export const PRIVACY_NOTICE =
-  `We'll display your name, message, and photo on the photowall during the party!
-Your submission (including your photo and info) will be kept by the organisers after the event so we can share the joy on social media.
-If you share your Instagram handle, we might tag you too!
-Got questions? Just look for any organiser at the party — we're happy to help.`;
+export const PRIVACY_NOTICE_ITEMS = [
+  "Your name, message, and photo will appear on the photowall during the party.",
+  "Organisers may keep your submission after the event to share the joy on social media.",
+  "If you share your Instagram handle, we might tag you too!",
+  "Got questions? Ask any organiser at the party.",
+] as const;
+
+export const PRIVACY_NOTICE = PRIVACY_NOTICE_ITEMS.join("\n");

@@ -10,15 +10,10 @@ export const handlers = define.handlers({
     if (!user || !canViewDisplay(user.role)) {
       return ctx.json({ error: "Forbidden" }, { status: 403 });
     }
-    const state = await ctx.state.services.photoWall.getDisplayOverrideState();
+    const state = await ctx.state.services.photoWall.getResolvedDisplayOverrideState();
     if (!state || state.type === "normal") {
       return ctx.json({ type: "normal" });
     }
-    let imageUrl = state.imageUrl;
-    if (state.type === "placeholder" && !imageUrl) {
-      const configs = await ctx.state.services.photoWall.getSystemParameters();
-      imageUrl = configs.find((c) => c.key === "default_placeholder_image")?.value;
-    }
-    return ctx.json({ type: state.type, imageUrl });
+    return ctx.json({ type: state.type, imageUrl: state.imageUrl });
   },
 });

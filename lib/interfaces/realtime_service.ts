@@ -3,7 +3,7 @@ import type { Submission, SystemConfig } from "../types.ts";
 export type UnsubscribeFn = () => void;
 
 export interface TrainCommand {
-  type: "pause" | "play" | "jump";
+  type: "pause" | "play" | "jump" | "advance";
   cabinNumber?: number;
 }
 
