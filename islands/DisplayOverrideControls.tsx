@@ -7,6 +7,7 @@ export default function DisplayOverrideControls() {
   async function sendCommand(
     type: "blank" | "placeholder" | "resume",
     confirmMessage?: string,
+    image?: File,
   ) {
     if (confirmMessage && !globalThis.confirm(confirmMessage)) return;
     setLoading(true);
@@ -14,6 +15,7 @@ export default function DisplayOverrideControls() {
     try {
       const form = new FormData();
       form.append("type", type);
+      if (image) form.append("image", image);
       const res = await fetch("/api/moderate/display-override", { method: "POST", body: form });
       const body = await res.json();
       if (!res.ok) {
@@ -64,6 +66,18 @@ export default function DisplayOverrideControls() {
         >
           Resume display
         </button>
+        <label style="display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.9rem;">
+          Custom placeholder image
+          <input
+            type="file"
+            accept="image/*"
+            disabled={loading}
+            onChange={(e) => {
+              const file = (e.target as HTMLInputElement).files?.[0];
+              if (file) sendCommand("placeholder", undefined, file);
+            }}
+          />
+        </label>
       </div>
       {message && (
         <p style="margin: 0.75rem 0 0; font-size: 0.9rem; color: #333;">{message}</p>
