@@ -140,6 +140,17 @@ Display Wall User (TV account — view train display only; admin-created; separa
 
 - **NFR-22**: The system shall maintain an audit log recording all moderator and admin actions that affect submissions, user accounts, display override state, or system configuration. The audit log shall capture at minimum: moderator/admin username (or ID), action type (e.g. `approve`, `reject`, `delete`, `edit`, `create_moderator`, `disable_moderator`, `delete_moderator`, `change_config`, `blank_display`, `show_placeholder`, `resume_display`, `set_default_placeholder`, `create_display_wall_user`, `disable_display_wall_user`, `delete_display_wall_user`), target type (e.g. `submission`, `moderator`, `display_wall_user`, `system_config`, `display_override`), target identifier, old value, new value, and timestamp (UTC, with millisecond precision). The audit log shall be append-only — no deletion or modification of entries is permitted by any user role. The audit log shall be accessible from the Admin panel in a read-only view with filtering by moderator, action type, date range, and target type. The audit log shall NOT be publicly accessible.
 
+### 2.8 Security Hardening (Update 04)
+
+- **NFR-23**: Because the application is exposed to the public internet (participant upload is unauthenticated), the system shall harden its public surface:
+  - **Security response headers** on all responses: a restrictive `Content-Security-Policy`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`, and `Strict-Transport-Security` in deployed (HTTPS) environments.
+  - **Session cookie hardening**: `HttpOnly` and `SameSite` always; `Secure` in deployed environments.
+  - **Request body-size guard** on the public upload endpoint, rejecting oversized requests before buffering the body.
+  - **Per-IP rate limiting** on the public upload endpoint and the login endpoint.
+  - **Login brute-force protection**: temporary lockout/throttle after repeated failed attempts (keyed by username + client IP), with failures recorded in the audit log.
+  - **Admin-toggleable proof-of-work (PoW) challenge** gating BOTH public upload and login (`pow_challenge_enabled` system parameter, default off): when enabled, the client must solve a server-issued challenge and present the token, which the server verifies as a cheap, early no-op (before reading the request body and before bcrypt) so failed/missing tokens are rejected without significant server work; nonces are single-use. When disabled, the challenge is skipped.
+  - Constraints: implemented within free-tier / no third-party services (C-06); rate-limit, lockout, and PoW nonce stores are in-memory (single-instance in Phase 1) and reset on restart.
+
 ---
 
 ## 3. Design & Branding Requirements

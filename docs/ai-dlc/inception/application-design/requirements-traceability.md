@@ -124,6 +124,12 @@ This document maps all functional requirements (FR), non-functional requirements
 |-------------|-------------|-------------------|------------|--------------|
 | NFR-22 | Append-only audit log for moderator/admin actions; capture user ID, action type (including display override), target, old/new value, timestamp (UTC ms); filterable read-only view in Admin panel | Dedicated `audit_log` table, AuditService module, Admin UI with filtering | AuditService, AdminComponent, PhotoWallService, Repository | Test: Audit entry creation + integrity |
 
+### Security Hardening (NFR-23, Update 04)
+
+| Requirement | Description | Technical Strategy | Components | Verification |
+|-------------|-------------|-------------------|------------|--------------|
+| NFR-23 | Public-surface hardening: security headers, Secure cookie, upload body-size guard, per-IP rate limiting, login lockout, admin-toggleable proof-of-work for upload + login | Security-headers middleware; in-memory rate limiter + login throttle; isomorphic hashcash PoW with single-use nonce store; `pow_challenge_enabled` system param | Public routes, AuthService, PhotoWallService | Code: `lib/middleware/security_headers.ts`, `lib/cookies.ts`, `lib/security/rate_limit.ts`, `lib/security/login_throttle.ts`, `lib/security/pow.ts`, `lib/security/pow_challenge_store.ts`, `routes/api/pow/challenge.ts`; tests `rate_limit_test.ts`, `login_throttle_test.ts`, `pow_test.ts`, `main_test.ts` |
+
 ---
 
 ## Design Requirements Traceability
