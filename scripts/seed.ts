@@ -16,8 +16,8 @@ const SYSTEM_DEFAULTS = [
   { key: "train_dwell_time", value: "15", default_value: "15" },
   {
     key: "message_prompt_text",
-    value: "What does National Day mean to you?",
-    default_value: "What does National Day mean to you?",
+    value: "Share your National Day moment!",
+    default_value: "Share your National Day moment!",
   },
   { key: "message_length_limit", value: "50", default_value: "50" },
   { key: "message_length_unit", value: "characters", default_value: "characters" },
