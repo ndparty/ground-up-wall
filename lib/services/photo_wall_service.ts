@@ -44,6 +44,7 @@ export function parseWordList(value: string | undefined | null): string[] {
 export class PhotoWallService {
   private readonly playback: TrainPlaybackController;
   private playbackInitialized = false;
+  private powFlagCache?: { value: boolean; at: number };
 
   constructor(
     private repository: Repository,
@@ -288,6 +289,21 @@ export class PhotoWallService {
 
   subscribeToTrainCommands(callback: (command: TrainCommand) => void): UnsubscribeFn {
     return this.realtime.onTrainCommand(callback);
+  }
+
+  /**
+   * Whether the admin-toggleable proof-of-work challenge is enabled (NFR-23).
+   * Cached for 5s so the per-request gate stays cheap under load.
+   */
+  async isPowChallengeEnabled(): Promise<boolean> {
+    const now = Date.now();
+    if (this.powFlagCache && now - this.powFlagCache.at < 5_000) {
+      return this.powFlagCache.value;
+    }
+    const config = await this.repository.getSystemConfig("pow_challenge_enabled");
+    const value = config?.value === "true";
+    this.powFlagCache = { value, at: now };
+    return value;
   }
 
   subscribeToTrainPlaybackState(

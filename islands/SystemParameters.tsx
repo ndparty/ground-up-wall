@@ -147,6 +147,17 @@ export default function SystemParameters() {
                     />
                   </div>
                 )
+                : p.key === "pow_challenge_enabled"
+                ? (
+                  <select
+                    value={drafts[p.key] ?? "false"}
+                    onChange={(e) =>
+                      setDrafts({ ...drafts, [p.key]: (e.target as HTMLSelectElement).value })}
+                  >
+                    <option value="false">Off</option>
+                    <option value="true">On</option>
+                  </select>
+                )
                 : (
                   <input
                     type={p.key === "train_dwell_time" || p.key === "message_length_limit"

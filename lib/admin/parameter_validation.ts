@@ -28,6 +28,11 @@ export function validateParameterValue(key: string, value: string): string | nul
       return null;
     case "default_placeholder_image":
       return null;
+    case "pow_challenge_enabled":
+      if (value !== "true" && value !== "false") {
+        return "pow_challenge_enabled must be 'true' or 'false'";
+      }
+      return null;
     default:
       return `Unknown parameter key: ${key}`;
   }
@@ -62,6 +67,7 @@ export const PARAMETER_LABELS: Record<string, string> = {
   message_length_unit: "Message length unit",
   auto_moderator_word_list: "Auto-moderator word list",
   default_placeholder_image: "Default placeholder image URL",
+  pow_challenge_enabled: "Proof-of-work challenge (upload + login)",
 };
 
 export const PARAMETER_CATEGORIES: Record<string, string> = {
@@ -71,4 +77,5 @@ export const PARAMETER_CATEGORIES: Record<string, string> = {
   message_length_unit: "Upload",
   auto_moderator_word_list: "Moderation",
   default_placeholder_image: "Display Override",
+  pow_challenge_enabled: "Security",
 };

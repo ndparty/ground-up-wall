@@ -1,5 +1,6 @@
 import { useState } from "preact/hooks";
 import { loginRedirectPath } from "../lib/auth/login_redirect.ts";
+import { obtainPowToken } from "../lib/security/pow_client.ts";
 import type { User } from "../lib/types.ts";
 
 export interface LoginFormProps {
@@ -19,11 +20,22 @@ export default function LoginForm({ initialError = "" }: LoginFormProps) {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
-      });
+      const payload = JSON.stringify({ username, password });
+      const send = (powToken?: string) =>
+        fetch("/api/auth/login", {
+          method: "POST",
+          headers: powToken
+            ? { "Content-Type": "application/json", "x-pow": powToken }
+            : { "Content-Type": "application/json" },
+          body: payload,
+        });
+
+      let res = await send();
+      if (res.status === 428) {
+        // Proof-of-work challenge enabled — solve and retry once.
+        const token = await obtainPowToken();
+        if (token) res = await send(token);
+      }
       if (!res.ok) {
         const body = await res.json();
         setError(body.error ?? "Login failed");

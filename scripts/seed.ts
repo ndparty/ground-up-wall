@@ -27,6 +27,7 @@ const SYSTEM_DEFAULTS = [
     default_value: seededWordListJson(),
   },
   { key: "default_placeholder_image", value: "", default_value: "" },
+  { key: "pow_challenge_enabled", value: "false", default_value: "false" },
 ] as const;
 
 export interface SeedResult {

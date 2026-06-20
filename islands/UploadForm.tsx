@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "preact/hooks";
+import { obtainPowToken } from "../lib/security/pow_client.ts";
 import { POSTING_GUIDELINES_DISCLAIMER } from "../lib/copy/disclaimers.ts";
 import { PRIVACY_NOTICE_ITEMS } from "../lib/copy/privacy_notice.ts";
 import { loadFormProfile, saveFormProfile } from "../lib/upload/form_profile_storage.ts";
@@ -268,7 +269,18 @@ export default function UploadForm({
       form.append("acknowledged", "true");
       if (socialHandle.trim()) form.append("social_handle", socialHandle.trim());
 
-      const res = await fetch("/api/submissions", { method: "POST", body: form });
+      let res = await fetch("/api/submissions", { method: "POST", body: form });
+      if (res.status === 428) {
+        // Proof-of-work challenge enabled — solve and retry once.
+        const token = await obtainPowToken();
+        if (token) {
+          res = await fetch("/api/submissions", {
+            method: "POST",
+            body: form,
+            headers: { "x-pow": token },
+          });
+        }
+      }
       const body = await res.json();
       if (!res.ok) {
         setError(body.error ?? "Submission failed");

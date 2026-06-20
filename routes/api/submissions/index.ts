@@ -6,6 +6,7 @@ import {
   RateLimiter,
   tooManyRequests,
 } from "../../../lib/security/rate_limit.ts";
+import { verifyPowToken } from "../../../lib/security/pow_challenge_store.ts";
 import { define } from "../../../utils.ts";
 
 // Public upload endpoint: cap request size before buffering, and rate-limit per IP (NFR-23).
@@ -14,6 +15,14 @@ const uploadRateLimiter = new RateLimiter(15, 60_000);
 
 export const handlers = define.handlers({
   async POST(ctx) {
+    // Proof-of-work gate (NFR-23) — when enabled, verified as a cheap early no-op
+    // BEFORE buffering the multipart body or touching storage/DB.
+    if (await ctx.state.services.photoWall.isPowChallengeEnabled()) {
+      const ok = await verifyPowToken(ctx.req.headers.get("x-pow"));
+      if (!ok) {
+        return ctx.json({ error: "Proof-of-work required", powRequired: true }, { status: 428 });
+      }
+    }
     if (exceedsBodyLimit(ctx.req, MAX_UPLOAD_REQUEST_BYTES)) {
       return ctx.json({ error: "Upload too large" }, { status: 413 });
     }
