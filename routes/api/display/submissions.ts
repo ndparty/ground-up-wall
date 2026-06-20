@@ -1,4 +1,3 @@
-import { parseDwellTime } from "../../../lib/train/display_helpers.ts";
 import { define } from "../../../utils.ts";
 
 function canViewDisplay(role: string | undefined): boolean {
@@ -11,12 +10,18 @@ export const handlers = define.handlers({
     if (!user || !canViewDisplay(user.role)) {
       return ctx.json({ error: "Forbidden" }, { status: 403 });
     }
+    await ctx.state.services.photoWall.ensurePlaybackInitialized();
     const submissions = await ctx.state.services.photoWall.getApprovedSubmissions();
-    const dwellConfig = await ctx.state.services.photoWall.getSystemParameters();
-    const dwell = dwellConfig.find((c) => c.key === "train_dwell_time");
+    const playback = ctx.state.services.photoWall.getTrainPlaybackState();
     return ctx.json({
       submissions,
-      dwellTimeSeconds: parseDwellTime(dwell?.value ?? dwell?.default_value),
+      dwellTimeSeconds: playback.dwellSeconds,
+      playback: {
+        isPlaying: playback.isPlaying,
+        currentCabin: playback.currentCabin,
+        dwellSeconds: playback.dwellSeconds,
+        lastTransitionAt: playback.lastTransitionAt,
+      },
     });
   },
 });

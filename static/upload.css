@@ -1,0 +1,13 @@
+.upload-cabin-preview {
+  margin-top: 0.75rem;
+  max-width: 320px;
+}
+
+.upload-cabin-preview .train-cabin {
+  color: var(--sg-white, #ffffff);
+  width: 100%;
+  max-width: 320px;
+  height: auto;
+  min-height: 420px;
+  opacity: 1;
+}

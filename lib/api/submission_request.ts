@@ -2,6 +2,7 @@ import { isMessageValid, type MessageLengthConfig } from "../validation/message_
 import type { SubmissionInput } from "../types.ts";
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
+// Upload form converts HEIC/WebP/AVIF to JPEG client-side before POST.
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png"]);
 
 export interface ParsedSubmissionRequest {

@@ -1,4 +1,5 @@
 import type { PhotoWallService } from "./services/photo_wall_service.ts";
+import { normalizeMessageLengthConfig } from "./validation/message_length.ts";
 
 export interface UploadFormConfig {
   messagePromptText: string;
@@ -18,12 +19,16 @@ export async function getUploadFormConfig(
   const configs = await photoWall.getSystemParameters();
   const byKey = new Map(configs.map((c) => [c.key, c.value]));
   const unit = byKey.get("message_length_unit");
+  const normalized = normalizeMessageLengthConfig({
+    limit: Number(
+      byKey.get("message_length_limit") ?? DEFAULT_UPLOAD_CONFIG.messageLengthLimit,
+    ),
+    unit: unit === "words" ? "words" : "characters",
+  });
   return {
     messagePromptText: byKey.get("message_prompt_text") ??
       DEFAULT_UPLOAD_CONFIG.messagePromptText,
-    messageLengthLimit: Number(
-      byKey.get("message_length_limit") ?? DEFAULT_UPLOAD_CONFIG.messageLengthLimit,
-    ),
-    messageLengthUnit: unit === "words" ? "words" : "characters",
+    messageLengthLimit: normalized.limit,
+    messageLengthUnit: normalized.unit,
   };
 }

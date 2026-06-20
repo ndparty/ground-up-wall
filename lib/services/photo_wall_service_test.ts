@@ -4,6 +4,7 @@ import { FileStorageService } from "../repositories/file_storage_service.ts";
 import { MemoryRealtimeService } from "../repositories/memory_realtime_service.ts";
 import { AuditServiceImpl } from "./audit_service_impl.ts";
 import { AutoModeratorServiceImpl } from "./auto_moderator_service_impl.ts";
+import type { DisplayOverrideCommand } from "../interfaces/realtime_service.ts";
 import { PhotoWallService } from "./photo_wall_service.ts";
 import { cleanupTestData, createTestRepository } from "../test_helpers.ts";
 import type { Submission } from "../types.ts";
@@ -325,6 +326,39 @@ Deno.test({
       await service.commandDisplayOverride("blank", "admin-1");
       const state = await service.getDisplayOverrideState();
       assertEquals(state?.type, "blank");
+      await repo.close();
+    } finally {
+      await cleanupTestData();
+      await Deno.remove(dir, { recursive: true });
+    }
+  },
+});
+
+Deno.test({
+  name: "testPlaceholderUsesAdminDefault",
+  async fn() {
+    const dir = await Deno.makeTempDir();
+    try {
+      await cleanupTestData();
+      const { service, repo, realtime } = await createTestService(dir);
+      const blob = new Blob([new Uint8Array([1, 2, 3])], { type: "image/jpeg" });
+      await service.uploadDefaultPlaceholder(blob, "admin-1");
+
+      let command: DisplayOverrideCommand | undefined;
+      realtime.onDisplayOverride((cmd) => {
+        command = cmd;
+      });
+
+      await service.commandDisplayOverride("placeholder", "mod-1");
+
+      const state = await service.getDisplayOverrideState();
+      assertEquals(state?.type, "placeholder");
+      assertEquals(state?.imageUrl, "/placeholders/default.jpg");
+      assertEquals(command?.type, "placeholder");
+      assertEquals(command?.imageUrl, "/placeholders/default.jpg");
+
+      const resolved = await service.getResolvedDisplayOverrideState();
+      assertEquals(resolved?.imageUrl, "/placeholders/default.jpg");
       await repo.close();
     } finally {
       await cleanupTestData();

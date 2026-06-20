@@ -9,6 +9,11 @@ import type {
 } from "../interfaces/realtime_service.ts";
 import type { Repository } from "../interfaces/repository.ts";
 import type { StorageService } from "../interfaces/storage_service.ts";
+import { parseDwellTime } from "../train/display_helpers.ts";
+import {
+  TrainPlaybackController,
+  type TrainPlaybackState,
+} from "../train/train_playback_controller.ts";
 import { SEEDED_DEFAULT_WORD_LIST } from "./auto_moderator_service_impl.ts";
 import { isMessageValid, type MessageLengthConfig } from "../validation/message_length.ts";
 import type {
@@ -37,21 +42,43 @@ export function parseWordList(value: string | undefined | null): string[] {
 }
 
 export class PhotoWallService {
+  private readonly playback: TrainPlaybackController;
+  private playbackInitialized = false;
+
   constructor(
     private repository: Repository,
     private storage: StorageService,
     private realtime: RealtimeService,
     private audit: AuditService,
     private autoModerator: AutoModeratorService,
-  ) {}
+  ) {
+    this.playback = new TrainPlaybackController({
+      publish: (command) => {
+        void this.realtime.publish("train:command", command);
+        this.publishPlaybackState();
+      },
+    });
+  }
+
+  private publishPlaybackState(): void {
+    const playback = this.playback.getState();
+    void this.realtime.publish("train:playback_state", {
+      isPlaying: playback.isPlaying,
+      currentCabin: playback.currentCabin,
+      dwellSeconds: playback.dwellSeconds,
+      lastTransitionAt: playback.lastTransitionAt,
+    });
+  }
 
   async submitSubmission(
     data: SubmissionInput,
     wordList: string[],
     submitterId = "anonymous",
   ): Promise<Submission> {
+    const { normalizeUploadImage } = await import("../image/normalize_upload_image.ts");
+    const normalizedImage = await normalizeUploadImage(data.image);
     const imagePath = `submissions/${crypto.randomUUID()}.jpg`;
-    await this.storage.uploadImage(data.image, imagePath);
+    await this.storage.uploadImage(normalizedImage, imagePath);
     const imageUrl = this.storage.getImageUrl(imagePath);
 
     const flagResult = this.autoModerator.checkMessage(data.message, wordList);
@@ -160,6 +187,7 @@ export class PhotoWallService {
     });
 
     await this.realtime.publish("submission:approved", submission);
+    await this.syncPlaybackCabinCount();
     return submission;
   }
 
@@ -207,6 +235,7 @@ export class PhotoWallService {
     });
 
     await this.realtime.publish("submission:deleted", { id });
+    await this.syncPlaybackCabinCount();
   }
 
   subscribeToApproved(callback: (submission: Submission) => void): UnsubscribeFn {
@@ -231,11 +260,51 @@ export class PhotoWallService {
   }
 
   publishTrainCommand(command: TrainCommand): void {
-    this.realtime.publish("train:command", command);
+    this.playback.handleUserCommand(command);
+  }
+
+  getTrainPlaybackState(): TrainPlaybackState {
+    return this.playback.getState();
+  }
+
+  async ensurePlaybackInitialized(): Promise<void> {
+    if (this.playbackInitialized) return;
+
+    const [approved, configs] = await Promise.all([
+      this.getApprovedSubmissions(),
+      this.getSystemParameters(),
+    ]);
+    const dwell = configs.find((c) => c.key === "train_dwell_time");
+    const dwellSeconds = parseDwellTime(dwell?.value ?? dwell?.default_value);
+    this.playback.initialize(dwellSeconds, approved.length);
+    this.playbackInitialized = true;
+  }
+
+  private async syncPlaybackCabinCount(): Promise<void> {
+    await this.ensurePlaybackInitialized();
+    const approved = await this.getApprovedSubmissions();
+    this.playback.setCabinCount(approved.length);
   }
 
   subscribeToTrainCommands(callback: (command: TrainCommand) => void): UnsubscribeFn {
     return this.realtime.onTrainCommand(callback);
+  }
+
+  subscribeToTrainPlaybackState(
+    callback: (state: {
+      isPlaying: boolean;
+      currentCabin: number;
+      dwellSeconds: number;
+      lastTransitionAt: number;
+    }) => void,
+  ): UnsubscribeFn {
+    return this.realtime.subscribe("train:playback_state", (payload) =>
+      callback(payload as {
+        isPlaying: boolean;
+        currentCabin: number;
+        dwellSeconds: number;
+        lastTransitionAt: number;
+      }));
   }
 
   async listModerators(): Promise<Moderator[]> {
@@ -332,6 +401,11 @@ export class PhotoWallService {
     });
 
     await this.realtime.publish("system_config:changed", config);
+
+    if (key === "train_dwell_time") {
+      await this.ensurePlaybackInitialized();
+      this.playback.setDwellSeconds(parseDwellTime(value));
+    }
   }
 
   async resetSystemParameterToDefault(key: string, adminId: string): Promise<void> {
@@ -348,6 +422,11 @@ export class PhotoWallService {
     });
 
     await this.realtime.publish("system_config:changed", config);
+
+    if (key === "train_dwell_time") {
+      await this.ensurePlaybackInitialized();
+      this.playback.setDwellSeconds(parseDwellTime(config.value));
+    }
   }
 
   async getAuditLog(filters: AuditFilter): Promise<AuditEntry[]> {
@@ -429,17 +508,41 @@ export class PhotoWallService {
     });
   }
 
+  private async resolveDefaultPlaceholderUrl(): Promise<string | undefined> {
+    const configs = await this.repository.getAllSystemConfigs();
+    const value = configs.find((c) => c.key === "default_placeholder_image")?.value;
+    return value && value.length > 0 ? value : undefined;
+  }
+
+  private async resolvePlaceholderImageUrl(image?: Blob): Promise<string | undefined> {
+    if (image) {
+      const path = `overrides/${crypto.randomUUID()}.jpg`;
+      await this.storage.uploadImage(image, path);
+      return this.storage.getImageUrl(path);
+    }
+    return await this.resolveDefaultPlaceholderUrl();
+  }
+
+  async getResolvedDisplayOverrideState(): Promise<DisplayOverrideState | null> {
+    const state = await this.repository.getDisplayOverrideState();
+    if (!state) return null;
+    if (state.type === "placeholder" && !state.imageUrl) {
+      const defaultUrl = await this.resolveDefaultPlaceholderUrl();
+      if (defaultUrl) {
+        return { ...state, imageUrl: defaultUrl };
+      }
+    }
+    return state;
+  }
+
   async commandDisplayOverride(
     type: "blank" | "placeholder" | "resume",
     userId: string,
     image?: Blob,
   ): Promise<void> {
-    let imageUrl: string | undefined;
-    if (type === "placeholder" && image) {
-      const path = `overrides/${crypto.randomUUID()}.jpg`;
-      await this.storage.uploadImage(image, path);
-      imageUrl = this.storage.getImageUrl(path);
-    }
+    const imageUrl = type === "placeholder"
+      ? await this.resolvePlaceholderImageUrl(image)
+      : undefined;
 
     const stateType = type === "resume" ? "normal" : type;
     const state: DisplayOverrideState = {
@@ -465,14 +568,16 @@ export class PhotoWallService {
       new_value: JSON.stringify(state),
     });
 
-    let resolvedImageUrl = imageUrl;
-    if (type === "placeholder" && !resolvedImageUrl) {
-      const configs = await this.repository.getAllSystemConfigs();
-      resolvedImageUrl = configs.find((c) => c.key === "default_placeholder_image")?.value;
-    }
-
-    const command: DisplayOverrideCommand = { type, imageUrl: resolvedImageUrl };
+    const command: DisplayOverrideCommand = { type, imageUrl };
     await this.realtime.publish("display_override:command", command);
+
+    await this.ensurePlaybackInitialized();
+    if (type === "blank" || type === "placeholder") {
+      this.playback.pauseForOverride();
+    } else {
+      this.playback.resumeFromOverride();
+    }
+    this.publishPlaybackState();
   }
 
   private async getMessageLengthConfig(): Promise<MessageLengthConfig> {

@@ -41,6 +41,11 @@ export const handlers = define.handlers({
           }),
         );
         unsubs.push(
+          ctx.state.services.photoWall.subscribeToTrainPlaybackState((playback) => {
+            send("train_playback_state", playback);
+          }),
+        );
+        unsubs.push(
           ctx.state.services.photoWall.subscribeToDisplayOverride((command) => {
             send("display_override", command);
           }),
@@ -50,6 +55,16 @@ export const handlers = define.handlers({
             send("system_config_changed", config);
           }),
         );
+
+        void ctx.state.services.photoWall.ensurePlaybackInitialized().then(() => {
+          const playback = ctx.state.services.photoWall.getTrainPlaybackState();
+          send("train_playback_state", {
+            isPlaying: playback.isPlaying,
+            currentCabin: playback.currentCabin,
+            dwellSeconds: playback.dwellSeconds,
+            lastTransitionAt: playback.lastTransitionAt,
+          });
+        });
       },
       cancel() {
         for (const unsub of unsubs) unsub();
