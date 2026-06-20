@@ -26,6 +26,22 @@ Deno.test({
 });
 
 Deno.test({
+  name: "testSecurityHeadersPresent",
+  async fn() {
+    const handler = await createTestHandler();
+    const res = await handler(new Request("http://localhost/"), serveInfo);
+    await res.body?.cancel();
+    assertEquals(res.headers.get("x-content-type-options"), "nosniff");
+    assertEquals(res.headers.get("x-frame-options"), "DENY");
+    assertEquals(res.headers.get("referrer-policy"), "same-origin");
+    assertEquals(
+      (res.headers.get("content-security-policy") ?? "").includes("frame-ancestors 'none'"),
+      true,
+    );
+  },
+});
+
+Deno.test({
   name: "test404Page",
   async fn() {
     const handler = await createTestHandler();
