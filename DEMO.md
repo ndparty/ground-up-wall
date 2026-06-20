@@ -123,7 +123,7 @@ If HEIC fails on a device, ask the participant to enable **Settings → Camera �
 2. Log in as `display` / `demo123`
 3. You are redirected to **/display**
 4. If the fullscreen prompt appears, choose **Go fullscreen** or **Not now** (or press F11 later)
-5. The approved photo should appear on the SMRT train within a few seconds (SSE realtime)
+5. The approved photo should appear on the metro train within a few seconds (SSE realtime)
 6. Optional (moderator or admin session): pause/play train, jump to cabin
 
 ### Optional — Admin panel

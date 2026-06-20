@@ -55,7 +55,7 @@ This document maps all functional requirements (FR), non-functional requirements
 
 | Requirement | Description | Components | Services | Verification |
 |-------------|-------------|------------|----------|--------------|
-| FR-17 | Display wall shows moving SMRT train animation scrolling right to left | DisplayComponent | PhotoWallService | Code: `TrainDisplay.tsx`, `train.css`, `center_track.ts` |
+| FR-17 | Display wall shows moving MRT-style metro train animation scrolling right to left | DisplayComponent | PhotoWallService | Code: `TrainDisplay.tsx`, `train.css`, `center_track.ts` |
 | FR-18 | Train consists of cabins, each displaying photo + message + name + optional social handle | DisplayComponent | PhotoWallService | Code: `TrainCabin.tsx` |
 | FR-19 | Configurable dwell time per cabin (default ~15s, range 3-60s, 1s increments) | DisplayComponent | PhotoWallService, Repository | Code: `train_playback_controller.ts`, `SystemParameters.tsx` |
 | FR-20 | Transition between cabins uses smooth scroll animation — train physically moves left | DisplayComponent | PhotoWallService | Code: `TrainDisplay.tsx`, `center_track.ts`, `slide_duration.ts` |
@@ -136,7 +136,7 @@ This document maps all functional requirements (FR), non-functional requirements
 
 | Requirement | Description | Technical Strategy | Components | Verification |
 |-------------|-------------|-------------------|------------|--------------|
-| DR-01 | Realistic SMRT MRT train look (red/white) | CSS styling, SVG/CSS train graphics | DisplayComponent | Test: Visual design review |
+| DR-01 | Realistic red-and-white MRT-style metro train look | CSS styling, SVG/CSS train graphics | DisplayComponent | Test: Visual design review |
 | DR-02 | Singapore National Day branding (subtle) | Red/white color palette, national day motifs | DisplayComponent | Test: Visual design review |
 | DR-03 | Festive and community-oriented feel | Appropriate typography, colors, spacing | All UI Components | Test: Visual design review |
 | DR-04 | Warm, community-appropriate tone for all user-facing copy (privacy notice, disclaimer, success, errors) | Copywriting guidelines, DR-04 tone applied to all participant-facing text | UploadComponent, All components with user copy | Test: Copy review |

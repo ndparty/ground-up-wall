@@ -1,6 +1,6 @@
 # ground-up-wall
 
-A photowall web application for events — participants upload photos with short messages, moderators approve them, and approved submissions ride an SMRT-themed train on a display wall.
+A photowall web application for events — participants upload photos with short messages, moderators approve them, and approved submissions ride a red-and-white metro-themed train on a display wall.
 
 Built for the Singapore National Day ground-up party.
 

@@ -84,7 +84,7 @@ Display Wall User (TV account — view train display only; admin-created; separa
 
 ### 1.5 Display Wall (TV Screen)
 
-- **FR-17**: The display wall shows a moving SMRT MRT train animation scrolling from right to left
+- **FR-17**: The display wall shows a moving MRT-style metro train animation scrolling from right to left
 - **FR-18**: The train consists of multiple cabins; each cabin displays one approved submission (photo + message + name + optional social handle)
 - **FR-19**: The display focuses on one cabin at a time, with each cabin visible for a configurable duration before transitioning. The default dwell time is approximately 15 seconds. An Admin may change this value via the system parameters panel (range: 3–60 seconds, configurable in 1-second increments).
 - **FR-20**: Transition between cabins uses a smooth scroll animation — the train physically moves left to bring the next cabin into focus
@@ -155,7 +155,7 @@ Display Wall User (TV account — view train display only; admin-created; separa
 
 ## 3. Design & Branding Requirements
 
-- **DR-01**: The train visual style is a realistic SMRT MRT train look — red/white Singapore metro aesthetic
+- **DR-01**: The train visual style is a realistic red-and-white MRT-style metro train look — Singapore metro aesthetic
 - **DR-02**: Singapore National Day branding elements (red/white colour palette, national day motifs) are present but subtle — they complement the submitted photos without overpowering them
 - **DR-03**: The overall visual feel should be festive and community-oriented, appropriate for a National Day party event
 - **DR-04**: All user-facing notices, disclaimers, and privacy messaging shall be written in a warm, community-appropriate tone consistent with the Singapore National Day party theme. Copy shall be clear, concise, and approachable — not legalistic or clinical. Specific copy elements covered: data privacy notice (FR-02a), posting guidelines disclaimer (FR-02b), upload success message (FR-04), error messages and validation feedback, and any system-generated messages directed at participants. Example tone: *"We'll display your name and photo on the photowall during the party! Your photo and info may also be shared on our social media after the event — if you've shared your Instagram handle, we might tag you too!"*

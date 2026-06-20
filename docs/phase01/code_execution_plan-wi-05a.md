@@ -86,22 +86,22 @@
 
 ---
 
-### 1.2 SMRT MRT Train Rendering (Static)
+### 1.2 MRT-Style Metro Train Rendering (Static)
 
-**Commit message:** `WI-05a: implement SMRT MRT train visual rendering with CSS animation and cabin layout`
+**Commit message:** `WI-05a: implement MRT-style metro train visual rendering with CSS animation and cabin layout`
 
 #### Files Changed
 
 | File | Change | Description |
 |------|--------|-------------|
-| `static/train.css` | New | Train animation CSS — SMRT red/white styling, cabin layout, scroll animation |
+| `static/train.css` | New | Train animation CSS — red/white metro styling, cabin layout, scroll animation |
 | `islands/TrainDisplay.tsx` | New | Main train display island — orchestrates rendering and animation |
 | `islands/TrainCabin.tsx` | New | Individual cabin component — photo, message, name display |
 
 #### Implementation Details
 
 1. **Create `static/train.css`:**
-   - SMRT MRT train visual style (red/white Singapore metro aesthetic per DR-01)
+   - Red-and-white MRT-style metro train visual style (Singapore metro aesthetic per DR-01)
    - Train container: horizontal scroll container, overflow hidden
    - Cabin cards: fixed width/height suitable for TV viewing, large fonts (name ≥24px, message ≥18px per NFR-08)
    - Photo takes ≥60% of cabin area
@@ -138,7 +138,7 @@
 - [ ] All existing tests pass
 - [ ] New tests pass
 - [ ] Code coverage meets ≥80% threshold for new/modified code
-- [ ] Train renders with SMRT MRT red/white visual style
+- [ ] Train renders with red-and-white MRT-style metro visual style
 - [ ] Each cabin shows photo ≥60% of area, message, name
 - [ ] Fonts are large enough to read from across the room
 - [ ] Empty state shows branded National Day waiting screen
@@ -316,7 +316,7 @@
 - [ ] All chunks verified — each compiles, passes tests, and meets ≥80% coverage
 - [ ] No regressions in existing functionality
 - [ ] Post-implementation checks executed and signed off
-- [ ] Display wall renders SMRT MRT train with SG National Day theme (DR-01, DR-02, DR-03)
+- [ ] Display wall renders MRT-style metro train with SG National Day theme (DR-01, DR-02, DR-03)
 - [ ] Auth gate correctly blocks unauthenticated users and Participants (FR-24b)
 - [ ] Display Wall User, Moderator, and Admin can all view the display wall (FR-24b)
 - [ ] Cabins display photo, message, and name with legible fonts (NFR-08)

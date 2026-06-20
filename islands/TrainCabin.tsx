@@ -21,7 +21,7 @@ const TrainCabin = forwardRef<HTMLElement, TrainCabinProps>(function TrainCabin(
       aria-hidden={!isActive}
     >
       <div class="train-cabin__roof" aria-hidden="true">
-        <span class="train-cabin__line">SMRT · National Day Special</span>
+        <span class="train-cabin__line">National Day Special</span>
       </div>
       <div class="train-cabin__window">
         <div class="train-cabin__photo-wrap">

@@ -43,7 +43,7 @@
 
 ### 2. DisplayComponent
 
-**Purpose**: Renders the SMRT train animation on the TV screen
+**Purpose**: Renders the metro train animation on the TV screen
 
 **Responsibilities**:
 - Fetch approved submissions (initial load)

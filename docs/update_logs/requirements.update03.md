@@ -19,7 +19,7 @@ Implementation architecture deltas (no new user-facing FRs unless noted). Runtim
 | 6 | Implementation | Playback | Server `TrainPlaybackController` + client `use_train_playback`; SSE `train_playback_state` authoritative sync |
 | 7 | Implementation | FR-24a / FR-24c | Pause/resume and override: server timer pauses during blank/placeholder; resume recenters on frozen cabin |
 | 8 | Implementation | Dev infra | Local Postgres `sslmode=disable` for loopback; file-backed dev sessions in `.dev/sessions.json` |
-| 9 | Clarification | FR-17 / DR-01 | Cabin-card train UI (not full SMRT carriage silhouette) — aesthetic via red/white styling |
+| 9 | Clarification | FR-17 / DR-01 | Cabin-card train UI (not full metro carriage silhouette) — aesthetic via red/white styling |
 
 ---
 

@@ -138,7 +138,7 @@ This document provides detailed method signatures for all components. Business r
 
 ### `renderTrain(submissions: Submission[]): void`
 
-**Purpose**: Render the SMRT train animation
+**Purpose**: Render the metro train animation
 
 **Parameters**:
 - `submissions`: Array of approved submissions
