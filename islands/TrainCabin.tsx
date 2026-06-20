@@ -1,16 +1,20 @@
 import { forwardRef } from "preact/compat";
 import type { Submission } from "../lib/types.ts";
+import { qrCodeSvg } from "../lib/qr/qr_code.ts";
 
 export interface TrainCabinProps {
   kind: "post" | "qr";
   submission?: Submission;
   isActive: boolean;
+  /** Host shown as text on the QR cabin / join bar (e.g. "wall.example.com"). */
   baseUrl?: string;
+  /** Full origin encoded into the QR code (e.g. "https://wall.example.com"). */
+  qrUrl?: string;
   onPhotoError?: () => void;
 }
 
 const TrainCabin = forwardRef<HTMLElement, TrainCabinProps>(function TrainCabin(
-  { kind, submission, isActive, baseUrl, onPhotoError },
+  { kind, submission, isActive, baseUrl, qrUrl, onPhotoError },
   ref,
 ) {
   const roofLabel = kind === "qr" ? "Join the wall" : "National Day Special";
@@ -30,8 +34,11 @@ const TrainCabin = forwardRef<HTMLElement, TrainCabinProps>(function TrainCabin(
         {kind === "qr"
           ? (
             <div class="train-cabin__qr">
-              <div class="train-cabin__qr-code" aria-hidden="true" />
-              <p class="train-cabin__qr-url">{baseUrl}</p>
+              <div
+                class="train-cabin__qr-code"
+                dangerouslySetInnerHTML={{ __html: qrUrl ? qrCodeSvg(qrUrl) : "" }}
+              />
+              {baseUrl && <p class="train-cabin__qr-url">{baseUrl}</p>}
             </div>
           )
           : (

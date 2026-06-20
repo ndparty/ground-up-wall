@@ -346,6 +346,68 @@ body.display-wall-mode main {
   }
 }
 
+/* Top bar inviting viewers to post, showing the auto-detected base URL as text. */
+.display-wall__join-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 12;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.6rem 1rem;
+  background: linear-gradient(180deg, rgba(26, 26, 46, 0.94), rgba(26, 26, 46, 0.66));
+  border-bottom: 2px solid var(--sg-red);
+  color: var(--sg-white);
+  font-size: 1.05rem;
+  text-align: center;
+}
+
+.display-wall__join-text strong {
+  color: #ffd7db;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+/* QR "join the wall" cabin: light window with a system-themed code. */
+.train-cabin--qr .train-cabin__window {
+  background: #fff;
+  border-color: #cfd5dd;
+}
+
+.train-cabin__qr {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 6%;
+  background: #fff;
+}
+
+.train-cabin__qr-code {
+  width: 80%;
+  aspect-ratio: 1 / 1;
+  display: flex;
+}
+
+.train-cabin__qr-code svg {
+  width: 100%;
+  height: 100%;
+}
+
+.train-cabin__qr-url {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #1a1f28;
+  word-break: break-all;
+  text-align: center;
+}
+
 .display-wall__fullscreen-prompt {
   position: absolute;
   inset: 0;

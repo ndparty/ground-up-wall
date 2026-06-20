@@ -58,6 +58,7 @@ export default function TrainDisplay() {
   const [showFullscreenPrompt, setShowFullscreenPrompt] = useState(false);
   const [instantSnap, setInstantSnap] = useState(true);
   const [baseUrl, setBaseUrl] = useState("");
+  const [originUrl, setOriginUrl] = useState("");
 
   const stageRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
@@ -81,6 +82,7 @@ export default function TrainDisplay() {
 
   useEffect(() => {
     setBaseUrl(globalThis.location?.host ?? "");
+    setOriginUrl(globalThis.location?.origin ?? "");
   }, []);
 
   useEffect(() => {
@@ -386,6 +388,7 @@ export default function TrainDisplay() {
                   kind={node.kind}
                   submission={node.submission}
                   baseUrl={baseUrl}
+                  qrUrl={originUrl}
                   isActive={node.key === centerKey}
                 />
               ))}
