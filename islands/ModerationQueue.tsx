@@ -137,6 +137,7 @@ function SubmissionCard({
                   value={message}
                   onInput={(e) => setMessage((e.target as HTMLTextAreaElement).value)}
                   rows={3}
+                  aria-label="Submission message"
                   style="width: 100%; padding: 0.5rem;"
                 />
                 <input
@@ -144,6 +145,7 @@ function SubmissionCard({
                   value={submitterName}
                   onInput={(e) => setSubmitterName((e.target as HTMLInputElement).value)}
                   placeholder="Name"
+                  aria-label="Submitter name"
                   style="padding: 0.5rem;"
                 />
                 <input
@@ -151,6 +153,7 @@ function SubmissionCard({
                   value={socialHandle}
                   onInput={(e) => setSocialHandle((e.target as HTMLInputElement).value)}
                   placeholder="Social handle"
+                  aria-label="Social handle"
                   style="padding: 0.5rem;"
                 />
                 <div style="display: flex; gap: 0.5rem;">

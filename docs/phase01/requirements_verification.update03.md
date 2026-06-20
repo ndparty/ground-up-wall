@@ -34,13 +34,13 @@
 | FR-15c | Satisfied | `UserManagement.tsx` Active/Disabled column | Status visible |
 | FR-16 | Satisfied | `scripts/seed.ts`, `createUser` | Developer-seeded admin |
 | FR-13a | Satisfied | `SystemParameters.tsx`, parameter APIs, `photo_wall_service` | All params editable + reset. Update 04: placeholder upload/clear audit as `set_default_placeholder`; clear-placeholder action added; upload form live-reloads prompt/length via `/api/upload-config/events`. |
-| FR-17 | Partial | `TrainDisplay.tsx`, `train.css`, `center_track.ts` | RTL scroll + red/white cabins. **Gap:** cabin cards, not full SMRT train silhouette |
+| FR-17 | Satisfied | `TrainDisplay.tsx`, `TrainCabin.tsx`, `train.css`, `center_track.ts` | RTL scroll + SMRT carriage silhouette (Update 04): roof + red livery, framed windows, doors, bogies, couplers. Outer box dimensions unchanged so slide math holds. |
 | FR-18 | Satisfied | `TrainCabin.tsx` | Photo + message + name + handle |
 | FR-19 | Satisfied | `train_playback_controller.ts`, `clampDwellSeconds`, `SystemParameters.tsx` | 3–60s configurable dwell |
 | FR-20 | Satisfied | `TrainDisplay.tsx`, `center_track.slideTo`, `slide_duration.ts` | Smooth horizontal scroll |
 | FR-21 | Satisfied | `postgres_repository`, `train_view.ts` / `chain.ts` | Oldest-first order |
 | FR-22 | Satisfied | `routes/api/display/events.ts`, `use_train_playback.ts` | SSE append on approve |
-| FR-23 | Partial | `TrainDisplay.tsx` empty state, `train.css` | Logo + gradient waiting screen |
+| FR-23 | Satisfied | `TrainDisplay.tsx` empty state, `train.css` | Logo + festive subtitle + animated sparkle field on branded waiting screen (Update 04). |
 | FR-24 | Satisfied | `TrainDisplay.tsx`, `train.css` fixed fullscreen | TV-oriented layout |
 | FR-24a | Satisfied | `TrainControls.tsx`, `train-command.ts`, `train_playback_controller.ts`, `use_train_playback.ts` | Pause/play/jump for mod/admin; pause freezes; jump clamped. Update 04: spec reworded so refresh restoring server `currentCabin`/`isPlaying` is the intended behavior (in-memory, single-instance). |
 | FR-24b | Satisfied | `routes/display.tsx` 403 message, display API role gates | Auth-only display |
@@ -67,7 +67,7 @@
 | NFR-13 | Satisfied | Moderation/admin middleware | Protected routes |
 | NFR-14 | Satisfied | `submission_request.ts`, `upload_image_types.ts` | Type + size validation |
 | NFR-15 | Satisfied | Public submit API, privacy copy, limited fields | PII notice + acknowledgment |
-| NFR-16 | Partial | Form labels, some ARIA | Full WCAG AA not demonstrable from trace |
+| NFR-16 | Improved (Partial) | Form labels, ARIA, focus-visible | Update 04: global `:focus-visible` outline (WCAG 2.4.7), aria-labels on all placeholder-only inputs/selects (moderation, audit, user mgmt, system params). Full AA conformance (contrast ratios, screen-reader testing) still requires manual audit. |
 | NFR-22 | Partial | `audit_service_impl`, `AuditLogView.tsx`, `photo_wall_service` audit calls | Append-only + filters. **Gaps:** moderator_id not username; missing `set_default_placeholder` action type |
 
 ---
@@ -76,9 +76,9 @@
 
 | ID | Status | Code evidence | Notes |
 |----|--------|---------------|-------|
-| DR-01 | Partial | `train.css` red/white cabins | Color aesthetic; not full SMRT exterior |
-| DR-02 | Partial | `_app.tsx` branding, `sg-flag.svg`, logos | Subtle ND palette |
-| DR-03 | Partial | Copy + festive gradients | Community tone |
+| DR-01 | Satisfied | `TrainCabin.tsx`, `train.css` | SMRT carriage silhouette with red livery (Update 04). |
+| DR-02 | Satisfied | `_app.tsx` branding, `train.css` sparkle/glow, `sg-flag.svg`, logos | Subtle ND motifs that complement (not overpower) photos (Update 04). |
+| DR-03 | Satisfied | Copy + festive gradients + waiting-screen subtitle | Community/festive tone (Update 04). |
 | DR-04 | Satisfied | `lib/copy/*.ts`, form messages | Warm approachable copy |
 
 ---

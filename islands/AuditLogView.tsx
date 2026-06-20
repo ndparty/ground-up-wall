@@ -39,14 +39,23 @@ export default function AuditLogView() {
       >
         <input
           placeholder="Moderator ID"
+          aria-label="Filter by moderator ID"
           value={moderatorId}
           onInput={(e) => setModeratorId((e.target as HTMLInputElement).value)}
         />
-        <select value={actionType} onChange={(e) => setActionType((e.target as HTMLSelectElement).value)}>
+        <select
+          aria-label="Filter by action type"
+          value={actionType}
+          onChange={(e) => setActionType((e.target as HTMLSelectElement).value)}
+        >
           <option value="">All actions</option>
           {ACTION_TYPES.map((a) => <option key={a} value={a}>{a}</option>)}
         </select>
-        <select value={targetType} onChange={(e) => setTargetType((e.target as HTMLSelectElement).value)}>
+        <select
+          aria-label="Filter by target type"
+          value={targetType}
+          onChange={(e) => setTargetType((e.target as HTMLSelectElement).value)}
+        >
           <option value="">All targets</option>
           <option value="submission">submission</option>
           <option value="moderator">moderator</option>
@@ -54,8 +63,18 @@ export default function AuditLogView() {
           <option value="system_config">system_config</option>
           <option value="display_override">display_override</option>
         </select>
-        <input type="date" value={dateFrom} onInput={(e) => setDateFrom((e.target as HTMLInputElement).value)} />
-        <input type="date" value={dateTo} onInput={(e) => setDateTo((e.target as HTMLInputElement).value)} />
+        <input
+          type="date"
+          aria-label="From date"
+          value={dateFrom}
+          onInput={(e) => setDateFrom((e.target as HTMLInputElement).value)}
+        />
+        <input
+          type="date"
+          aria-label="To date"
+          value={dateTo}
+          onInput={(e) => setDateTo((e.target as HTMLInputElement).value)}
+        />
         <button type="button" onClick={load}>Apply filters</button>
       </div>
 

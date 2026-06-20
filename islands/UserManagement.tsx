@@ -113,6 +113,7 @@ export default function UserManagement() {
         <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: end;">
           <input
             placeholder="Username"
+            aria-label="New account username"
             value={username}
             onInput={(e) => setUsername((e.target as HTMLInputElement).value)}
             required
@@ -120,11 +121,13 @@ export default function UserManagement() {
           <input
             type="password"
             placeholder="Password"
+            aria-label="New account password"
             value={password}
             onInput={(e) => setPassword((e.target as HTMLInputElement).value)}
             required
           />
           <select
+            aria-label="New account role"
             value={role}
             onChange={(e) => setRole((e.target as HTMLSelectElement).value as typeof role)}
           >
@@ -167,6 +170,7 @@ export default function UserManagement() {
                     <input
                       type="password"
                       placeholder="New password"
+                      aria-label={`New password for ${user.username}`}
                       value={resetPassword}
                       onInput={(e) => setResetPassword((e.target as HTMLInputElement).value)}
                     />

@@ -36,6 +36,14 @@ export default define.page(function App({ Component }) {
           .brand-header img { height: 40px; width: auto; }
           .brand-header h1 { margin: 0; font-size: 1.25rem; font-weight: 600; }
           main { min-height: calc(100vh - 60px); }
+          a:focus-visible,
+          button:focus-visible,
+          input:focus-visible,
+          select:focus-visible,
+          textarea:focus-visible {
+            outline: 3px solid var(--sg-red);
+            outline-offset: 2px;
+          }
         `}</style>
       </head>
       <body>

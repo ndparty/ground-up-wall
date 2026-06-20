@@ -128,6 +128,7 @@ export default function SystemParameters() {
                   <textarea
                     rows={4}
                     style="width: 100%;"
+                    aria-label={PARAMETER_LABELS[p.key] ?? p.key}
                     value={drafts[p.key] ?? ""}
                     onInput={(e) =>
                       setDrafts({ ...drafts, [p.key]: (e.target as HTMLTextAreaElement).value })}
@@ -136,6 +137,7 @@ export default function SystemParameters() {
                 : p.key === "message_length_unit"
                 ? (
                   <select
+                    aria-label={PARAMETER_LABELS[p.key] ?? p.key}
                     value={drafts[p.key] ?? "characters"}
                     onChange={(e) =>
                       setDrafts({ ...drafts, [p.key]: (e.target as HTMLSelectElement).value })}
@@ -151,6 +153,7 @@ export default function SystemParameters() {
                     <input
                       type="file"
                       accept="image/*"
+                      aria-label="Upload default placeholder image"
                       onChange={(e) => {
                         const file = (e.target as HTMLInputElement).files?.[0];
                         if (file) uploadPlaceholder(file);
@@ -170,6 +173,7 @@ export default function SystemParameters() {
                 : p.key === "pow_challenge_enabled"
                 ? (
                   <select
+                    aria-label={PARAMETER_LABELS[p.key] ?? p.key}
                     value={drafts[p.key] ?? "false"}
                     onChange={(e) =>
                       setDrafts({ ...drafts, [p.key]: (e.target as HTMLSelectElement).value })}
@@ -183,6 +187,7 @@ export default function SystemParameters() {
                     type={p.key === "train_dwell_time" || p.key === "message_length_limit"
                       ? "number"
                       : "text"}
+                    aria-label={PARAMETER_LABELS[p.key] ?? p.key}
                     style="width: 100%; padding: 0.5rem;"
                     value={drafts[p.key] ?? ""}
                     onInput={(e) =>
