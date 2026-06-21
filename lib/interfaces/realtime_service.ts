@@ -9,6 +9,8 @@ export interface TrainStep {
   kind: "post" | "qr";
   /** Approved submission id for `post` steps (id-based; resolved client-side). */
   submissionId?: string;
+  /** Destination-board label (random MRT/LRT station per emission). */
+  destination?: string;
 }
 
 export interface TrainCommand {
@@ -18,6 +20,10 @@ export interface TrainCommand {
   window?: TrainStep[];
   /** Position (1-based) of the centered post within the canonical list. */
   currentCabin?: number;
+  /** Forward slide count for jump animation. */
+  stepsToTarget?: number;
+  /** @deprecated Client uses final `window` + `stepsToTarget` only; no multi-step playback. */
+  stepWindows?: TrainStep[][];
 }
 
 export interface DisplayOverrideCommand {

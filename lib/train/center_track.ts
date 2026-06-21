@@ -1,4 +1,7 @@
 /** Pure layout math for track centering (testable without DOM). */
+import type { RenderCabin } from "./train_view.ts";
+import { RIGHT_RENDER } from "./train_view_constants.ts";
+
 export function computeAbsoluteTrackTranslate(
   stageCenterX: number,
   trackOriginX: number,
@@ -127,4 +130,60 @@ export function waitForLayout(): Promise<void> {
       requestAnimationFrame(() => resolve());
     });
   });
+}
+
+/** Slot index delta for a cabin key between old and new windows. */
+export function centerSlotDelta(
+  oldWindow: RenderCabin[],
+  newWindow: RenderCabin[],
+  cabinKey: string,
+): number {
+  const oldIdx = oldWindow.findIndex((c) => c.key === cabinKey);
+  const newIdx = newWindow.findIndex((c) => c.key === cabinKey);
+  if (oldIdx < 0 || newIdx < 0) return 0;
+  return newIdx - oldIdx;
+}
+
+/** Apply translateX += -delta * slotPitch synchronously (transition: none). */
+export function compensateTrackForSlotDelta(
+  trackEl: HTMLElement,
+  delta: number,
+  slotPitchPx: number,
+): number {
+  const tx = readTranslateXFromElement(trackEl);
+  const next = tx - delta * slotPitchPx;
+  trackEl.style.transition = "none";
+  trackEl.style.transform = `translateX(${next}px)`;
+  return next;
+}
+
+/** Measure horizontal pitch between the first two cabin wraps on the track. */
+export function measureSlotPitchPx(trackEl: HTMLElement): number {
+  const cabins = trackEl.querySelectorAll(".train-cabin-wrap");
+  if (cabins.length < 2) return 0;
+  const a = cabins[0] as HTMLElement;
+  const b = cabins[1] as HTMLElement;
+  return b.offsetLeft - a.offsetLeft;
+}
+
+/** Start translateX for far-jump slide (target already at center slot after commit). */
+export function jumpSlideStartTx(
+  finalTx: number,
+  slideSteps: number,
+  slotPitchPx: number,
+): number {
+  const offsetSlots = Math.min(slideSteps, RIGHT_RENDER);
+  return finalTx + offsetSlots * slotPitchPx;
+}
+
+/** Remove CSS class that blocks transform transitions (!important). */
+export function ensureTrackCanAnimate(trackEl: HTMLElement): void {
+  trackEl.classList.remove("display-wall__track--instant");
+}
+
+/** Set track to offset start position before animating a far jump. */
+export function prepareJumpSlideOffset(trackEl: HTMLElement, startTx: number): void {
+  ensureTrackCanAnimate(trackEl);
+  trackEl.style.transition = "none";
+  trackEl.style.transform = `translateX(${startTx}px)`;
 }

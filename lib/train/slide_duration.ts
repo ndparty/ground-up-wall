@@ -10,3 +10,14 @@ export function slideDurationMs(steps: number): number {
   const factor = 1 + (s - 1) * (SLIDE_MAX_FACTOR - 1) / (S_MAX - 1);
   return Math.round(BASE_SLIDE_MS * factor);
 }
+
+export const JUMP_BASE_MS = 800;
+export const JUMP_MAX_MS = 3000;
+export const JUMP_MAX_STEPS = 9;
+
+/** Linear: 800ms at 1 step, 3000ms at 9 steps; extrapolates beyond 9. */
+export function jumpSlideDurationMs(steps: number): number {
+  const s = Math.max(1, steps);
+  const slope = (JUMP_MAX_MS - JUMP_BASE_MS) / (JUMP_MAX_STEPS - 1);
+  return Math.round(JUMP_BASE_MS + (s - 1) * slope);
+}

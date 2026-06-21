@@ -1,9 +1,7 @@
 import { assertEquals } from "@std/assert";
 import {
   addApproved,
-  advanceJumpStep,
   applyServerWindow,
-  beginJump,
   computeCollapsedIndices,
   computeJumpAnimationPath,
   computeJumpStepCount,
@@ -13,7 +11,10 @@ import {
   getCurrentCabin,
   getForwardSlideTargetKey,
   getRenderWindow,
+  getSlideSlotDistance,
+  getSlideTargetKey,
   initTrainView,
+  isJumpTargetInCurrentWindow,
   removeSubmissionFromView,
   updateSubmissionInView,
 } from "./train_view.ts";
@@ -105,6 +106,91 @@ Deno.test("getForwardSlideTargetKey is the cabin right of center", () => {
   assertEquals(getForwardSlideTargetKey(state), win[LEFT_RENDER + 1].key);
 });
 
+Deno.test("getSlideTargetKey slides to in-window cabin for multi-slot jump", () => {
+  let state = initTrainView(makeSubmissions(10));
+  const currentWindow: TrainStep[] = [
+    { seq: 1, kind: "post", submissionId: "sub-1" },
+    { seq: 2, kind: "post", submissionId: "sub-2" },
+    { seq: 3, kind: "post", submissionId: "sub-3" },
+    { seq: 4, kind: "post", submissionId: "sub-4" },
+    { seq: 5, kind: "post", submissionId: "sub-5" },
+    { seq: 6, kind: "post", submissionId: "sub-6" },
+    { seq: 7, kind: "post", submissionId: "sub-7" },
+  ];
+  state = applyServerWindow(state, currentWindow, 3);
+
+  const nextWindow: TrainStep[] = [
+    { seq: 3, kind: "post", submissionId: "sub-3" },
+    { seq: 4, kind: "post", submissionId: "sub-4" },
+    { seq: 5, kind: "post", submissionId: "sub-5" },
+    { seq: 6, kind: "post", submissionId: "sub-6" },
+    { seq: 7, kind: "post", submissionId: "sub-7" },
+    { seq: 8, kind: "post", submissionId: "sub-8" },
+    { seq: 9, kind: "post", submissionId: "sub-9" },
+  ];
+
+  assertEquals(getSlideTargetKey(state, nextWindow), "s5");
+  assertEquals(getSlideSlotDistance(state, "s5"), 2);
+});
+
+Deno.test("getSlideTargetKey falls back when next center is not yet in window", () => {
+  let state = initTrainView(makeSubmissions(10));
+  state = applyServerWindow(state, postWindow(3, 10), 3);
+  const nextWindow = postWindow(3, 10);
+  nextWindow[LEFT_RENDER] = { seq: 999, kind: "post", submissionId: "sub-8" };
+  assertEquals(getSlideTargetKey(state, nextWindow), getForwardSlideTargetKey(state));
+});
+
+Deno.test("isJumpTargetInCurrentWindow when target center is already rendered", () => {
+  let state = initTrainView(makeSubmissions(10));
+  const currentWindow: TrainStep[] = [
+    { seq: 10, kind: "post", submissionId: "sub-1" },
+    { seq: 11, kind: "post", submissionId: "sub-2" },
+    { seq: 12, kind: "post", submissionId: "sub-3" },
+    { seq: 13, kind: "post", submissionId: "sub-4" },
+    { seq: 14, kind: "post", submissionId: "sub-5" },
+    { seq: 15, kind: "post", submissionId: "sub-6" },
+    { seq: 16, kind: "post", submissionId: "sub-7" },
+  ];
+  state = applyServerWindow(state, currentWindow, 3);
+
+  const nextWindow: TrainStep[] = [
+    { seq: 12, kind: "post", submissionId: "sub-3" },
+    { seq: 13, kind: "post", submissionId: "sub-4" },
+    { seq: 14, kind: "post", submissionId: "sub-5" },
+    { seq: 15, kind: "post", submissionId: "sub-6" },
+    { seq: 16, kind: "post", submissionId: "sub-7" },
+    { seq: 17, kind: "post", submissionId: "sub-8" },
+    { seq: 18, kind: "post", submissionId: "sub-9" },
+  ];
+  assertEquals(isJumpTargetInCurrentWindow(state, nextWindow), true);
+});
+
+Deno.test("isJumpTargetInCurrentWindow false when target center is not in window", () => {
+  let state = initTrainView(makeSubmissions(10));
+  const currentWindow: TrainStep[] = [
+    { seq: 10, kind: "post", submissionId: "sub-1" },
+    { seq: 11, kind: "post", submissionId: "sub-2" },
+    { seq: 12, kind: "post", submissionId: "sub-3" },
+    { seq: 13, kind: "post", submissionId: "sub-4" },
+    { seq: 14, kind: "post", submissionId: "sub-5" },
+    { seq: 15, kind: "post", submissionId: "sub-6" },
+    { seq: 16, kind: "post", submissionId: "sub-7" },
+  ];
+  state = applyServerWindow(state, currentWindow, 3);
+
+  const rebuiltWindow: TrainStep[] = [
+    { seq: 200, kind: "post", submissionId: "sub-7" },
+    { seq: 201, kind: "post", submissionId: "sub-8" },
+    { seq: 202, kind: "post", submissionId: "sub-9" },
+    { seq: 203, kind: "post", submissionId: "sub-10" },
+    { seq: 204, kind: "post", submissionId: "sub-1" },
+    { seq: 205, kind: "post", submissionId: "sub-2" },
+    { seq: 206, kind: "post", submissionId: "sub-3" },
+  ];
+  assertEquals(isJumpTargetInCurrentWindow(state, rebuiltWindow), false);
+});
+
 Deno.test("qr step resolves to a qr render cabin", () => {
   let state = initTrainView(makeSubmissions(10));
   const window: TrainStep[] = postWindow(3, 10);
@@ -139,31 +225,4 @@ Deno.test("deleted submission keeps its on-screen snapshot (no snap)", () => {
   // Removed from canonical, but the window cabin retains its snapshot to scroll off.
   assertEquals(getCanonicalCount(state), 9);
   assertEquals(getRenderWindow(state)[LEFT_RENDER].submission?.id, "sub-3");
-});
-
-Deno.test("beginJump animates then settles on the server target window", () => {
-  let state = initTrainView(makeSubmissions(10));
-  state = applyServerWindow(state, postWindow(1, 10), 1);
-
-  const target = postWindow(3, 10);
-  state = beginJump(state, 3, target, 3);
-  assertEquals(state.jump !== null, true);
-  assertEquals(state.jump!.stepsRemaining, 2); // 1 -> 2 -> 3
-
-  state = advanceJumpStep(state);
-  assertEquals(state.jump!.stepsRemaining, 1);
-  state = advanceJumpStep(state);
-  assertEquals(state.jump, null);
-  assertEquals(getCurrentCabin(state), 3);
-  assertEquals(getRenderWindow(state)[LEFT_RENDER].submission?.id, "sub-3");
-});
-
-Deno.test("adjacent jump settles via animation", () => {
-  let state = initTrainView(makeSubmissions(10));
-  state = applyServerWindow(state, postWindow(3, 10), 3);
-  state = beginJump(state, 4, postWindow(4, 10), 4);
-  assertEquals(state.jump!.stepsRemaining, 1);
-  state = advanceJumpStep(state);
-  assertEquals(state.jump, null);
-  assertEquals(getCurrentCabin(state), 4);
 });

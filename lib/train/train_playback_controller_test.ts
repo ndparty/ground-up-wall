@@ -1,6 +1,7 @@
 import { assertEquals } from "@std/assert";
 import type { TrainCommand } from "../interfaces/realtime_service.ts";
 import { TrainPlaybackController } from "./train_playback_controller.ts";
+import { CENTER_SLOT, LEFT_RENDER, RIGHT_RENDER } from "./train_view_constants.ts";
 
 function ids(n: number): string[] {
   return Array.from({ length: n }, (_, i) => `c${i + 1}`);
@@ -96,6 +97,16 @@ Deno.test("play resumes scheduling from full dwell", () => {
   assertEquals(harness.scheduledDelay, 12_000);
 });
 
+function expectedIdsAround(centerCabin: number, len: number): string[] {
+  const centerIdx = centerCabin - 1;
+  const ids: string[] = [];
+  for (let off = -LEFT_RENDER; off <= RIGHT_RENDER; off++) {
+    const idx = ((centerIdx + off) % len + len) % len;
+    ids.push(`c${idx + 1}`);
+  }
+  return ids;
+}
+
 Deno.test("jump recenters the window and publishes target", () => {
   const harness = createTestController();
   harness.controller.initialize(10, ids(10));
@@ -109,6 +120,60 @@ Deno.test("jump recenters the window and publishes target", () => {
   assertEquals(cmd.currentCabin, 4);
   assertEquals(harness.controller.getState().currentCabin, 4);
   assertEquals(harness.scheduledDelay, 10_000);
+  assertEquals(cmd.window?.[CENTER_SLOT]?.submissionId, "c4");
+});
+
+Deno.test("in-chain jump publishes stepsToTarget without stepWindows", () => {
+  const harness = createTestController();
+  harness.controller.initialize(10, ids(10));
+  // Advance once so c2 is centered; c4 should still be in tape to the right.
+  harness.fireScheduled();
+  harness.published.length = 0;
+
+  harness.controller.handleUserCommand({ type: "jump", cabinNumber: 4 });
+  const cmd = harness.published[0];
+  assertEquals(cmd.type, "jump");
+  assertEquals(cmd.stepWindows, undefined);
+  assertEquals((cmd.stepsToTarget ?? 0) > 0, true);
+  assertEquals(cmd.window?.[CENTER_SLOT]?.submissionId, "c4");
+});
+
+Deno.test("out-of-chain jump skips ephemeral queue during force-generate", () => {
+  const harness = createTestController();
+  harness.controller.initialize(10, ids(10));
+  harness.fireScheduled();
+  harness.fireScheduled();
+  harness.controller.enqueuePreview("c10");
+  harness.published.length = 0;
+
+  harness.controller.handleUserCommand({ type: "jump", cabinNumber: 8 });
+  const cmd = harness.published[0];
+  assertEquals(cmd.type, "jump");
+  assertEquals(cmd.window?.[CENTER_SLOT]?.submissionId, "c8");
+
+  // Preview was skipped during force-generate but restored for the next tick.
+  harness.published.length = 0;
+  harness.fireScheduled();
+  assertEquals(rightEdge(harness.published[0])?.submissionId, "c10");
+});
+
+Deno.test("far jump rebuilds window with K cabins before and after target", () => {
+  const harness = createTestController();
+  harness.controller.initialize(10, ids(10));
+  harness.published.length = 0;
+
+  harness.controller.handleUserCommand({ type: "jump", cabinNumber: 9 });
+  const cmd = harness.published[0];
+  assertEquals(cmd.type, "jump");
+  assertEquals(cmd.currentCabin, 9);
+  assertEquals(cmd.window?.[CENTER_SLOT]?.submissionId, "c9");
+  assertEquals(cmd.stepWindows, undefined);
+  assertEquals((cmd.stepsToTarget ?? 0) > 0, true);
+
+  const expected = expectedIdsAround(9, 10);
+  const actual = cmd.window?.map((step) => step.submissionId) ?? [];
+  assertEquals(actual, expected);
+  assertEquals(actual[LEFT_RENDER], "c9");
 });
 
 Deno.test("setCabinIds clamps current cabin", () => {
@@ -172,4 +237,27 @@ Deno.test("qr interval enqueues a QR cabin every N emits (skip if already queued
   assertEquals(rightEdge(published[0])?.kind, "post");
   fireScheduled(); // emit 2 -> QR enqueued and dequeued same tick
   assertEquals(rightEdge(published[1])?.kind, "qr");
+});
+
+Deno.test("restoreFromSnapshot resumes playback after restart", () => {
+  const harness = createTestController();
+  harness.controller.initialize(15, ids(10));
+  const snapshot = harness.controller.exportSnapshot();
+  harness.controller.handleUserCommand({ type: "pause" });
+
+  const restarted = createTestController();
+  const restored = restarted.controller.restoreFromSnapshot(snapshot, ids(10));
+  assertEquals(restored, true);
+  assertEquals(restarted.controller.getState().currentCabin, snapshot.currentCabin);
+  assertEquals(restarted.controller.getState().window.length, snapshot.window.length);
+});
+
+Deno.test("restoreFromSnapshot rejects when window references deleted cabin", () => {
+  const harness = createTestController();
+  harness.controller.initialize(15, ids(10));
+  const snapshot = harness.controller.exportSnapshot();
+
+  const restarted = createTestController();
+  const restored = restarted.controller.restoreFromSnapshot(snapshot, ids(9));
+  assertEquals(restored, false);
 });

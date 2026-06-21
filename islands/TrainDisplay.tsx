@@ -1,40 +1,46 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
-import type { DisplayOverrideCommand } from "../lib/interfaces/realtime_service.ts";
-import {
-  mapCommandToOverrideState,
-  type OverrideState,
-  resolveOverrideView,
-} from "../lib/train/display_override.ts";
 import {
   centerNow,
+  centerSlotDelta,
   clearTrackTransition,
+  compensateTrackForSlotDelta,
   computeTrackTranslateX,
-  readTranslateXFromElement,
+  ensureTrackCanAnimate,
+  jumpSlideStartTx,
+  measureSlotPitchPx,
+  prepareJumpSlideOffset,
   slideTo,
   waitForLayout,
   waitForTrackTransition,
 } from "../lib/train/center_track.ts";
 import {
+  applyServerWindow,
   getCenterKey,
-  getForwardSlideTargetKey,
+  getCenterKeyFromSteps,
   getRenderWindow,
+  getSlideSlotDistance,
+  getSlideTargetKey,
   hasCabins as viewHasCabins,
-  needsAnimationStep,
+  isJumpTargetInCurrentWindow,
+  type TrainViewState,
 } from "../lib/train/train_view.ts";
 import { preloadCabinImages } from "../lib/train/preload_cabin_images.ts";
-import { slideDurationMs } from "../lib/train/slide_duration.ts";
+import { jumpSlideDurationMs, slideDurationMs } from "../lib/train/slide_duration.ts";
 import { shouldShowTrainControls } from "../lib/train/playback.ts";
 import { useTrainPlayback } from "../lib/train/use_train_playback.ts";
 import { VIEWPORT_K } from "../lib/train/train_view_constants.ts";
+import type { TrainStep } from "../interfaces/realtime_service.ts";
+import type { Submission } from "../lib/types.ts";
+import { resolveOverrideView } from "../lib/train/display_override.ts";
+import ConnectionBanner from "./ConnectionBanner.tsx";
 import TrainCabin from "./TrainCabin.tsx";
 import TrainControls from "./TrainControls.tsx";
 
-function parseSseData<T>(event: MessageEvent): T | null {
-  try {
-    return JSON.parse(event.data as string) as T;
-  } catch {
-    return null;
-  }
+interface PendingCommit {
+  viewBefore: TrainViewState;
+  nextWindow: TrainStep[];
+  nextCabin: number;
+  slidTargetKey: string | null;
 }
 
 export default function TrainDisplay() {
@@ -46,17 +52,23 @@ export default function TrainDisplay() {
     trainLength,
     pendingAdvances,
     commitAdvance,
-    applyAnimationStep,
+    peekPendingAdvance,
+    hasJumpPending,
     pauseTrain,
     resumeTrain,
     jumpTrain,
     syncPlaybackFromServer,
     bootstrapComplete,
+    bootstrapError,
+    retryBootstrap,
+    connectionStatus,
+    overrideState,
   } = useTrainPlayback();
 
-  const [overrideState, setOverrideState] = useState<OverrideState>({ type: "normal" });
   const [showFullscreenPrompt, setShowFullscreenPrompt] = useState(false);
   const [instantSnap, setInstantSnap] = useState(true);
+  const [isSliding, setIsSliding] = useState(false);
+  const [highlightReady, setHighlightReady] = useState(true);
   const [baseUrl, setBaseUrl] = useState("");
   const [originUrl, setOriginUrl] = useState("");
 
@@ -65,14 +77,19 @@ export default function TrainDisplay() {
   const cabinRefs = useRef<Map<string, HTMLElement>>(new Map());
   const trainViewRef = useRef(trainView);
   const isAnimatingRef = useRef(false);
-  const pendingAdvancesRef = useRef(pendingAdvances);
   const isPlayingRef = useRef(isPlaying);
   const runOrchestratorRef = useRef<(() => void) | null>(null);
-  const jumpPreloadKeyRef = useRef<string | null>(null);
   const prevOverrideViewRef = useRef<"train" | "blank" | "placeholder">("train");
+  const pendingAdvancesRef = useRef(pendingAdvances);
+  const peekPendingAdvanceRef = useRef(peekPendingAdvance);
+  const hasJumpPendingRef = useRef(hasJumpPending);
+  const pendingCommitRef = useRef<PendingCommit | null>(null);
+  const recenterSuppressedRef = useRef(false);
   trainViewRef.current = trainView;
-  pendingAdvancesRef.current = pendingAdvances;
   isPlayingRef.current = isPlaying;
+  pendingAdvancesRef.current = pendingAdvances;
+  peekPendingAdvanceRef.current = peekPendingAdvance;
+  hasJumpPendingRef.current = hasJumpPending;
 
   const renderNodes = getRenderWindow(trainView);
   const hasCabins = viewHasCabins(trainView) && renderNodes.length > 0;
@@ -89,28 +106,11 @@ export default function TrainDisplay() {
     const dismissed = globalThis.localStorage?.getItem("display_wall_fullscreen_dismissed");
     if (!dismissed) setShowFullscreenPrompt(true);
     document.body.classList.add("display-wall-mode");
-    return () => document.body.classList.remove("display-wall-mode");
-  }, []);
-
-  useEffect(() => {
-    fetch("/api/display/override-state")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((override) => {
-        if (override) setOverrideState(override as OverrideState);
-      })
-      .catch(() => undefined);
-  }, []);
-
-  useEffect(() => {
-    const es = new EventSource("/api/display/events");
-    es.addEventListener("display_override", (event) => {
-      const command = parseSseData<DisplayOverrideCommand>(event);
-      if (command) {
-        setOverrideState(mapCommandToOverrideState(command.type, command.imageUrl));
-      }
-    });
-    es.onerror = () => es.close();
-    return () => es.close();
+    document.documentElement.classList.add("display-wall-mode");
+    return () => {
+      document.body.classList.remove("display-wall-mode");
+      document.documentElement.classList.remove("display-wall-mode");
+    };
   }, []);
 
   useEffect(() => {
@@ -119,6 +119,86 @@ export default function TrainDisplay() {
     return () => clearTimeout(t);
   }, [bootstrapComplete]);
 
+  function instantRecenterOn(activeKey: string | null) {
+    const stage = stageRef.current;
+    const track = trackRef.current;
+    const active = activeKey ? cabinRefs.current.get(activeKey) : null;
+    if (!stage || !track || !active) return;
+    track.style.transition = "none";
+    centerNow(stage, track, active);
+    requestAnimationFrame(() => clearTrackTransition(track));
+  }
+
+  function tryInstantRecenterOn(activeKey: string | null) {
+    if (recenterSuppressedRef.current) return;
+    instantRecenterOn(activeKey);
+  }
+
+  function queueCommitCompensation(
+    viewBefore: TrainViewState,
+    nextWindow: TrainStep[],
+    nextCabin: number,
+    slidTargetKey: string | null,
+  ): void {
+    pendingCommitRef.current = { viewBefore, nextWindow, nextCabin, slidTargetKey };
+  }
+
+  async function waitForCabinRef(key: string, maxFrames = 5): Promise<void> {
+    for (let i = 0; i < maxFrames; i++) {
+      if (cabinRefs.current.get(key)) return;
+      await waitForLayout();
+    }
+  }
+
+  async function recenterAfterCommit(centerKeyAfter: string | null): Promise<void> {
+    if (!centerKeyAfter) return;
+    await waitForLayout();
+    await waitForCabinRef(centerKeyAfter);
+    instantRecenterOn(centerKeyAfter);
+    await waitForLayout();
+  }
+
+  function imageUrlsFromWindow(window: TrainStep[], canonical: Submission[]): string[] {
+    const urls: string[] = [];
+    const seen = new Set<string>();
+    for (const step of window) {
+      if (step.kind !== "post" || !step.submissionId) continue;
+      const url = canonical.find((s) => s.id === step.submissionId)?.image_url;
+      if (!url || seen.has(url)) continue;
+      seen.add(url);
+      urls.push(url);
+    }
+    return urls;
+  }
+
+  /** Synchronous post-commit transform before paint (see pendingCommitRef). */
+  useLayoutEffect(() => {
+    const pending = pendingCommitRef.current;
+    if (!pending || !isAnimatingRef.current) return;
+
+    const track = trackRef.current;
+    if (!track) {
+      pendingCommitRef.current = null;
+      return;
+    }
+
+    if (pending.slidTargetKey) {
+      const newWindow = applyServerWindow(
+        pending.viewBefore,
+        pending.nextWindow,
+        pending.nextCabin,
+      ).window;
+      const delta = centerSlotDelta(pending.viewBefore.window, newWindow, pending.slidTargetKey);
+      const slotPitch = measureSlotPitchPx(track);
+      if (delta !== 0 && slotPitch > 0) {
+        compensateTrackForSlotDelta(track, delta, slotPitch);
+      }
+    } else {
+      tryInstantRecenterOn(getCenterKey(trainViewRef.current));
+    }
+    pendingCommitRef.current = null;
+  }, [trainView.window, trainView.currentCabin]);
+
   useEffect(() => {
     const stage = stageRef.current;
     const track = trackRef.current;
@@ -126,31 +206,21 @@ export default function TrainDisplay() {
 
     const ro = new ResizeObserver(() => {
       if (isAnimatingRef.current) return;
-      const active = centerKey ? cabinRefs.current.get(centerKey) : null;
-      if (!active) return;
-      track.style.transition = "none";
-      centerNow(stage, track, active);
-      requestAnimationFrame(() => clearTrackTransition(track));
+      tryInstantRecenterOn(centerKey);
     });
     ro.observe(stage);
     ro.observe(track);
     return () => ro.disconnect();
   }, [hasCabins, centerKey]);
 
-  /** Flicker-free instant recenter after state commits (before paint). */
+  /** Recenter when idle (bootstrap / server sync); orchestrator recenters after each advance. */
   useLayoutEffect(() => {
     if (!hasCabins || !bootstrapComplete || overrideView !== "train") return;
     if (isAnimatingRef.current) return;
-
-    const stage = stageRef.current;
-    const track = trackRef.current;
-    const active = centerKey ? cabinRefs.current.get(centerKey) : null;
-    if (!stage || !track || !active) return;
-
-    track.style.transition = "none";
-    centerNow(stage, track, active);
-    requestAnimationFrame(() => clearTrackTransition(track));
-  }, [hasCabins, bootstrapComplete, centerKey, renderNodes.length, overrideView]);
+    if (pendingAdvancesRef.current > 0) return;
+    if (recenterSuppressedRef.current) return;
+    tryInstantRecenterOn(centerKey);
+  }, [hasCabins, bootstrapComplete, centerKey, overrideView]);
 
   /** Snap to server window and recenter when returning from display override. */
   useEffect(() => {
@@ -169,15 +239,7 @@ export default function TrainDisplay() {
       await waitForLayout();
       if (cancelled) return;
 
-      const stage = stageRef.current;
-      const track = trackRef.current;
-      const activeKey = getCenterKey(trainViewRef.current);
-      const active = activeKey ? cabinRefs.current.get(activeKey) : null;
-      if (stage && track && active) {
-        track.style.transition = "none";
-        centerNow(stage, track, active);
-        requestAnimationFrame(() => clearTrackTransition(track));
-      }
+      instantRecenterOn(getCenterKey(trainViewRef.current));
       setTimeout(() => {
         if (!cancelled) setInstantSnap(false);
       }, 50);
@@ -193,73 +255,142 @@ export default function TrainDisplay() {
 
     let cancelled = false;
 
-    async function slideToKey(targetKey: string, steps: number): Promise<boolean> {
+    async function slideToKey(targetKey: string, durationMs: number): Promise<boolean> {
       const stage = stageRef.current;
       const track = trackRef.current;
       const el = cabinRefs.current.get(targetKey);
       if (!stage || !track || !el) return false;
 
-      const currentTx = readTranslateXFromElement(track);
+      ensureTrackCanAnimate(track);
       const targetTx = computeTrackTranslateX(stage, track, el);
-      if (targetTx > currentTx) return false;
+      slideTo(track, targetTx, durationMs);
+      await waitForTrackTransition(track, durationMs + 150);
+      return !cancelled;
+    }
 
-      const duration = slideDurationMs(steps);
-      slideTo(track, targetTx, duration);
-      await waitForTrackTransition(track, duration + 150);
+    async function slideFarJumpToKey(
+      targetKey: string,
+      slideSteps: number,
+    ): Promise<boolean> {
+      const stage = stageRef.current;
+      const track = trackRef.current;
+      const el = cabinRefs.current.get(targetKey);
+      if (!stage || !track || !el) return false;
+
+      const durationMs = jumpSlideDurationMs(slideSteps);
+      const slotPitch = measureSlotPitchPx(track);
+      if (slotPitch <= 0) return false;
+
+      const finalTx = computeTrackTranslateX(stage, track, el);
+      const startTx = jumpSlideStartTx(finalTx, slideSteps, slotPitch);
+      prepareJumpSlideOffset(track, startTx);
+      await waitForLayout();
+      slideTo(track, finalTx, durationMs);
+      await waitForTrackTransition(track, durationMs + 150);
       return !cancelled;
     }
 
     async function drainQueue() {
       if (isAnimatingRef.current) return;
-
-      const view = trainViewRef.current;
-      const jumping = needsAnimationStep(view);
-      const hasPendingAdvance = pendingAdvancesRef.current > 0;
-      if (!jumping && !hasPendingAdvance) return;
+      if (pendingAdvancesRef.current <= 0) return;
+      if (!isPlayingRef.current && !hasJumpPendingRef.current()) return;
 
       isAnimatingRef.current = true;
+      setIsSliding(true);
+      setHighlightReady(false);
+      setInstantSnap(false);
+      recenterSuppressedRef.current = true;
+
       try {
-        if (jumping && view.jump) {
-          const jumpKey = `${view.jump.targetCabin}:${view.jump.stepsRemaining}`;
-          if (jumpPreloadKeyRef.current !== view.jump.targetCabin.toString()) {
-            jumpPreloadKeyRef.current = view.jump.targetCabin.toString();
-            const urls = view.jump.renderWindow
+        while (pendingAdvancesRef.current > 0 && !cancelled) {
+          if (!isPlayingRef.current && !hasJumpPendingRef.current()) break;
+
+          const peek = peekPendingAdvanceRef.current();
+          if (!peek) break;
+
+          const view = trainViewRef.current;
+          const track = trackRef.current;
+
+          if (peek.kind === "jump") {
+            const jumpCenterKey = getCenterKeyFromSteps(peek.window);
+            const slideSteps = peek.slideSteps ?? 0;
+            const inChain = isJumpTargetInCurrentWindow(view, peek.window);
+
+            await preloadCabinImages(imageUrlsFromWindow(peek.window, view.canonical));
+            if (cancelled) return;
+
+            if (inChain && slideSteps > 0 && jumpCenterKey) {
+              const ok = await slideToKey(jumpCenterKey, jumpSlideDurationMs(slideSteps));
+              if (cancelled) return;
+              if (track) clearTrackTransition(track);
+              if (!ok) {
+                pendingCommitRef.current = null;
+                const centerKeyAfter = commitAdvance();
+                await recenterAfterCommit(centerKeyAfter);
+              } else {
+                queueCommitCompensation(view, peek.window, peek.currentCabin, jumpCenterKey);
+                commitAdvance();
+                await waitForLayout();
+              }
+            } else {
+              commitAdvance();
+              await waitForLayout();
+              if (jumpCenterKey) await waitForCabinRef(jumpCenterKey, 30);
+
+              if (slideSteps > 0 && jumpCenterKey) {
+                const ok = await slideFarJumpToKey(jumpCenterKey, slideSteps);
+                if (cancelled) return;
+                if (track) clearTrackTransition(track);
+                if (!ok) instantRecenterOn(jumpCenterKey);
+              } else if (jumpCenterKey) {
+                instantRecenterOn(jumpCenterKey);
+              }
+            }
+            break;
+          }
+
+          const currentCenterKey = getCenterKey(view);
+          const targetKey = getSlideTargetKey(view, peek.window);
+
+          if (targetKey && targetKey !== currentCenterKey) {
+            const steps = getSlideSlotDistance(view, targetKey);
+            const urls = view.window
               .map((c) => c.submission?.image_url)
               .filter((u): u is string => !!u);
             await preloadCabinImages(urls);
             if (cancelled) return;
-            await waitForLayout();
-          }
-          void jumpKey;
-          const targetKey = getForwardSlideTargetKey(view);
-          if (targetKey) {
-            const ok = await slideToKey(targetKey, 1);
+
+            const ok = await slideToKey(targetKey, slideDurationMs(steps));
             if (cancelled) return;
+            if (track) clearTrackTransition(track);
             if (!ok) {
-              applyAnimationStep();
-              return;
+              pendingCommitRef.current = null;
+              const centerKeyAfter = commitAdvance();
+              await recenterAfterCommit(centerKeyAfter);
+              continue;
             }
           }
-          applyAnimationStep();
-          return;
-        }
 
-        jumpPreloadKeyRef.current = null;
-
-        if (pendingAdvancesRef.current > 0 && isPlayingRef.current) {
-          const targetKey = getForwardSlideTargetKey(view);
-          if (targetKey) {
-            const ok = await slideToKey(targetKey, 1);
-            if (cancelled) return;
-            if (!ok) {
-              commitAdvance();
-              return;
-            }
-          }
+          if (track) clearTrackTransition(track);
+          const slidTargetKey = targetKey && targetKey !== currentCenterKey ? targetKey : null;
+          queueCommitCompensation(view, peek.window, peek.currentCabin, slidTargetKey);
           commitAdvance();
+          await waitForLayout();
         }
       } finally {
-        isAnimatingRef.current = false;
+        await waitForLayout();
+        await waitForLayout();
+        if (!cancelled) {
+          setHighlightReady(true);
+          setIsSliding(false);
+          isAnimatingRef.current = false;
+          setTimeout(() => {
+            recenterSuppressedRef.current = false;
+          }, 100);
+        } else {
+          recenterSuppressedRef.current = false;
+          pendingCommitRef.current = null;
+        }
       }
     }
 
@@ -271,18 +402,12 @@ export default function TrainDisplay() {
       cancelled = true;
       runOrchestratorRef.current = null;
     };
-  }, [hasCabins, bootstrapComplete, commitAdvance, applyAnimationStep]);
+  }, [hasCabins, bootstrapComplete, commitAdvance, peekPendingAdvance, hasJumpPending]);
 
   useEffect(() => {
     if (!hasCabins || !bootstrapComplete) return;
     runOrchestratorRef.current?.();
-  }, [
-    hasCabins,
-    bootstrapComplete,
-    pendingAdvances,
-    trainView.jump?.stepsRemaining,
-    trainView.jump?.centerIndex,
-  ]);
+  }, [hasCabins, bootstrapComplete, pendingAdvances]);
 
   function dismissFullscreenPrompt() {
     globalThis.localStorage?.setItem("display_wall_fullscreen_dismissed", "1");
@@ -301,6 +426,24 @@ export default function TrainDisplay() {
   return (
     <div class="display-wall">
       <link rel="stylesheet" href="/train.css" />
+      <ConnectionBanner status={connectionStatus} />
+
+      {bootstrapError && (
+        <div
+          style="position: fixed; inset: 0; z-index: 9998; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.75); color: white; text-align: center; padding: 2rem;"
+        >
+          <div>
+            <p style="font-size: 1.25rem; margin: 0 0 1rem;">{bootstrapError}</p>
+            <button
+              type="button"
+              onClick={retryBootstrap}
+              style="padding: 0.75rem 1.5rem; background: #ef3340; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 1rem;"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      )}
 
       {baseUrl && overrideView === "train" && (
         <div class="display-wall__join-bar" aria-hidden="true">
@@ -376,8 +519,11 @@ export default function TrainDisplay() {
           >
             <div
               ref={trackRef}
-              class={`display-wall__track${instantSnap ? " display-wall__track--instant" : ""}`}
+              class={`display-wall__track${
+                instantSnap ? " display-wall__track--instant" : ""
+              }${isSliding ? " display-wall__track--animating" : ""}`}
             >
+              <div class="display-wall__rail" aria-hidden="true" />
               {renderNodes.map((node) => (
                 <TrainCabin
                   key={node.key}
@@ -387,9 +533,10 @@ export default function TrainDisplay() {
                   }}
                   kind={node.kind}
                   submission={node.submission}
-                  baseUrl={baseUrl}
+                  destination={node.destination}
                   qrUrl={originUrl}
-                  isActive={node.key === centerKey}
+                  isActive={highlightReady && !isSliding && node.key === centerKey}
+                  isAnimating={isSliding}
                 />
               ))}
             </div>

@@ -1,4 +1,4 @@
-import { LEFT_RENDER, RIGHT_RENDER, VIEWPORT_K } from "./train_view_constants.ts";
+import { CENTER_SLOT, LEFT_RENDER, VIEWPORT_K } from "./train_view_constants.ts";
 import type { Submission } from "../types.ts";
 import type { TrainStep } from "../interfaces/realtime_service.ts";
 
@@ -112,23 +112,13 @@ export function computeJumpStepCount(
 // ---------------------------------------------------------------------------
 
 export interface RenderCabin {
-  /** Unique key (generator seq, or jump-synthetic) used as the DOM key. */
+  /** Unique key (generator seq) used as the DOM key. */
   key: string;
   kind: "post" | "qr";
+  /** Destination-board label (MRT/LRT station or QR copy). */
+  destination?: string;
   /** Resolved snapshot for post cabins (kept even if later deleted, until off-screen). */
   submission?: Submission;
-}
-
-export interface JumpAnimation {
-  targetCabin: number;
-  stepsRemaining: number;
-  /** Cabins to slide through during the jump (left context + collapse path + right). */
-  renderWindow: RenderCabin[];
-  /** Index of the centered cabin within `renderWindow` (advances each step). */
-  centerIndex: number;
-  /** Window to settle on once the jump completes (server-authoritative). */
-  pendingWindow: RenderCabin[];
-  pendingCurrentCabin: number;
 }
 
 export interface TrainViewState {
@@ -136,7 +126,6 @@ export interface TrainViewState {
   /** Resolved display tape (server window), left -> right. Center at LEFT_RENDER. */
   window: RenderCabin[];
   currentCabin: number;
-  jump: JumpAnimation | null;
 }
 
 export function initTrainView(submissions: Submission[]): TrainViewState {
@@ -144,7 +133,6 @@ export function initTrainView(submissions: Submission[]): TrainViewState {
     canonical: [...submissions],
     window: [],
     currentCabin: submissions.length > 0 ? 1 : 0,
-    jump: null,
   };
 }
 
@@ -158,10 +146,12 @@ function resolveStep(
   priorByKey: Map<string, RenderCabin>,
 ): RenderCabin {
   const key = `s${step.seq}`;
-  if (step.kind === "qr") return { key, kind: "qr" };
+  if (step.kind === "qr") {
+    return { key, kind: "qr", destination: step.destination };
+  }
   const submission = (step.submissionId ? lookup.get(step.submissionId) : undefined) ??
     priorByKey.get(key)?.submission;
-  return { key, kind: "post", submission };
+  return { key, kind: "post", submission, destination: step.destination };
 }
 
 function resolveWindow(
@@ -183,20 +173,11 @@ export function applyServerWindow(
     ...state,
     window: resolveWindow(window, byId(state.canonical), state.window),
     currentCabin: currentCabin || state.currentCabin,
-    jump: null,
   };
 }
 
-function activeWindow(state: TrainViewState): RenderCabin[] {
-  return state.jump ? state.jump.renderWindow : state.window;
-}
-
-function centerSlot(state: TrainViewState): number {
-  return state.jump ? state.jump.centerIndex : LEFT_RENDER;
-}
-
 export function getRenderWindow(state: TrainViewState): RenderCabin[] {
-  return activeWindow(state);
+  return state.window;
 }
 
 export function getCurrentCabin(state: TrainViewState): number {
@@ -212,15 +193,48 @@ export function hasCabins(state: TrainViewState): boolean {
 }
 
 export function getCenterKey(state: TrainViewState): string | null {
-  return activeWindow(state)[centerSlot(state)]?.key ?? null;
+  return state.window[LEFT_RENDER]?.key ?? null;
+}
+
+/** Center cabin key from a server window snapshot. */
+export function getCenterKeyFromSteps(window: TrainStep[]): string | null {
+  const center = window[CENTER_SLOT];
+  return center ? `s${center.seq}` : null;
+}
+
+/** True when the jump target center cabin is already rendered in the current window. */
+export function isJumpTargetInCurrentWindow(
+  current: TrainViewState,
+  nextWindow: TrainStep[],
+): boolean {
+  const key = getCenterKeyFromSteps(nextWindow);
+  return !!key && current.window.some((c) => c.key === key);
 }
 
 /** The cabin that will become center after one forward step (slide target). */
 export function getForwardSlideTargetKey(state: TrainViewState): string | null {
-  return activeWindow(state)[centerSlot(state) + 1]?.key ?? null;
+  return state.window[LEFT_RENDER + 1]?.key ?? null;
 }
 
-// --- Canonical list maintenance (content resolution + jump numbering) ------
+/** Key of the cabin to center for the upcoming commit (from next server window). */
+export function getSlideTargetKey(
+  current: TrainViewState,
+  nextWindow: TrainStep[],
+): string | null {
+  const centerStep = nextWindow[CENTER_SLOT];
+  if (!centerStep) return getForwardSlideTargetKey(current);
+  const targetKey = `s${centerStep.seq}`;
+  if (current.window.some((c) => c.key === targetKey)) return targetKey;
+  return getForwardSlideTargetKey(current);
+}
+
+/** Slot steps between current center and slide target (min 1). */
+export function getSlideSlotDistance(current: TrainViewState, targetKey: string): number {
+  const centerIdx = LEFT_RENDER;
+  const targetIdx = current.window.findIndex((c) => c.key === targetKey);
+  if (targetIdx < 0) return 1;
+  return Math.max(Math.abs(targetIdx - centerIdx), 1);
+}
 
 export function addApproved(state: TrainViewState, submission: Submission): TrainViewState {
   if (state.canonical.some((s) => s.id === submission.id)) return state;
@@ -243,89 +257,9 @@ export function removeSubmissionFromView(
   submissionId: string,
 ): TrainViewState {
   const canonical = state.canonical.filter((s) => s.id !== submissionId);
-  // Keep window snapshots so an on-screen cabin finishes scrolling off (id-based, no snap).
   return {
     ...state,
     canonical,
     currentCabin: Math.min(state.currentCabin, canonical.length || 1),
   };
-}
-
-// --- Jump animation (client-visual collapse over canonical numbers) --------
-
-/** Render window for a jump: K left context + collapse path + K right context. */
-function buildJumpRenderWindow(state: TrainViewState, path: number[]): RenderCabin[] {
-  const length = state.canonical.length;
-  const out: RenderCabin[] = [];
-  let synthetic = 0;
-  const push = (cabin: number) => {
-    out.push({ key: `j${synthetic++}`, kind: "post", submission: state.canonical[cabin - 1] });
-  };
-
-  const first = path[0]!;
-  for (let i = LEFT_RENDER; i >= 1; i--) push(((first - 1 - i + length) % length) + 1);
-  for (const cabin of path) push(cabin);
-  const last = path[path.length - 1]!;
-  for (let i = 1; i <= RIGHT_RENDER; i++) push(((last - 1 + i) % length) + 1);
-  return out;
-}
-
-export function beginJump(
-  state: TrainViewState,
-  targetCabin: number,
-  pendingWindow: TrainStep[],
-  pendingCurrentCabin: number,
-): TrainViewState {
-  const length = state.canonical.length;
-  const resolvedPending = resolveWindow(pendingWindow, byId(state.canonical), state.window);
-  const settle = (): TrainViewState => ({
-    ...state,
-    window: resolvedPending,
-    currentCabin: pendingCurrentCabin || state.currentCabin,
-    jump: null,
-  });
-
-  if (length === 0) return settle();
-
-  const fromCabin = state.currentCabin || 1;
-  const path = computeJumpAnimationPath(fromCabin, targetCabin, length);
-  const steps = Math.max(0, path.length - 1);
-  if (steps === 0) return settle();
-
-  return {
-    ...state,
-    jump: {
-      targetCabin,
-      stepsRemaining: steps,
-      renderWindow: buildJumpRenderWindow(state, path),
-      centerIndex: LEFT_RENDER,
-      pendingWindow: resolvedPending,
-      pendingCurrentCabin,
-    },
-  };
-}
-
-export function advanceJumpStep(state: TrainViewState): TrainViewState {
-  if (!state.jump) return state;
-  const remaining = state.jump.stepsRemaining - 1;
-  if (remaining <= 0) {
-    return {
-      ...state,
-      window: state.jump.pendingWindow,
-      currentCabin: state.jump.pendingCurrentCabin || state.currentCabin,
-      jump: null,
-    };
-  }
-  return {
-    ...state,
-    jump: {
-      ...state.jump,
-      stepsRemaining: remaining,
-      centerIndex: state.jump.centerIndex + 1,
-    },
-  };
-}
-
-export function needsAnimationStep(state: TrainViewState): boolean {
-  return state.jump !== null && state.jump.stepsRemaining > 0;
 }

@@ -1,5 +1,11 @@
 import { assertEquals } from "@std/assert";
-import { computeAbsoluteTrackTranslate } from "./center_track.ts";
+import {
+  centerSlotDelta,
+  computeAbsoluteTrackTranslate,
+  jumpSlideStartTx,
+} from "./center_track.ts";
+import type { RenderCabin } from "./train_view.ts";
+import { LEFT_RENDER } from "./train_view_constants.ts";
 
 Deno.test("computeAbsoluteTrackTranslate centers cabin in stage", () => {
   const tx = computeAbsoluteTrackTranslate(500, 100, 800, 480);
@@ -23,4 +29,29 @@ Deno.test("computeAbsoluteTrackTranslate moves track right for earlier cabin", (
   const tx1 = computeAbsoluteTrackTranslate(500, 50, 400, 480);
   const tx2 = computeAbsoluteTrackTranslate(500, 50, 912, 480);
   assertEquals(tx1 > tx2, true);
+});
+
+Deno.test("centerSlotDelta is -1 for one-slot forward advance", () => {
+  const oldWindow: RenderCabin[] = [
+    { key: "s1", kind: "post" },
+    { key: "s2", kind: "post" },
+    { key: "s3", kind: "post" },
+    { key: "s4", kind: "post" },
+    { key: "s5", kind: "post" },
+  ];
+  const newWindow: RenderCabin[] = [
+    { key: "s2", kind: "post" },
+    { key: "s3", kind: "post" },
+    { key: "s4", kind: "post" },
+    { key: "s5", kind: "post" },
+    { key: "s6", kind: "post" },
+  ];
+  assertEquals(centerSlotDelta(oldWindow, newWindow, "s4"), -1);
+  assertEquals(oldWindow[LEFT_RENDER + 1]?.key, "s4");
+  assertEquals(newWindow[LEFT_RENDER]?.key, "s4");
+});
+
+Deno.test("jumpSlideStartTx caps offset at RIGHT_RENDER slots", () => {
+  assertEquals(jumpSlideStartTx(-640, 8, 512), -640 + 4 * 512);
+  assertEquals(jumpSlideStartTx(100, 1, 512), 612);
 });
