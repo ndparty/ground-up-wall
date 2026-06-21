@@ -363,7 +363,7 @@ Scenario: Browser refresh recovers state
   Given the display wall was previously showing submissions
   When I refresh the browser page
   Then the display wall reloads with all approved submissions
-  And the animation resumes from the first cabin
+  And the animation resumes from the server-authoritative playback position and play/pause state (not necessarily cabin 1)
 ```
 
 ### US-15 — Pause/Play and Jump to Cabin (Photo Moderator)

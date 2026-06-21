@@ -164,6 +164,34 @@ Deno.test({
 });
 
 Deno.test({
+  name: "testDeleteLastApprovedPublishesEmptyPlayback",
+  async fn() {
+    const dir = await Deno.makeTempDir();
+    try {
+      await cleanupTestData();
+      const { service, repo } = await createTestService(dir);
+
+      const submission = await service.submitSubmission(
+        { image: new Blob([new Uint8Array([1])]), message: "Hi", submitter_name: "A" },
+        [],
+      );
+      await service.approveSubmission(submission.id, "mod-1");
+      await service.ensurePlaybackInitialized();
+
+      await service.deleteSubmission(submission.id, "mod-1");
+
+      const playback = service.getTrainPlaybackState();
+      assertEquals(playback.window.length, 0);
+      assertEquals(playback.cabinCount, 0);
+      await repo.close();
+    } finally {
+      await cleanupTestData();
+      await Deno.remove(dir, { recursive: true });
+    }
+  },
+});
+
+Deno.test({
   name: "testCreateModeratorFlow",
   async fn() {
     const dir = await Deno.makeTempDir();

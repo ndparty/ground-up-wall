@@ -31,12 +31,26 @@ toggle, 1:1 photos confirmed on target hardware.
 | Ephemeral jump routing | Satisfied | `tape_helpers.ts`, `train_playback_controller.ts`, `TrainDisplay.tsx` |
 | Moderation gallery     | Satisfied | `ApprovedWallList.tsx`, `routes/moderate/approved.tsx`                |
 | Safe SSE               | Satisfied | `lib/sse/create_event_stream.ts`                                      |
-| HEIC decode            | Satisfied | `decode_upload_image.ts`                                              |
+| HEIC decode            | Satisfied | `decode_upload_image.ts` (`heic-to/csp`), `security_headers.ts` (`worker-src blob:`) |
 | Train controls layout  | Satisfied | `static/train.css` — `box-sizing` + moderate wrap                     |
 | Copy refresh           | Satisfied | `e1b73bc` — Ground-Up Photowall, NDGUP consent                        |
 
 **Manual verification (Update 06)**: PASSED — jump with ephemerals, gallery, train controls panel
 layout, upload consent flow.
+
+---
+
+## Update 07 — Audit fixes (ops + HEIC CSP + delete-all)
+
+| Area | Status | Evidence |
+|------|--------|----------|
+| Reload display | Satisfied | `reloadDisplay`, `display_reload` SSE, `DisplayOverrideControls.tsx` |
+| Panic display | Satisfied | `panicDisplay` (blank SSE first), audit `panic_display` |
+| HEIC under CSP | Satisfied | `heic-to/csp`, `worker-src 'self' blob:` |
+| Delete-all waiting screen | Satisfied | `deleteSubmission` + `removeSubmissionFromView` empty window |
+| Playback snapshot | Satisfied | `train_playback_state` in `system_config`, `restoreFromSnapshot` |
+
+See also: [`requirements.update07.md`](../update_logs/requirements.update07.md).
 
 See also: [`requirements.update05.md`](../update_logs/requirements.update05.md),
 [`requirements.update06.md`](../update_logs/requirements.update06.md).

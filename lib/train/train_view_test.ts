@@ -12,6 +12,7 @@ import {
   getCurrentCabin,
   getForwardSlideTargetKey,
   getRenderWindow,
+  hasCabins,
   getSlideSlotDistance,
   getSlideTargetKey,
   initTrainView,
@@ -227,6 +228,16 @@ Deno.test("deleted submission keeps its on-screen snapshot (no snap)", () => {
   // Removed from canonical, but the window cabin retains its snapshot to scroll off.
   assertEquals(getCanonicalCount(state), 9);
   assertEquals(getRenderWindow(state)[LEFT_RENDER].submission?.id, "sub-3");
+});
+
+Deno.test("deleting last approved submission clears window for waiting screen", () => {
+  let state = initTrainView(makeSubmissions(1));
+  state = applyServerWindow(state, postWindow(1, 1), 1);
+  state = removeSubmissionFromView(state, "sub-1");
+  assertEquals(getCanonicalCount(state), 0);
+  assertEquals(getRenderWindow(state).length, 0);
+  assertEquals(hasCabins(state), false);
+  assertEquals(state.currentCabin, 0);
 });
 
 Deno.test("renderWindowToSteps reconstructs server steps from render cabins", () => {

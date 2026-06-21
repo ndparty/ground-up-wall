@@ -260,6 +260,10 @@ export class PhotoWallService {
 
     await this.realtime.publish("submission:deleted", { id });
     await this.syncPlaybackCabinCount();
+    const approved = await this.getApprovedSubmissions();
+    if (approved.length === 0) {
+      this.publishPlaybackState();
+    }
   }
 
   subscribeToApproved(callback: (submission: Submission) => void): UnsubscribeFn {

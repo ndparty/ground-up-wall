@@ -41,7 +41,7 @@ upload decode, and copy refresh.
 
 ## 4. Upload and display polish
 
-- HEIC: direct `heic-to` path in `decode_upload_image.ts`
+- HEIC: `heic-to/csp` import in `decode_upload_image.ts`; CSP `worker-src 'self' blob:` (Update 07)
 - Fit text: `MIN_REM` 0.5 in `use_fit_text.ts`
 - Blank override: no confirm in `DisplayOverrideControls.tsx` / `AdminDisplayOverride.tsx`
 

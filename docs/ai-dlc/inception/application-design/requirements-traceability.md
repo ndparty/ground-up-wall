@@ -66,9 +66,9 @@ This document maps all functional requirements (FR), non-functional requirements
 | FR-13b | Event killswitch + public-uploads toggle gating dynamic routes (Update 05) | AdminComponent | PhotoWallService | Code: `lib/middleware/access_gate.ts`, `main.ts`, `parameter_validation.ts`; tests `access_gate_test.ts` |
 | FR-23 | Branded waiting screen when no submissions approved | DisplayComponent | PhotoWallService | Code: `TrainDisplay.tsx` empty state |
 | FR-24 | Display wall runs full-screen in browser on laptop/PC connected to TV via HDMI | DisplayComponent | - | Code: `train.css` fixed layout |
-| FR-24a | Pause/play/jump-to-cabin controls on display wall (moderator/admin only); on refresh, restart from cabin 0 in playing state | DisplayComponent, AuthComponent | PhotoWallService, RealtimeService | Code: `TrainControls.tsx`, `train-command.ts`, `use_train_playback.ts` — see verification note |
+| FR-24a | Pause/play/jump-to-cabin controls on display wall (moderator/admin only); on refresh, restore server-authoritative playback position and play/pause state | DisplayComponent, AuthComponent | PhotoWallService, RealtimeService | Code: `TrainControls.tsx`, `train-command.ts`, `use_train_playback.ts` — snapshot in `system_config.train_playback_state` (Update 07) |
 | FR-24b | Display wall requires authentication (Display Wall User / Mod / Admin only); 403 for unauthenticated/participants; persisted auth model | DisplayComponent, AuthComponent | PhotoWallService, Repository | Code: `routes/display.tsx` |
-| FR-24c | Display override controls (blank/placeholder/resume) from mod/admin panel; broadcast via RealtimeService; persisted state; auditable | ModerationComponent, AdminComponent, DisplayComponent | PhotoWallService, RealtimeService, Repository, AuditService | Code: `commandDisplayOverride`, `DisplayOverrideControls.tsx` |
+| FR-24c | Display override (blank/placeholder/resume) plus reload/panic ops from mod/admin panel; broadcast via RealtimeService; persisted state; auditable | ModerationComponent, AdminComponent, DisplayComponent | PhotoWallService, RealtimeService, Repository, AuditService | Code: `commandDisplayOverride`, `reloadDisplay`, `panicDisplay`, `DisplayOverrideControls.tsx` |
 
 ---
 

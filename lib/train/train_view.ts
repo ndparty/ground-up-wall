@@ -278,6 +278,9 @@ export function removeSubmissionFromView(
   submissionId: string,
 ): TrainViewState {
   const canonical = state.canonical.filter((s) => s.id !== submissionId);
+  if (canonical.length === 0) {
+    return { ...state, canonical, window: [], currentCabin: 0 };
+  }
   return {
     ...state,
     canonical,
