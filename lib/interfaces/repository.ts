@@ -13,6 +13,13 @@ import type {
   SystemConfig,
   User,
 } from "../types.ts";
+import type { AuthUser } from "../services/auth_service.ts";
+
+export interface StoredSession {
+  token: string;
+  user: AuthUser;
+  expiresAt: Date;
+}
 
 export interface Repository {
   // Submission operations
@@ -67,6 +74,18 @@ export interface Repository {
   deleteDisplayWallUser(id: string): Promise<boolean>;
   getDisplayOverrideState(): Promise<DisplayOverrideState | null>;
   setDisplayOverrideState(state: DisplayOverrideState): Promise<void>;
+
+  // Session persistence
+  loadActiveSessions(): Promise<StoredSession[]>;
+  upsertSession(
+    token: string,
+    userId: string,
+    userSnapshot: AuthUser,
+    expiresAt: Date,
+  ): Promise<void>;
+  deleteSession(token: string): Promise<void>;
+  deleteSessionsByUserId(userId: string, exceptToken?: string): Promise<void>;
+  purgeExpiredSessions(): Promise<void>;
 
   // Connection lifecycle
   connect(): Promise<void>;

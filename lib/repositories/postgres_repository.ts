@@ -1,6 +1,8 @@
 import { Client } from "@db/postgres";
 import { createPostgresClient } from "../db_url.ts";
-import type { Repository } from "../interfaces/repository.ts";
+import { isTransientDbError, sleep } from "../db_connection.ts";
+import type { Repository, StoredSession } from "../interfaces/repository.ts";
+import type { AuthUser } from "../services/auth_service.ts";
 import type {
   AuditEntry,
   AuditEntryData,
@@ -67,6 +69,16 @@ type ConfigRow = {
   updated_at: Date;
   updated_by: string | null;
 };
+
+type SessionRow = {
+  token: string;
+  user_id: string;
+  user_snapshot: AuthUser;
+  expires_at: Date;
+};
+
+const CONNECT_ATTEMPTS = 5;
+const CONNECT_BACKOFF_MS = 200;
 
 function toIso(date: Date | null | undefined): string | undefined {
   return date ? date.toISOString() : undefined;
@@ -157,28 +169,69 @@ export class PostgresRepository implements Repository {
   private client: Client;
   private connected = false;
 
-  constructor(databaseUrl: string) {
+  constructor(private readonly databaseUrl: string) {
     this.client = createPostgresClient(databaseUrl);
   }
 
-  async connect(): Promise<void> {
-    if (!this.connected) {
-      await this.client.connect();
-      this.connected = true;
+  private async resetConnection(): Promise<void> {
+    if (this.connected) {
+      try {
+        await this.client.end();
+      } catch {
+        // ignore close errors on stale connections
+      }
     }
+    this.connected = false;
+    this.client = createPostgresClient(this.databaseUrl);
+  }
+
+  async connect(): Promise<void> {
+    if (this.connected) return;
+
+    let lastError: unknown;
+    for (let attempt = 0; attempt < CONNECT_ATTEMPTS; attempt++) {
+      try {
+        await this.client.connect();
+        this.connected = true;
+        return;
+      } catch (error) {
+        lastError = error;
+        await this.resetConnection();
+        if (attempt < CONNECT_ATTEMPTS - 1) {
+          await sleep(CONNECT_BACKOFF_MS * (attempt + 1));
+        }
+      }
+    }
+    throw lastError;
   }
 
   async close(): Promise<void> {
     if (this.connected) {
-      await this.client.end();
+      try {
+        await this.client.end();
+      } catch {
+        // ignore
+      }
       this.connected = false;
     }
   }
 
-  private async query<T>(sql: string, params: unknown[] = []): Promise<T[]> {
-    await this.connect();
-    const result = await this.client.queryObject<T>(sql, params);
-    return result.rows;
+  private async query<T>(
+    sql: string,
+    params: unknown[] = [],
+    allowRetry = true,
+  ): Promise<T[]> {
+    try {
+      await this.connect();
+      const result = await this.client.queryObject<T>(sql, params);
+      return result.rows;
+    } catch (error) {
+      if (allowRetry && isTransientDbError(error)) {
+        await this.resetConnection();
+        return await this.query<T>(sql, params, false);
+      }
+      throw error;
+    }
   }
 
   async createSubmission(data: SubmissionData): Promise<Submission> {
@@ -516,5 +569,54 @@ export class PostgresRepository implements Repository {
       JSON.stringify(state),
       state.commanded_by,
     );
+  }
+
+  async loadActiveSessions(): Promise<StoredSession[]> {
+    const rows = await this.query<SessionRow>(
+      `SELECT token, user_id, user_snapshot, expires_at
+       FROM sessions
+       WHERE expires_at >= NOW()`,
+    );
+    return rows.map((row) => ({
+      token: row.token,
+      user: row.user_snapshot,
+      expiresAt: row.expires_at,
+    }));
+  }
+
+  async upsertSession(
+    token: string,
+    userId: string,
+    userSnapshot: AuthUser,
+    expiresAt: Date,
+  ): Promise<void> {
+    await this.query(
+      `INSERT INTO sessions (token, user_id, user_snapshot, expires_at)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (token) DO UPDATE SET
+         user_id = EXCLUDED.user_id,
+         user_snapshot = EXCLUDED.user_snapshot,
+         expires_at = EXCLUDED.expires_at`,
+      [token, userId, userSnapshot, expiresAt],
+    );
+  }
+
+  async deleteSession(token: string): Promise<void> {
+    await this.query(`DELETE FROM sessions WHERE token = $1`, [token]);
+  }
+
+  async deleteSessionsByUserId(userId: string, exceptToken?: string): Promise<void> {
+    if (exceptToken) {
+      await this.query(
+        `DELETE FROM sessions WHERE user_id = $1 AND token <> $2`,
+        [userId, exceptToken],
+      );
+      return;
+    }
+    await this.query(`DELETE FROM sessions WHERE user_id = $1`, [userId]);
+  }
+
+  async purgeExpiredSessions(): Promise<void> {
+    await this.query(`DELETE FROM sessions WHERE expires_at < NOW()`);
   }
 }

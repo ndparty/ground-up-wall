@@ -13,6 +13,7 @@ import type { StorageService } from "../interfaces/storage_service.ts";
 import { parseDwellTime, parseQrInterval } from "../train/display_helpers.ts";
 import {
   TrainPlaybackController,
+  type TrainPlaybackSnapshot,
   type TrainPlaybackState,
 } from "../train/train_playback_controller.ts";
 import { SEEDED_DEFAULT_WORD_LIST } from "./auto_moderator_service_impl.ts";
@@ -72,6 +73,19 @@ export class PhotoWallService {
       dwellSeconds: playback.dwellSeconds,
       lastTransitionAt: playback.lastTransitionAt,
       window: playback.window,
+    });
+    this.persistPlaybackSnapshot();
+  }
+
+  private persistPlaybackSnapshot(): void {
+    if (!this.playbackInitialized) return;
+    const snapshot = this.playback.exportSnapshot();
+    void this.repository.upsertSystemConfig(
+      "train_playback_state",
+      JSON.stringify(snapshot),
+      "system",
+    ).catch((error) => {
+      console.error("Failed to persist train playback state:", error);
     });
   }
 
@@ -276,15 +290,33 @@ export class PhotoWallService {
   async ensurePlaybackInitialized(): Promise<void> {
     if (this.playbackInitialized) return;
 
-    const [approved, configs] = await Promise.all([
+    const [approved, configs, snapshotConfig] = await Promise.all([
       this.getApprovedSubmissions(),
       this.getSystemParameters(),
+      this.repository.getSystemConfig("train_playback_state"),
     ]);
     const dwell = configs.find((c) => c.key === "train_dwell_time");
     const dwellSeconds = parseDwellTime(dwell?.value ?? dwell?.default_value);
     const qrInterval = configs.find((c) => c.key === "qr_cabin_interval");
+    const approvedIds = approved.map((s) => s.id);
+
+    let restored = false;
+    if (snapshotConfig?.value) {
+      try {
+        const snapshot = JSON.parse(snapshotConfig.value) as TrainPlaybackSnapshot;
+        restored = this.playback.restoreFromSnapshot(snapshot, approvedIds);
+      } catch {
+        restored = false;
+      }
+    }
+
+    if (!restored) {
+      this.playback.initialize(dwellSeconds, approvedIds);
+    } else {
+      this.playback.setDwellSeconds(dwellSeconds);
+    }
+
     this.playback.setQrInterval(parseQrInterval(qrInterval?.value ?? qrInterval?.default_value));
-    this.playback.initialize(dwellSeconds, approved.map((s) => s.id));
     this.playbackInitialized = true;
   }
 
