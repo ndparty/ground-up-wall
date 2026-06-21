@@ -1,4 +1,7 @@
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
+import { fetchWithRetry } from "../lib/client/fetch_with_retry.ts";
+import { useReconnectingEventSource } from "../lib/client/use_reconnecting_event_source.ts";
+import ConnectionBanner from "./ConnectionBanner.tsx";
 import { highlightFlaggedWords } from "../lib/moderation/highlight_flagged_words.ts";
 import type { Submission } from "../lib/types.ts";
 
@@ -266,73 +269,77 @@ export default function ModerationQueue() {
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");
 
-  async function loadQueues() {
-    const [pendingRes, approvedRes] = await Promise.all([
-      fetch("/api/moderate/pending"),
-      fetch("/api/moderate/approved"),
-    ]);
-    if (!pendingRes.ok || !approvedRes.ok) {
-      setError("Failed to load moderation queue");
-      return;
+  function parseSubmission(event: MessageEvent): Submission | null {
+    try {
+      return JSON.parse(event.data) as Submission;
+    } catch {
+      return null;
     }
-    setPending(await pendingRes.json());
-    setApproved(await approvedRes.json());
-    setError("");
   }
 
-  useEffect(() => {
-    loadQueues().finally(() => setLoaded(true));
-    const es = new EventSource("/api/moderate/events");
-
-    const parseSubmission = (event: MessageEvent): Submission | null => {
-      try {
-        return JSON.parse(event.data) as Submission;
-      } catch {
-        return null;
+  async function loadQueues() {
+    try {
+      const [pendingRes, approvedRes] = await Promise.all([
+        fetchWithRetry("/api/moderate/pending"),
+        fetchWithRetry("/api/moderate/approved"),
+      ]);
+      if (!pendingRes.ok || !approvedRes.ok) {
+        setError("Failed to load moderation queue");
+        return;
       }
-    };
+      setPending(await pendingRes.json());
+      setApproved(await approvedRes.json());
+      setError("");
+    } catch {
+      setError("Could not reach the server. Please try again.");
+    }
+  }
 
-    es.addEventListener("submission_created", (event) => {
+  const sseHandlersRef = useRef<Record<string, (event: MessageEvent) => void>>({});
+  sseHandlersRef.current = {
+    submission_created: (event) => {
       const submission = parseSubmission(event);
       if (!submission) return;
       setPending((prev) => [submission, ...prev.filter((s) => s.id !== submission.id)]);
-    });
-
-    es.addEventListener("submission_approved", (event) => {
+    },
+    submission_approved: (event) => {
       const submission = parseSubmission(event);
       if (!submission) return;
       setPending((prev) => prev.filter((s) => s.id !== submission.id));
       setApproved((prev) => [submission, ...prev.filter((s) => s.id !== submission.id)]);
-    });
-
-    es.addEventListener("submission_rejected", (event) => {
+    },
+    submission_rejected: (event) => {
       try {
         const { id } = JSON.parse(event.data) as { id: string };
         setPending((prev) => prev.filter((s) => s.id !== id));
       } catch {
         // ignore malformed events
       }
-    });
-
-    es.addEventListener("submission_edited", (event) => {
+    },
+    submission_edited: (event) => {
       const submission = parseSubmission(event);
       if (!submission) return;
       setPending((prev) => prev.map((s) => (s.id === submission.id ? submission : s)));
       setApproved((prev) => prev.map((s) => (s.id === submission.id ? submission : s)));
-    });
-
-    es.addEventListener("submission_deleted", (event) => {
+    },
+    submission_deleted: (event) => {
       try {
         const { id } = JSON.parse(event.data) as { id: string };
         setApproved((prev) => prev.filter((s) => s.id !== id));
       } catch {
         // ignore malformed events
       }
-    });
+    },
+  };
 
-    es.onerror = () => es.close();
+  const connectionStatus = useReconnectingEventSource(
+    "/api/moderate/events",
+    sseHandlersRef,
+    { onReconnect: () => void loadQueues() },
+  );
 
-    return () => es.close();
+  useEffect(() => {
+    loadQueues().finally(() => setLoaded(true));
   }, []);
 
   async function showOnDisplay(cabinNumber: number): Promise<void> {
@@ -365,6 +372,7 @@ export default function ModerationQueue() {
 
   return (
     <div>
+      <ConnectionBanner status={connectionStatus} />
       {error && <p style="color: #c62828;">{error}</p>}
 
       <h3 style="color: #ef3340;">Pending submissions</h3>
