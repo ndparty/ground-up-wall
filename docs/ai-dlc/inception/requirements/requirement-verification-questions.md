@@ -199,7 +199,7 @@ D) Other (please describe after [Answer]: tag below)
 ## Question 16
 What is the visual theme for the train and wall?
 
-A) Realistic SMRT MRT train look (red/white, Singapore metro style)
+A) Realistic red-and-white MRT-style metro train look (Singapore metro style)
 B) Stylised/cartoon MRT train (fun, party-friendly aesthetic)
 C) Abstract train silhouette — focus is on the photos, train is subtle
 D) Other (please describe after [Answer]: tag below)

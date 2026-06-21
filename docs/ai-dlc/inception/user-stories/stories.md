@@ -286,7 +286,7 @@ Scenario: Unicode and character substitution handling
 
 **As a** Display Wall User  
 **I want** to log in and see the photo train display wall on the TV  
-**So that** event attendees can view all approved submissions in the SMRT MRT train format
+**So that** event attendees can view all approved submissions in the MRT-style metro train format
 
 **Acceptance Criteria**:
 ```gherkin
@@ -299,7 +299,7 @@ Scenario: Display approved submissions
   Given I am logged in as a Display Wall User
   And there are approved submissions in the system
   When I view the display wall
-  Then I see an SMRT MRT train with cabins scrolling right to left
+  Then I see an MRT-style metro train with cabins scrolling right to left
   And each cabin displays a photo, message, and submitter name
   And the train focuses on one cabin at a time for approximately 15 seconds (or the configured dwell time)
   Then the train scrolls left to bring the next cabin into focus
