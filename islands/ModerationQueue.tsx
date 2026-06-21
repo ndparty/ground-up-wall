@@ -4,6 +4,7 @@ import { useReconnectingEventSource } from "../lib/client/use_reconnecting_event
 import ConnectionBanner from "./ConnectionBanner.tsx";
 import { highlightFlaggedWords } from "../lib/moderation/highlight_flagged_words.ts";
 import type { Submission } from "../lib/types.ts";
+import ApprovedWallList from "./ApprovedWallList.tsx";
 
 function formatTime(iso: string): string {
   return new Date(iso).toLocaleString();
@@ -38,6 +39,7 @@ function SubmissionCard({
   onShowOnDisplay,
   showDelete,
   cabinNumber,
+  lazyImage,
 }: {
   submission: Submission;
   onApprove?: () => void;
@@ -47,6 +49,7 @@ function SubmissionCard({
   onShowOnDisplay?: () => void;
   showDelete?: boolean;
   cabinNumber?: number;
+  lazyImage?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [message, setMessage] = useState(submission.message);
@@ -121,27 +124,26 @@ function SubmissionCard({
       {submission.is_flagged && (
         <p style="margin: 0 0 0.5rem; color: #b8860b; font-weight: 600;">
           ⚠ Flagged for review
-          {submission.flagged_words?.length
-            ? ` (${submission.flagged_words.join(", ")})`
-            : ""}
+          {submission.flagged_words?.length ? ` (${submission.flagged_words.join(", ")})` : ""}
         </p>
       )}
       <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
         <img
           src={submission.image_url}
           alt="Submission"
+          loading={lazyImage ? "lazy" : undefined}
           style="width: 120px; height: 120px; object-fit: cover; border-radius: 4px;"
         />
-        <div style="flex: 1; min-width: 200px;">
+        <div style="flex: 1; min-width: 0; max-width: 100%;">
           {editing
             ? (
-              <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+              <div style="display: flex; flex-direction: column; gap: 0.5rem; max-width: 100%;">
                 <textarea
                   value={message}
                   onInput={(e) => setMessage((e.target as HTMLTextAreaElement).value)}
                   rows={3}
                   aria-label="Submission message"
-                  style="width: 100%; padding: 0.5rem;"
+                  style="width: 100%; max-width: 100%; box-sizing: border-box; padding: 0.5rem; resize: vertical;"
                 />
                 <input
                   type="text"
@@ -149,7 +151,7 @@ function SubmissionCard({
                   onInput={(e) => setSubmitterName((e.target as HTMLInputElement).value)}
                   placeholder="Name"
                   aria-label="Submitter name"
-                  style="padding: 0.5rem;"
+                  style="width: 100%; max-width: 100%; box-sizing: border-box; padding: 0.5rem;"
                 />
                 <input
                   type="text"
@@ -157,7 +159,7 @@ function SubmissionCard({
                   onInput={(e) => setSocialHandle((e.target as HTMLInputElement).value)}
                   placeholder="Social handle"
                   aria-label="Social handle"
-                  style="padding: 0.5rem;"
+                  style="width: 100%; max-width: 100%; box-sizing: border-box; padding: 0.5rem;"
                 />
                 <div style="display: flex; gap: 0.5rem;">
                   <button
@@ -263,6 +265,8 @@ function SubmissionCard({
   );
 }
 
+export { SubmissionCard };
+
 export default function ModerationQueue() {
   const [pending, setPending] = useState<Submission[]>([]);
   const [approved, setApproved] = useState<Submission[]>([]);
@@ -300,7 +304,7 @@ export default function ModerationQueue() {
     submission_created: (event) => {
       const submission = parseSubmission(event);
       if (!submission) return;
-      setPending((prev) => [submission, ...prev.filter((s) => s.id !== submission.id)]);
+      setPending((prev) => [...prev.filter((s) => s.id !== submission.id), submission]);
     },
     submission_approved: (event) => {
       const submission = parseSubmission(event);
@@ -406,33 +410,24 @@ export default function ModerationQueue() {
         ))}
 
       <h3 style="color: #ef3340; margin-top: 2rem;">Approved on wall</h3>
-      {approved.length === 0
-        ? <p style="color: #666;">No approved submissions</p>
-        : approved.map((sub, index) => (
-          <SubmissionCard
-            key={sub.id}
-            submission={sub}
-            showDelete
-            cabinNumber={index + 1}
-            onEdit={async (data) => {
-              const res = await fetch(`/api/moderate/edit/${sub.id}`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(data),
-              });
-              const updated = await res.json();
-              if (!res.ok) throw new Error(updated.error ?? "Edit failed");
-              setApproved((prev) => prev.map((s) => (s.id === sub.id ? updated : s)));
-            }}
-            onDelete={async () => {
-              await apiAction(`/api/moderate/delete/${sub.id}`, "POST");
-              setApproved((prev) => prev.filter((s) => s.id !== sub.id));
-            }}
-            onShowOnDisplay={async () => {
-              await showOnDisplay(index + 1);
-            }}
-          />
-        ))}
+      <ApprovedWallList
+        approved={approved}
+        onEdit={async (sub, data) => {
+          const res = await fetch(`/api/moderate/edit/${sub.id}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data),
+          });
+          const updated = await res.json();
+          if (!res.ok) throw new Error(updated.error ?? "Edit failed");
+          setApproved((prev) => prev.map((s) => (s.id === sub.id ? updated : s)));
+        }}
+        onDelete={async (sub) => {
+          await apiAction(`/api/moderate/delete/${sub.id}`, "POST");
+          setApproved((prev) => prev.filter((s) => s.id !== sub.id));
+        }}
+        onShowOnDisplay={showOnDisplay}
+      />
     </div>
   );
 }

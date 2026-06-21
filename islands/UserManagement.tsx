@@ -134,7 +134,10 @@ export default function UserManagement() {
             <option value="moderator">Photo Moderator</option>
             <option value="display_wall">Display Wall User</option>
           </select>
-          <button type="submit" style="background: #ef3340; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px;">
+          <button
+            type="submit"
+            style="background: #ef3340; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px;"
+          >
             Create
           </button>
         </div>
@@ -163,7 +166,8 @@ export default function UserManagement() {
               <td>{new Date(user.created_at).toLocaleString()}</td>
               <td style="padding: 0.5rem;">
                 <button type="button" onClick={() => toggleStatus(user)}>Toggle</button>{" "}
-                <button type="button" onClick={() => setResetUserId(user.id)}>Reset pwd</button>{" "}
+                <button type="button" onClick={() => setResetUserId(user.id)}>Reset pwd</button>
+                {" "}
                 <button type="button" onClick={() => deleteUser(user)}>Delete</button>
                 {resetUserId === user.id && (
                   <div style="margin-top: 0.5rem;">

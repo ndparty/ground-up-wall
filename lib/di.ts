@@ -10,10 +10,7 @@ import { MemoryRealtimeService } from "./repositories/memory_realtime_service.ts
 import { AuditServiceImpl } from "./services/audit_service_impl.ts";
 import { AutoModeratorServiceImpl } from "./services/auto_moderator_service_impl.ts";
 import { AuthService } from "./services/auth_service.ts";
-import {
-  createSessionStore,
-  isPostgresSessionStore,
-} from "./services/session_store.ts";
+import { createSessionStore, isPostgresSessionStore } from "./services/session_store.ts";
 import { PhotoWallService } from "./services/photo_wall_service.ts";
 
 export interface AppState {

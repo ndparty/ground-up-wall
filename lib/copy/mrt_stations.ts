@@ -1,6 +1,6 @@
-import { MRT_LRT_STATIONS, MRT_LRT_STATION_COUNT } from "./mrt_stations.generated.ts";
+import { MRT_LRT_STATION_COUNT, MRT_LRT_STATIONS } from "./mrt_stations.generated.ts";
 
-export { MRT_LRT_STATIONS, MRT_LRT_STATION_COUNT } from "./mrt_stations.generated.ts";
+export { MRT_LRT_STATION_COUNT, MRT_LRT_STATIONS } from "./mrt_stations.generated.ts";
 
 /** Pick a random operational MRT/LRT station name (injectable RNG for tests). */
 export function pickRandomStation(rng: () => number = Math.random): string {

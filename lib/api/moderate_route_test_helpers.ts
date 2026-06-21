@@ -1,7 +1,7 @@
+import { cleanupTestData, createTestRepository } from "../test_helpers.ts";
 import { Builder } from "$fresh/dev";
 import * as bcrypt from "bcrypt";
 import { app } from "../../main.ts";
-import { cleanupTestData, createTestRepository } from "../test_helpers.ts";
 
 export const serveInfo: Deno.ServeHandlerInfo = {
   remoteAddr: { hostname: "127.0.0.1", port: 8000, transport: "tcp" },

@@ -1,6 +1,5 @@
 import { assertEquals, assertStringIncludes } from "@std/assert";
 import { PRIVACY_NOTICE } from "../../lib/copy/privacy_notice.ts";
-import { POSTING_GUIDELINES_DISCLAIMER } from "../../lib/copy/disclaimers.ts";
 import {
   cleanupTestData,
   createTestHandler,
@@ -169,7 +168,7 @@ Deno.test({
     const handler = await createTestHandler();
     const res = await handler(new Request("http://localhost/upload"), serveInfo);
     const html = await res.text();
-    assertStringIncludes(html, POSTING_GUIDELINES_DISCLAIMER.slice(0, 30));
+    assertStringIncludes(html, "moderator approval");
     await teardownTestDb();
   },
 });
@@ -180,7 +179,8 @@ Deno.test({
     const handler = await createTestHandler();
     const res = await handler(new Request("http://localhost/upload"), serveInfo);
     const html = await res.text();
-    assertStringIncludes(html, "privacy notice and posting guidelines");
+    assertStringIncludes(html, "National Day Ground-Up Party");
+    assertStringIncludes(html, "NDGUP");
     await teardownTestDb();
   },
 });

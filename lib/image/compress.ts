@@ -1,9 +1,5 @@
 import { DECODE_IMAGE_FAILED_MESSAGE } from "./decode_upload_image.ts";
-import {
-  CABIN_PHOTO_ASPECT,
-  centerCropRect,
-  scaleToMaxPixels,
-} from "./cabin_image.ts";
+import { CABIN_PHOTO_ASPECT, centerCropRect, scaleToMaxPixels } from "./cabin_image.ts";
 
 export async function compressImage(
   file: File | Blob,

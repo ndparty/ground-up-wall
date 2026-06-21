@@ -21,9 +21,7 @@ export default define.page<typeof handlers>(function UploadPage({ data }) {
         messageLengthUnit={data.messageLengthUnit}
       />
       {UPLOAD_FOOTER_NOTE && (
-        <p
-          style="max-width: 520px; margin: 2rem auto 0; font-size: 0.85rem; color: #666; text-align: center;"
-        >
+        <p style="max-width: 520px; margin: 2rem auto 0; font-size: 0.85rem; color: #666; text-align: center;">
           {UPLOAD_FOOTER_NOTE}
         </p>
       )}

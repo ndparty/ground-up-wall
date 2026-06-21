@@ -2,10 +2,10 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import type { RefObject } from "preact";
 
 const MAX_REM = 1.2;
-const MIN_REM = 1.125;
+const MIN_REM = 0.5;
 const STEP_REM = 0.05;
 
-/** Shrink text until it fits its container (full message visible, NFR-08 floor ~18px). */
+/** Shrink text until it fits its container (full message visible). */
 export function useFitText(text: string, enabled = true): {
   wrapRef: RefObject<HTMLDivElement>;
   textRef: RefObject<HTMLParagraphElement>;

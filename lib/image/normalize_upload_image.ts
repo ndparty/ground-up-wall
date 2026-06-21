@@ -1,9 +1,5 @@
 import { Image } from "imagescript";
-import {
-  CABIN_PHOTO_ASPECT,
-  centerCropRect,
-  scaleToMaxPixels,
-} from "./cabin_image.ts";
+import { CABIN_PHOTO_ASPECT, centerCropRect, scaleToMaxPixels } from "./cabin_image.ts";
 
 export async function normalizeUploadImageBytes(input: Uint8Array): Promise<Uint8Array> {
   const img = await Image.decode(input);

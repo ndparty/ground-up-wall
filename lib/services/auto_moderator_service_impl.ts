@@ -1,7 +1,4 @@
-import type {
-  AutoModeratorService,
-  FlagResult,
-} from "../interfaces/auto_moderator_service.ts";
+import type { AutoModeratorService, FlagResult } from "../interfaces/auto_moderator_service.ts";
 
 export const SEEDED_DEFAULT_WORD_LIST = [
   "damn",

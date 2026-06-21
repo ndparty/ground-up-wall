@@ -2,12 +2,13 @@ import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import { fetchWithRetry } from "../client/fetch_with_retry.ts";
 import { useReconnectingEventSource } from "../client/use_reconnecting_event_source.ts";
 import type { ConnectionStatus } from "../client/use_reconnecting_event_source.ts";
-import type { DisplayOverrideCommand, TrainCommand, TrainStep } from "../interfaces/realtime_service.ts";
+import type {
+  DisplayOverrideCommand,
+  TrainCommand,
+  TrainStep,
+} from "../interfaces/realtime_service.ts";
 import type { Submission, User } from "../types.ts";
-import {
-  mapCommandToOverrideState,
-  type OverrideState,
-} from "./display_override.ts";
+import { mapCommandToOverrideState, type OverrideState } from "./display_override.ts";
 import { shouldApplyPlaybackStateWindow } from "./playback_state_sync.ts";
 import {
   addApproved,
@@ -34,6 +35,8 @@ interface PendingAdvance {
   currentCabin: number;
   kind: "advance" | "jump";
   slideSteps?: number;
+  animationWindow?: TrainStep[];
+  fromCabin?: number;
 }
 
 export type { PendingAdvance };
@@ -114,6 +117,8 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
       currentCabin: command.currentCabin ?? 0,
       kind: "jump",
       slideSteps: command.stepsToTarget,
+      animationWindow: command.animationWindow,
+      fromCabin: getCurrentCabin(trainViewRef.current),
     });
   }
 
@@ -255,7 +260,11 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
       }
       if (command.type === "advance" && command.window) {
         if (!isPlayingRef.current) return;
-        enqueueAdvance({ window: command.window, currentCabin: command.currentCabin ?? 0, kind: "advance" });
+        enqueueAdvance({
+          window: command.window,
+          currentCabin: command.currentCabin ?? 0,
+          kind: "advance",
+        });
         return;
       }
       if (command.type === "jump" && command.window && command.cabinNumber !== undefined) {

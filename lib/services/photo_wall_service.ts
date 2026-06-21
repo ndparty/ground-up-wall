@@ -194,7 +194,11 @@ export class PhotoWallService {
   }
 
   async approveSubmission(id: string, moderatorId: string): Promise<Submission> {
-    const submission = await this.repository.updateSubmissionStatusIfPending(id, "approved", moderatorId);
+    const submission = await this.repository.updateSubmissionStatusIfPending(
+      id,
+      "approved",
+      moderatorId,
+    );
     if (!submission) throw new Error("Submission is not pending");
 
     await this.audit.logAction({
@@ -271,8 +275,10 @@ export class PhotoWallService {
   }
 
   subscribeToDeleted(callback: (payload: { id: string }) => void): UnsubscribeFn {
-    return this.realtime.subscribe("submission:deleted", (payload) =>
-      callback(payload as { id: string }));
+    return this.realtime.subscribe(
+      "submission:deleted",
+      (payload) => callback(payload as { id: string }),
+    );
   }
 
   subscribeToRejected(callback: (payload: { id: string }) => void): UnsubscribeFn {
@@ -379,13 +385,15 @@ export class PhotoWallService {
     }) => void,
   ): UnsubscribeFn {
     return this.realtime.subscribe("train:playback_state", (payload) =>
-      callback(payload as {
-        isPlaying: boolean;
-        currentCabin: number;
-        dwellSeconds: number;
-        lastTransitionAt: number;
-        window: TrainStep[];
-      }));
+      callback(
+        payload as {
+          isPlaying: boolean;
+          currentCabin: number;
+          dwellSeconds: number;
+          lastTransitionAt: number;
+          window: TrainStep[];
+        },
+      ));
   }
 
   async listModerators(): Promise<Moderator[]> {
@@ -474,7 +482,9 @@ export class PhotoWallService {
 
     await this.audit.logAction({
       moderator_id: adminId,
-      action_type: key === "default_placeholder_image" ? "set_default_placeholder" : "change_config",
+      action_type: key === "default_placeholder_image"
+        ? "set_default_placeholder"
+        : "change_config",
       target_type: "system_config",
       target_id: key,
       old_value: existing?.value,

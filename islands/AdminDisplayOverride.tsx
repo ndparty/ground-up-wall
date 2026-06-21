@@ -51,7 +51,7 @@ export default function AdminDisplayOverride() {
       </p>
       {state.imageUrl && <p style="font-size: 0.85rem;">Image: {state.imageUrl}</p>}
       <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem;">
-        <button type="button" onClick={() => sendCommand("blank", "Blank all display walls?")}>
+        <button type="button" onClick={() => sendCommand("blank")}>
           Blank screen
         </button>
         <button type="button" onClick={() => sendCommand("placeholder")}>

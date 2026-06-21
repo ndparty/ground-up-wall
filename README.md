@@ -1,12 +1,14 @@
 # ground-up-wall
 
-A photowall web application for events — participants upload photos with short messages, moderators approve them, and approved submissions ride a red-and-white metro-themed train on a display wall.
+A photowall web application for events — participants upload photos with short messages, moderators
+approve them, and approved submissions ride a red-and-white metro-themed train on a display wall.
 
 Built for the Singapore National Day ground-up party.
 
 ## Status
 
-**Phase 01 (local MVP)** — feature-complete on localhost: upload, moderation, display wall, admin panel, and audit logging.
+**Phase 01 (local MVP)** — **complete** (released as **v1.0.0**): upload, moderation, display wall,
+admin panel, and audit logging on localhost.
 
 ## Quick start
 
@@ -36,18 +38,18 @@ deno task start
 
 Open http://localhost:8080 — see [DEMO.md](DEMO.md) for the full walkthrough and demo accounts.
 
-The app reads `.env` at startup automatically. Full setup: **[SETUP.md](SETUP.md)**  
+The app reads `.env` at startup automatically. Full setup: **[SETUP.md](SETUP.md)**\
 OS-specific tool install: **[docs/phase01/dev_setup.md](docs/phase01/dev_setup.md)**
 
 ## Tech stack
 
-| Layer | Technology |
-|-------|------------|
-| Runtime / framework | Deno 2.x + Fresh 2.x |
-| UI | Preact + Signals |
-| Database | PostgreSQL 17+ |
-| File storage | Local filesystem (`STORAGE_PATH`) |
-| Real-time | In-memory SSE (Phase 2: Supabase) |
+| Layer               | Technology                        |
+| ------------------- | --------------------------------- |
+| Runtime / framework | Deno 2.x + Fresh 2.x              |
+| UI                  | Preact + Signals                  |
+| Database            | PostgreSQL 17+                    |
+| File storage        | Local filesystem (`STORAGE_PATH`) |
+| Real-time           | In-memory SSE (Phase 2: Supabase) |
 
 ## Architecture
 
@@ -73,16 +75,17 @@ deno task test:e2e          # full E2E suite
 deno task check             # format, lint, type-check
 ```
 
-Requires Postgres and `ground_up_wall_test` (or set `DATABASE_URL_TEST`). For serial runs on Windows: `$env:DENO_JOBS="1"; deno task test`
+Requires Postgres and `ground_up_wall_test` (or set `DATABASE_URL_TEST`). For serial runs on
+Windows: `$env:DENO_JOBS="1"; deno task test`
 
 ## Documentation
 
-| Document | Description |
-|----------|-------------|
-| [DEMO.md](DEMO.md) | Start, run, and demonstrate the system |
-| [SETUP.md](SETUP.md) | Developer setup and NFR sign-off |
-| [docs/phase01/epic_plan-phase01.md](docs/phase01/epic_plan-phase01.md) | Phase 01 work items WI-01–WI-07 |
-| [docs/ai-dlc/](docs/ai-dlc/) | Requirements, user stories, architecture |
+| Document                                                               | Description                              |
+| ---------------------------------------------------------------------- | ---------------------------------------- |
+| [DEMO.md](DEMO.md)                                                     | Start, run, and demonstrate the system   |
+| [SETUP.md](SETUP.md)                                                   | Developer setup and NFR sign-off         |
+| [docs/phase01/epic_plan-phase01.md](docs/phase01/epic_plan-phase01.md) | Phase 01 work items WI-01–WI-07          |
+| [docs/ai-dlc/](docs/ai-dlc/)                                           | Requirements, user stories, architecture |
 
 ## Phase roadmap
 
@@ -92,4 +95,6 @@ Requires Postgres and `ground_up_wall_test` (or set `DATABASE_URL_TEST`). For se
 
 ## Contributing
 
-Work items follow the stacked-PR workflow in the Phase 01 epic plan. Branch from the previous WI branch, implement per the matching `code_execution_plan-wi-*.md`, run `deno task test`, and open a PR.
+Work items follow the stacked-PR workflow in the Phase 01 epic plan. Branch from the previous WI
+branch, implement per the matching `code_execution_plan-wi-*.md`, run `deno task test`, and open a
+PR.

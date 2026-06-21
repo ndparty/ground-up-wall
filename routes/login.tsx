@@ -22,9 +22,7 @@ export const handlers = define.handlers({
       return Response.redirect(new URL(target, cleaned.origin), 302);
     }
 
-    const error = url.searchParams.get("error") === "invalid"
-      ? "Invalid credentials"
-      : undefined;
+    const error = url.searchParams.get("error") === "invalid" ? "Invalid credentials" : undefined;
     return page({ error });
   },
   async POST(ctx) {

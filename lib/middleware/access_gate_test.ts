@@ -6,7 +6,16 @@ const UPLOADS_OFF = { killswitch: false, uploadsEnabled: false };
 const ALL_OK = { killswitch: false, uploadsEnabled: true };
 
 Deno.test("login and admin stay available under killswitch", () => {
-  for (const path of ["/login", "/admin", "/admin/users", "/api/auth/login", "/api/admin/parameters", "/api/pow/challenge"]) {
+  for (
+    const path of [
+      "/login",
+      "/admin",
+      "/admin/users",
+      "/api/auth/login",
+      "/api/admin/parameters",
+      "/api/pow/challenge",
+    ]
+  ) {
     assertEquals(accessDecision(path, ON), "allow");
   }
 });
@@ -27,7 +36,9 @@ Deno.test("uploads-disabled blocks only upload paths", () => {
 });
 
 Deno.test("everything allowed when both toggles are healthy", () => {
-  for (const path of ["/display", "/upload", "/moderate", "/api/submissions", "/api/display/events"]) {
+  for (
+    const path of ["/display", "/upload", "/moderate", "/api/submissions", "/api/display/events"]
+  ) {
     assertEquals(accessDecision(path, ALL_OK), "allow");
   }
 });

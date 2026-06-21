@@ -5,9 +5,9 @@ import {
   JUMP_MAX_MS,
   JUMP_MAX_STEPS,
   jumpSlideDurationMs,
-  slideDurationMs,
-  SLIDE_MAX_FACTOR,
   S_MAX,
+  SLIDE_MAX_FACTOR,
+  slideDurationMs,
 } from "./slide_duration.ts";
 
 Deno.test("slideDurationMs base for one step", () => {

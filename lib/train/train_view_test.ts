@@ -1,6 +1,7 @@
 import { assertEquals } from "@std/assert";
 import {
   addApproved,
+  applyAnimationWindow,
   applyServerWindow,
   computeCollapsedIndices,
   computeJumpAnimationPath,
@@ -16,6 +17,7 @@ import {
   initTrainView,
   isJumpTargetInCurrentWindow,
   removeSubmissionFromView,
+  renderWindowToSteps,
   updateSubmissionInView,
 } from "./train_view.ts";
 import { LEFT_RENDER } from "./train_view_constants.ts";
@@ -225,4 +227,26 @@ Deno.test("deleted submission keeps its on-screen snapshot (no snap)", () => {
   // Removed from canonical, but the window cabin retains its snapshot to scroll off.
   assertEquals(getCanonicalCount(state), 9);
   assertEquals(getRenderWindow(state)[LEFT_RENDER].submission?.id, "sub-3");
+});
+
+Deno.test("renderWindowToSteps reconstructs server steps from render cabins", () => {
+  let state = initTrainView(makeSubmissions(10));
+  state = applyServerWindow(state, postWindow(3, 10), 3);
+  const steps = renderWindowToSteps(getRenderWindow(state));
+  assertEquals(steps.length, 7);
+  assertEquals(steps[LEFT_RENDER]?.submissionId, "sub-3");
+  assertEquals(steps[LEFT_RENDER]?.seq, Number(getRenderWindow(state)[LEFT_RENDER]?.key.slice(1)));
+});
+
+Deno.test("applyAnimationWindow extends render tape for jump animation", () => {
+  let state = initTrainView(makeSubmissions(10));
+  state = applyServerWindow(state, postWindow(1, 10), 1);
+  const extended: TrainStep[] = [
+    ...postWindow(1, 10),
+    { seq: 99, kind: "post", submissionId: "sub-8" },
+    { seq: 100, kind: "post", submissionId: "sub-9" },
+  ];
+  state = applyAnimationWindow(state, extended);
+  assertEquals(getRenderWindow(state).length, 9);
+  assertEquals(getRenderWindow(state)[8]?.key, "s100");
 });

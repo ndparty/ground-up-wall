@@ -37,15 +37,13 @@ export default function DisplayOverrideControls() {
   }
 
   return (
-    <section
-      style="margin-bottom: 2rem; padding: 1rem; border: 1px solid #ddd; border-radius: 8px; background: #fafafa;"
-    >
+    <section style="margin-bottom: 2rem; padding: 1rem; border: 1px solid #ddd; border-radius: 8px; background: #fafafa;">
       <h3 style="margin: 0 0 0.75rem; color: #ef3340;">Display override</h3>
       <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
         <button
           type="button"
           disabled={loading}
-          onClick={() => sendCommand("blank", "Blank the display wall?")}
+          onClick={() => sendCommand("blank")}
           style="padding: 0.5rem 1rem; background: #333; color: white; border: none; border-radius: 4px; cursor: pointer;"
         >
           Blank screen
@@ -79,9 +77,7 @@ export default function DisplayOverrideControls() {
           />
         </label>
       </div>
-      {message && (
-        <p style="margin: 0.75rem 0 0; font-size: 0.9rem; color: #333;">{message}</p>
-      )}
+      {message && <p style="margin: 0.75rem 0 0; font-size: 0.9rem; color: #333;">{message}</p>}
     </section>
   );
 }

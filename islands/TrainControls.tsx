@@ -1,4 +1,6 @@
-import { useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
+
+const JUMP_INPUT_RESUME_MS = 30_000;
 
 export interface TrainControlsProps {
   isPlaying: boolean;
@@ -20,12 +22,37 @@ export default function TrainControls({
   variant = "display",
 }: TrainControlsProps) {
   const [jumpInput, setJumpInput] = useState("");
+  const [autoSyncJump, setAutoSyncJump] = useState(true);
+  const resumeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function pauseAutoSync() {
+    setAutoSyncJump(false);
+    if (resumeTimerRef.current !== null) {
+      clearTimeout(resumeTimerRef.current);
+    }
+    resumeTimerRef.current = setTimeout(() => {
+      setAutoSyncJump(true);
+      resumeTimerRef.current = null;
+    }, JUMP_INPUT_RESUME_MS);
+  }
+
+  useEffect(() => {
+    return () => {
+      if (resumeTimerRef.current !== null) clearTimeout(resumeTimerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (autoSyncJump && currentCabin > 0) {
+      setJumpInput(String(currentCabin));
+    }
+  }, [autoSyncJump, currentCabin]);
 
   function handleJump() {
     const num = Number.parseInt(jumpInput, 10);
     if (!Number.isFinite(num)) return;
+    pauseAutoSync();
     onJump(num);
-    setJumpInput("");
   }
 
   const rootClass = variant === "moderate"
@@ -52,7 +79,11 @@ export default function TrainControls({
             min={1}
             max={trainLength}
             value={jumpInput}
-            onInput={(e) => setJumpInput((e.target as HTMLInputElement).value)}
+            onFocus={pauseAutoSync}
+            onInput={(e) => {
+              pauseAutoSync();
+              setJumpInput((e.target as HTMLInputElement).value);
+            }}
           />
         </label>
         <button type="button" class="train-controls__btn" onClick={handleJump}>

@@ -1,4 +1,4 @@
-import { transitionToNext, type TrainChain } from "./chain.ts";
+import { type TrainChain, transitionToNext } from "./chain.ts";
 
 export function clampDwellSeconds(value: number): number {
   if (!Number.isFinite(value)) return 15;

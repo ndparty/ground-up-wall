@@ -393,117 +393,125 @@ export default function UploadForm({
     <>
       <ConnectionBanner status={connectionStatus} />
       <form onSubmit={handleSubmit} style="max-width: 520px; margin: 0 auto;">
-      <link rel="stylesheet" href="/upload.css" />
+        <link rel="stylesheet" href="/upload.css" />
 
-      <section class="upload-privacy-notice">
-        <h3 class="upload-privacy-notice__title">Before you share</h3>
-        <ul class="upload-privacy-notice__list">
-          {PRIVACY_NOTICE_ITEMS.map((item) => <li key={item}>{item}</li>)}
-        </ul>
-      </section>
+        <section class="upload-privacy-notice">
+          <h3 class="upload-privacy-notice__title">Before you share</h3>
+          <ul class="upload-privacy-notice__list">
+            {PRIVACY_NOTICE_ITEMS.map((item) => <li key={item}>{item}</li>)}
+          </ul>
+        </section>
 
-      <label data-field="photo" style="display: block; margin-bottom: 1rem;">
-        Photo
-        <input
-          type="file"
-          accept={UPLOAD_ACCEPT_ATTR}
-          onChange={handlePhotoChange}
-          style="display: block; margin-top: 0.25rem;"
-        />
-        {fieldErrors.photo && <span class="upload-field-error">{fieldErrors.photo}</span>}
-        {previewLoading && <span class="upload-preview-loading">Loading preview…</span>}
-        {previewSubmission && !previewLoading && (
-          <div class="upload-cabin-preview">
-            <link rel="stylesheet" href="/train.css" />
-            <TrainCabin
-              kind="post"
-              submission={previewSubmission}
-              destination={previewDestination}
-              isActive={true}
-              onPhotoError={() => void handlePreviewError()}
-            />
-          </div>
-        )}
-      </label>
-
-      <label data-field="message" style="display: block; margin-bottom: 1rem;">
-        Message
-        <textarea
-          value={message}
-          onInput={(e) => applyMessageInput(e.currentTarget as HTMLTextAreaElement)}
-          onKeyDown={handleMessageKeyDown}
-          onPaste={handleMessagePaste}
-          placeholder={promptText}
-          rows={4}
-          style="display: block; width: 100%; margin-top: 0.25rem; padding: 0.5rem;"
-        />
-        <span style="font-size: 0.85rem; color: #666;">
-          {remaining} {lengthConfig.unit} remaining
-        </span>
-        {fieldErrors.message && <span class="upload-field-error">{fieldErrors.message}</span>}
-      </label>
-
-      <label data-field="submitter_name" style="display: block; margin-bottom: 1rem;">
-        Your name
-        <input
-          value={submitterName}
-          onInput={(e) => {
-            const value = (e.target as HTMLInputElement).value;
-            setSubmitterName(value);
-            persistProfile(value, socialHandle);
-            clearFieldError("submitter_name");
-          }}
-          style="display: block; width: 100%; margin-top: 0.25rem; padding: 0.5rem;"
-        />
-        {fieldErrors.submitter_name && (
-          <span class="upload-field-error">{fieldErrors.submitter_name}</span>
-        )}
-      </label>
-
-      <label style="display: block; margin-bottom: 1rem;">
-        Instagram handle (optional)
-        <input
-          value={socialHandle}
-          onInput={(e) => {
-            const value = (e.target as HTMLInputElement).value;
-            setSocialHandle(value);
-            persistProfile(submitterName, value);
-          }}
-          style="display: block; width: 100%; margin-top: 0.25rem; padding: 0.5rem;"
-        />
-      </label>
-
-      <div data-field="acknowledged" style="margin-bottom: 1rem;">
-        <label style="display: flex; gap: 0.5rem; align-items: flex-start;">
+        <label data-field="photo" style="display: block; margin-bottom: 1rem;">
+          Photo
           <input
-            type="checkbox"
-            checked={acknowledged}
-            onChange={(e) => {
-              setAcknowledged((e.target as HTMLInputElement).checked);
-              clearFieldError("acknowledged");
-            }}
+            type="file"
+            accept={UPLOAD_ACCEPT_ATTR}
+            onChange={handlePhotoChange}
+            style="display: block; margin-top: 0.25rem;"
           />
-          <span>By submitting content to the photowall (e.g. photo, message, name and Instagram handle), I consent to the National Day Ground-Up Party (NDGUP) team displaying my submitted content during the event, e.g. on the central display screen. I understand that the photowall is in a public event setting and may be viewed, photographed, recorded, or shared by other participants. I understand that the NDGUP team and its 3rd parties, including NLB, may use the submitted content for publicity and any other purposes.</span>
+          {fieldErrors.photo && <span class="upload-field-error">{fieldErrors.photo}</span>}
+          {previewLoading && <span class="upload-preview-loading">Loading preview…</span>}
+          {previewSubmission && !previewLoading && (
+            <div class="upload-cabin-preview">
+              <link rel="stylesheet" href="/train.css" />
+              <TrainCabin
+                kind="post"
+                submission={previewSubmission}
+                destination={previewDestination}
+                isActive={true}
+                onPhotoError={() => void handlePreviewError()}
+              />
+            </div>
+          )}
         </label>
-        {fieldErrors.acknowledged && (
-          <span class="upload-field-error">{fieldErrors.acknowledged}</span>
-        )}
-      </div>
 
-      {error && <p class="upload-field-error">{error}</p>}
+        <label data-field="message" style="display: block; margin-bottom: 1rem;">
+          Message
+          <textarea
+            value={message}
+            onInput={(e) => applyMessageInput(e.currentTarget as HTMLTextAreaElement)}
+            onKeyDown={handleMessageKeyDown}
+            onPaste={handleMessagePaste}
+            placeholder={promptText}
+            rows={4}
+            style="display: block; width: 100%; margin-top: 0.25rem; padding: 0.5rem;"
+          />
+          <span style="font-size: 0.85rem; color: #666;">
+            {remaining} {lengthConfig.unit} remaining
+          </span>
+          {fieldErrors.message && <span class="upload-field-error">{fieldErrors.message}</span>}
+        </label>
 
-      <button
-        type="submit"
-        disabled={loading}
-        style="background: #ef3340; color: white; border: none; padding: 0.6rem 1.5rem; cursor: pointer; opacity: 1;"
-      >
-        {loading ? "Processing photo…" : "Submit"}
-      </button>
+        <label data-field="submitter_name" style="display: block; margin-bottom: 1rem;">
+          Your name
+          <input
+            value={submitterName}
+            onInput={(e) => {
+              const value = (e.target as HTMLInputElement).value;
+              setSubmitterName(value);
+              persistProfile(value, socialHandle);
+              clearFieldError("submitter_name");
+            }}
+            style="display: block; width: 100%; margin-top: 0.25rem; padding: 0.5rem;"
+          />
+          {fieldErrors.submitter_name && (
+            <span class="upload-field-error">{fieldErrors.submitter_name}</span>
+          )}
+        </label>
 
-      <p style="margin-top: 1.5rem; font-size: 0.9rem; color: #555;">
-        {POSTING_GUIDELINES_DISCLAIMER}
-      </p>
-    </form>
+        <label style="display: block; margin-bottom: 1rem;">
+          Instagram handle (optional)
+          <input
+            value={socialHandle}
+            onInput={(e) => {
+              const value = (e.target as HTMLInputElement).value;
+              setSocialHandle(value);
+              persistProfile(submitterName, value);
+            }}
+            style="display: block; width: 100%; margin-top: 0.25rem; padding: 0.5rem;"
+          />
+        </label>
+
+        <div data-field="acknowledged" style="margin-bottom: 1rem;">
+          <label style="display: flex; gap: 0.5rem; align-items: flex-start;">
+            <input
+              type="checkbox"
+              checked={acknowledged}
+              onChange={(e) => {
+                setAcknowledged((e.target as HTMLInputElement).checked);
+                clearFieldError("acknowledged");
+              }}
+            />
+            <span>
+              By submitting content to the photowall (e.g. photo, message, name and Instagram
+              handle), I consent to the National Day Ground-Up Party (NDGUP) team displaying my
+              submitted content during the event, e.g. on the central display screen. I understand
+              that the photowall is in a public event setting and may be viewed, photographed,
+              recorded, or shared by other participants. I understand that the NDGUP team and its
+              3rd parties, including NLB, may use the submitted content for publicity and any other
+              purposes.
+            </span>
+          </label>
+          {fieldErrors.acknowledged && (
+            <span class="upload-field-error">{fieldErrors.acknowledged}</span>
+          )}
+        </div>
+
+        {error && <p class="upload-field-error">{error}</p>}
+
+        <button
+          type="submit"
+          disabled={loading}
+          style="background: #ef3340; color: white; border: none; padding: 0.6rem 1.5rem; cursor: pointer; opacity: 1;"
+        >
+          {loading ? "Processing photo…" : "Submit"}
+        </button>
+
+        <p style="margin-top: 1.5rem; font-size: 0.9rem; color: #555;">
+          {POSTING_GUIDELINES_DISCLAIMER}
+        </p>
+      </form>
     </>
   );
 }

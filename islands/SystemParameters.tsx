@@ -18,9 +18,7 @@ export default function SystemParameters() {
     setParams(data);
     const next: Record<string, string> = {};
     for (const p of data) {
-      next[p.key] = p.key === "auto_moderator_word_list"
-        ? formatWordListForEdit(p.value)
-        : p.value;
+      next[p.key] = p.key === "auto_moderator_word_list" ? formatWordListForEdit(p.value) : p.value;
     }
     setDrafts(next);
   }
@@ -198,8 +196,20 @@ export default function SystemParameters() {
                 )}
               {p.key !== "default_placeholder_image" && (
                 <div style="margin-top: 0.5rem; display: flex; gap: 0.5rem;">
-                  <button type="button" onClick={() => save(p.key)}>Save</button>
-                  <button type="button" onClick={() => reset(p.key)}>Reset to default</button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      save(p.key)}
+                  >
+                    Save
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      reset(p.key)}
+                  >
+                    Reset to default
+                  </button>
                 </div>
               )}
             </div>

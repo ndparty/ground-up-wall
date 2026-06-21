@@ -57,7 +57,11 @@ export function getDemoSubmissionContent(index: number): DemoSubmissionTemplate 
 export const PENDING_DEMO_TEMPLATES: DemoSubmissionTemplate[] = [
   { message: "Can't wait for the fireworks tonight!", submitterName: "Wesley Tan" },
   // flagged: plain "damn"
-  { message: "Damn, this parade is incredible!", submitterName: "Joel Fernandez", socialHandle: "@joelf" },
+  {
+    message: "Damn, this parade is incredible!",
+    submitterName: "Joel Fernandez",
+    socialHandle: "@joelf",
+  },
   { message: "First NDP with my newborn", submitterName: "Sarah Lim" },
   // flagged: substitution variant "h3ll" -> hell
   { message: "What a h3ll of a show tonight!", submitterName: "Ryan Goh" },

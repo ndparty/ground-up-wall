@@ -22,11 +22,7 @@ export default function AuthStatus() {
   if (!loaded) return null;
 
   if (!user) {
-    return (
-      <a href="/login" style="color: white; margin-left: auto; text-decoration: none;">
-        Login
-      </a>
-    );
+    return null;
   }
 
   const isAdmin = user.role === "admin";
@@ -38,6 +34,7 @@ export default function AuthStatus() {
       <span>Hi, {user.username}</span>
       {canDisplay && <a href="/display" style="color: white;">Display</a>}
       {canModerate && <a href="/moderate" style="color: white;">Moderate</a>}
+      {canModerate && <a href="/moderate/approved" style="color: white;">Gallery</a>}
       {isAdmin && <a href="/admin" style="color: white;">Admin</a>}
       <a href="/change-password" style="color: white;">Change password</a>
       <button

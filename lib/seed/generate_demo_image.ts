@@ -275,7 +275,12 @@ export async function generateDemoImage(
   sequenceNumber: number,
   submitterName?: string,
 ): Promise<Blob> {
-  const rgba = renderDemoImageRgba(sequenceNumber, DEMO_IMAGE_WIDTH, DEMO_IMAGE_HEIGHT, submitterName);
+  const rgba = renderDemoImageRgba(
+    sequenceNumber,
+    DEMO_IMAGE_WIDTH,
+    DEMO_IMAGE_HEIGHT,
+    submitterName,
+  );
   const png = await encodePng(rgba, DEMO_IMAGE_WIDTH, DEMO_IMAGE_HEIGHT);
   return new Blob([png.slice()], { type: "image/png" });
 }

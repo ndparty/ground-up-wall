@@ -56,7 +56,9 @@ export class MemoryRealtimeService implements RealtimeService {
   }
 
   onDisplayOverride(callback: (command: DisplayOverrideCommand) => void): UnsubscribeFn {
-    return this.subscribe("display_override:command", (payload) =>
-      callback(payload as DisplayOverrideCommand));
+    return this.subscribe(
+      "display_override:command",
+      (payload) => callback(payload as DisplayOverrideCommand),
+    );
   }
 }

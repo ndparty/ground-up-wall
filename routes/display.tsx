@@ -1,8 +1,7 @@
 import TrainDisplay from "../islands/TrainDisplay.tsx";
 import { define } from "../utils.ts";
 
-const ACCESS_DENIED_MESSAGE =
-  "Access not allowed. Please refer to the organiser's screen instead.";
+const ACCESS_DENIED_MESSAGE = "Access not allowed. Please refer to the organiser's screen instead.";
 
 export const handlers = define.handlers({
   GET(ctx) {

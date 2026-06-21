@@ -25,20 +25,15 @@ export async function decodeUploadImage(file: File): Promise<File | Blob> {
     return file;
   }
 
+  // Chrome often hangs on createImageBitmap for HEIC; convert directly.
   try {
-    const bitmap = await createImageBitmap(file);
-    bitmap.close();
-    return file;
+    const { heicTo } = await import("heic-to");
+    return await heicTo({
+      blob: file,
+      type: "image/jpeg",
+      quality: 0.92,
+    });
   } catch {
-    try {
-      const { heicTo } = await import("heic-to");
-      return await heicTo({
-        blob: file,
-        type: "image/jpeg",
-        quality: 0.92,
-      });
-    } catch {
-      throw new UploadImageError(DECODE_IMAGE_FAILED_MESSAGE);
-    }
+    throw new UploadImageError(DECODE_IMAGE_FAILED_MESSAGE);
   }
 }

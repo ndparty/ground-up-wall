@@ -2,11 +2,26 @@ import { useEffect, useState } from "preact/hooks";
 import type { AuditEntry } from "../lib/types.ts";
 
 const ACTION_TYPES = [
-  "approve", "reject", "edit", "delete", "submit", "change_config",
-  "create_moderator", "disable_moderator", "enable_moderator", "delete_moderator",
-  "reset_password", "create_display_wall_user", "disable_display_wall_user",
-  "enable_display_wall_user", "delete_display_wall_user",
-  "blank_display", "show_placeholder", "resume_display", "change_password", "login_failed",
+  "approve",
+  "reject",
+  "edit",
+  "delete",
+  "submit",
+  "change_config",
+  "create_moderator",
+  "disable_moderator",
+  "enable_moderator",
+  "delete_moderator",
+  "reset_password",
+  "create_display_wall_user",
+  "disable_display_wall_user",
+  "enable_display_wall_user",
+  "delete_display_wall_user",
+  "blank_display",
+  "show_placeholder",
+  "resume_display",
+  "change_password",
+  "login_failed",
 ];
 
 export default function AuditLogView() {
@@ -34,9 +49,7 @@ export default function AuditLogView() {
 
   return (
     <div>
-      <div
-        style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem; align-items: end;"
-      >
+      <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem; align-items: end;">
         <input
           placeholder="Moderator ID"
           aria-label="Filter by moderator ID"

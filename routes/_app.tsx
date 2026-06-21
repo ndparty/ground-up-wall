@@ -12,7 +12,8 @@ export default define.page(function App({ Component }) {
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
         <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
-        <style>{`
+        <style>
+          {`
           :root {
             --brand-red: #a72517;
             --sg-red: #ef3340;
@@ -44,7 +45,8 @@ export default define.page(function App({ Component }) {
             outline: 3px solid var(--sg-red);
             outline-offset: 2px;
           }
-        `}</style>
+        `}
+        </style>
       </head>
       <body>
         <header class="brand-header">

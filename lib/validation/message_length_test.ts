@@ -4,8 +4,8 @@ import {
   getRemainingLength,
   isAtMessageLimit,
   isMessageValid,
-  normalizeMessageLengthConfig,
   type MessageLengthConfig,
+  normalizeMessageLengthConfig,
 } from "./message_length.ts";
 
 const charConfig: MessageLengthConfig = { limit: 10, unit: "characters" };
@@ -47,7 +47,10 @@ Deno.test("testNormalizeMessageLengthConfig", () => {
     limit: 50,
     unit: "words",
   });
-  assertEquals(getRemainingLength("", normalizeMessageLengthConfig({ limit: 10, unit: "characters" })), 10);
+  assertEquals(
+    getRemainingLength("", normalizeMessageLengthConfig({ limit: 10, unit: "characters" })),
+    10,
+  );
 });
 
 Deno.test("testClampCharacters", () => {

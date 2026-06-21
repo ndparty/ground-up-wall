@@ -2,9 +2,17 @@ import { define } from "../../utils.ts";
 
 const adminLinks = [
   { href: "/admin/users", title: "User Management", desc: "Moderator and Display Wall accounts" },
-  { href: "/admin/parameters", title: "System Parameters", desc: "Train, upload, and moderation settings" },
+  {
+    href: "/admin/parameters",
+    title: "System Parameters",
+    desc: "Train, upload, and moderation settings",
+  },
   { href: "/admin/audit-log", title: "Audit Log", desc: "Read-only action history" },
-  { href: "/admin/display-override", title: "Display Override", desc: "Blank, placeholder, or resume display" },
+  {
+    href: "/admin/display-override",
+    title: "Display Override",
+    desc: "Blank, placeholder, or resume display",
+  },
 ];
 
 export default define.page(function AdminIndexPage() {

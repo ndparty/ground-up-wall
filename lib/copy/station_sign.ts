@@ -26,7 +26,9 @@ export function pickDecorativeLineBadge(stationName: string): DecorativeLineBadg
   const secondary = SECONDARY_CODES[(h >> 3) % SECONDARY_CODES.length];
   return {
     primary,
-    secondary: secondary !== primary ? secondary : SECONDARY_CODES[(h >> 5) % SECONDARY_CODES.length],
+    secondary: secondary !== primary
+      ? secondary
+      : SECONDARY_CODES[(h >> 5) % SECONDARY_CODES.length],
     exit: EXIT_LETTERS[h % EXIT_LETTERS.length],
     platform: PLATFORM_NUMBERS[(h >> 2) % PLATFORM_NUMBERS.length],
   };

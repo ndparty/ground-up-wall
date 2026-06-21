@@ -11,6 +11,8 @@ export interface TrainStep {
   submissionId?: string;
   /** Destination-board label (random MRT/LRT station per emission). */
   destination?: string;
+  /** True for queue-sourced previews and QR cabins (not canonical sequential posts). */
+  ephemeral?: boolean;
 }
 
 export interface TrainCommand {
@@ -22,6 +24,8 @@ export interface TrainCommand {
   currentCabin?: number;
   /** Forward slide count for jump animation. */
   stepsToTarget?: number;
+  /** Extended linear tape for jump animation (preserves existing cabins + new right-edge steps). */
+  animationWindow?: TrainStep[];
   /** @deprecated Client uses final `window` + `stepsToTarget` only; no multi-step playback. */
   stepWindows?: TrainStep[][];
 }

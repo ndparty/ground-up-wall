@@ -1,4 +1,5 @@
 import { define } from "../../../utils.ts";
+import { createSseResponse } from "../../../lib/sse/create_event_stream.ts";
 
 function canViewDisplay(role: string | undefined): boolean {
   return role === "display_wall" || role === "moderator" || role === "admin";
@@ -10,75 +11,61 @@ export const handlers = define.handlers({
     if (!user || !canViewDisplay(user.role)) {
       return new Response("Forbidden", { status: 403 });
     }
-    const encoder = new TextEncoder();
-    const unsubs: Array<() => void> = [];
 
-    const stream = new ReadableStream({
-      start(controller) {
-        controller.enqueue(encoder.encode(": connected\n\n"));
-        const send = (event: string, data: unknown) => {
-          const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
-          controller.enqueue(encoder.encode(payload));
-        };
+    return createSseResponse((send, registerCleanup) => {
+      const photoWall = ctx.state.services.photoWall;
 
-        unsubs.push(
-          ctx.state.services.photoWall.subscribeToApproved((submission) => {
-            send("submission_approved", submission);
-          }),
-        );
-        unsubs.push(
-          ctx.state.services.photoWall.subscribeToEdited((submission) => {
-            send("submission_edited", submission);
-          }),
-        );
-        unsubs.push(
-          ctx.state.services.photoWall.subscribeToDeleted((payload) => {
-            send("submission_deleted", payload);
-          }),
-        );
-        unsubs.push(
-          ctx.state.services.photoWall.subscribeToTrainCommands((command) => {
-            send("train_command", command);
-          }),
-        );
-        unsubs.push(
-          ctx.state.services.photoWall.subscribeToTrainPlaybackState((playback) => {
-            send("train_playback_state", playback);
-          }),
-        );
-        unsubs.push(
-          ctx.state.services.photoWall.subscribeToDisplayOverride((command) => {
-            send("display_override", command);
-          }),
-        );
-        unsubs.push(
-          ctx.state.services.photoWall.subscribeToSystemConfig((config) => {
-            send("system_config_changed", config);
-          }),
-        );
+      registerCleanup(
+        photoWall.subscribeToApproved((submission) => {
+          send.send("submission_approved", submission);
+        }),
+      );
+      registerCleanup(
+        photoWall.subscribeToEdited((submission) => {
+          send.send("submission_edited", submission);
+        }),
+      );
+      registerCleanup(
+        photoWall.subscribeToDeleted((payload) => {
+          send.send("submission_deleted", payload);
+        }),
+      );
+      registerCleanup(
+        photoWall.subscribeToTrainCommands((command) => {
+          send.send("train_command", command);
+        }),
+      );
+      registerCleanup(
+        photoWall.subscribeToTrainPlaybackState((playback) => {
+          send.send("train_playback_state", playback);
+        }),
+      );
+      registerCleanup(
+        photoWall.subscribeToDisplayOverride((command) => {
+          send.send("display_override", command);
+        }),
+      );
+      registerCleanup(
+        photoWall.subscribeToSystemConfig((config) => {
+          send.send("system_config_changed", config);
+        }),
+      );
 
-        void ctx.state.services.photoWall.ensurePlaybackInitialized().then(() => {
-          const playback = ctx.state.services.photoWall.getTrainPlaybackState();
-          send("train_playback_state", {
+      void photoWall.ensurePlaybackInitialized()
+        .then(() => {
+          if (send.isClosed()) return;
+          const playback = photoWall.getTrainPlaybackState();
+          send.send("train_playback_state", {
             isPlaying: playback.isPlaying,
             currentCabin: playback.currentCabin,
             dwellSeconds: playback.dwellSeconds,
             lastTransitionAt: playback.lastTransitionAt,
             window: playback.window,
           });
+        })
+        .catch((err) => {
+          console.error("display/events: ensurePlaybackInitialized failed", err);
         });
-      },
-      cancel() {
-        for (const unsub of unsubs) unsub();
-      },
-    });
-
-    return new Response(stream, {
-      headers: {
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache",
-        Connection: "keep-alive",
-      },
     });
   },
 });

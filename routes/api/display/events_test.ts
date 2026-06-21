@@ -1,6 +1,10 @@
 import { assertEquals } from "@std/assert";
-import { submitTestSubmission, setupModeratorAndDisplayWall } from "../../../tests/helpers.ts";
-import { authedRequest, createTestHandler, serveInfo } from "../../../lib/api/moderate_route_test_helpers.ts";
+import { setupModeratorAndDisplayWall, submitTestSubmission } from "../../../tests/helpers.ts";
+import {
+  authedRequest,
+  createTestHandler,
+  serveInfo,
+} from "../../../lib/api/moderate_route_test_helpers.ts";
 import { cleanupTestData } from "../../../lib/test_helpers.ts";
 
 async function readSseEvent(

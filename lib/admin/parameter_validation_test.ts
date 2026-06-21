@@ -1,8 +1,5 @@
 import { assertEquals } from "@std/assert";
-import {
-  normalizeWordListInput,
-  validateParameterValue,
-} from "./parameter_validation.ts";
+import { normalizeWordListInput, validateParameterValue } from "./parameter_validation.ts";
 
 Deno.test("testUpdateDwellTimeValid", () => {
   assertEquals(validateParameterValue("train_dwell_time", "10"), null);

@@ -9,8 +9,7 @@ import {
 } from "../lib/api/display_route_test_helpers.ts";
 import { cleanupTestData } from "../lib/test_helpers.ts";
 
-const ACCESS_DENIED =
-  "Access not allowed. Please refer to the organiser's screen instead.";
+const ACCESS_DENIED = "Access not allowed. Please refer to the organiser's screen instead.";
 
 Deno.test({
   name: "testUnauthenticatedGets403",

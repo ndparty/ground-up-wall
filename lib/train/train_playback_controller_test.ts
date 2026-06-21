@@ -1,7 +1,13 @@
 import { assertEquals } from "@std/assert";
 import type { TrainCommand } from "../interfaces/realtime_service.ts";
 import { TrainPlaybackController } from "./train_playback_controller.ts";
-import { CENTER_SLOT, LEFT_RENDER, RIGHT_RENDER } from "./train_view_constants.ts";
+import { CENTER_SLOT, LEFT_RENDER, RIGHT_RENDER, WINDOW_LENGTH } from "./train_view_constants.ts";
+import {
+  findForwardCanonicalPostInTape,
+  forwardSlotSteps,
+  hasEphemeralOnPathToSlot,
+} from "./tape_helpers.ts";
+import { computeJumpStepCount } from "./train_view.ts";
 
 function ids(n: number): string[] {
   return Array.from({ length: n }, (_, i) => `c${i + 1}`);
@@ -157,6 +163,42 @@ Deno.test("out-of-chain jump skips ephemeral queue during force-generate", () =>
   assertEquals(rightEdge(harness.published[0])?.submissionId, "c10");
 });
 
+Deno.test("in-chain jump publishes animationWindow with new right-edge steps", () => {
+  const harness = createTestController();
+  harness.controller.initialize(10, ids(10));
+  harness.fireScheduled();
+  const preJump = harness.controller.getState().window.map((s) => s.seq);
+  harness.published.length = 0;
+
+  harness.controller.handleUserCommand({ type: "jump", cabinNumber: 4 });
+  const cmd = harness.published[0];
+  assertEquals(cmd.type, "jump");
+  assertEquals((cmd.animationWindow?.length ?? 0) > WINDOW_LENGTH, true);
+  for (const seq of preJump) {
+    assertEquals(cmd.animationWindow?.some((s) => s.seq === seq), true);
+  }
+  assertEquals(cmd.window?.[CENTER_SLOT]?.submissionId, "c4");
+});
+
+Deno.test("far jump publishes bounded animationWindow preserving pre-jump seqs", () => {
+  const harness = createTestController();
+  harness.controller.initialize(10, ids(10));
+  const preJumpSeqs = new Set(harness.controller.getState().window.map((s) => s.seq));
+  harness.published.length = 0;
+
+  harness.controller.handleUserCommand({ type: "jump", cabinNumber: 9 });
+  const cmd = harness.published[0];
+  assertEquals(cmd.type, "jump");
+  const animLen = cmd.animationWindow?.length ?? 0;
+  assertEquals(animLen > WINDOW_LENGTH, true);
+  assertEquals(animLen <= WINDOW_LENGTH * 2, true);
+  assertEquals(animLen < WINDOW_LENGTH + 8, true);
+  for (const seq of preJumpSeqs) {
+    assertEquals(cmd.animationWindow?.some((s) => s.seq === seq), true);
+  }
+  assertEquals(cmd.window?.[CENTER_SLOT]?.submissionId, "c9");
+});
+
 Deno.test("far jump rebuilds window with K cabins before and after target", () => {
   const harness = createTestController();
   harness.controller.initialize(10, ids(10));
@@ -174,6 +216,101 @@ Deno.test("far jump rebuilds window with K cabins before and after target", () =
   const actual = cmd.window?.map((step) => step.submissionId) ?? [];
   assertEquals(actual, expected);
   assertEquals(actual[LEFT_RENDER], "c9");
+});
+
+Deno.test("in-chain jump with preview duplicate targets rightmost canonical forward post", () => {
+  const harness = createTestController();
+  harness.controller.initialize(10, ids(10));
+  harness.controller.enqueuePreview("c4");
+  harness.fireScheduled();
+  while (harness.controller.getState().currentCabin < 3) {
+    harness.fireScheduled();
+  }
+  for (let i = 0; i < 2; i++) harness.fireScheduled();
+
+  const preJumpTape = harness.controller.getState().window;
+  const canonicalSlot = findForwardCanonicalPostInTape(preJumpTape, "c4");
+  const fromCabin = harness.controller.getState().currentCabin;
+
+  harness.published.length = 0;
+  harness.controller.handleUserCommand({ type: "jump", cabinNumber: 4 });
+  const cmd = harness.published[0];
+  assertEquals(cmd.type, "jump");
+  assertEquals(cmd.window?.[CENTER_SLOT]?.submissionId, "c4");
+  assertEquals(cmd.window?.[CENTER_SLOT]?.ephemeral, undefined);
+
+  if (canonicalSlot !== null) {
+    if (hasEphemeralOnPathToSlot(preJumpTape, canonicalSlot)) {
+      assertEquals(cmd.stepsToTarget, computeJumpStepCount(fromCabin, 4, 10));
+    } else {
+      assertEquals(cmd.stepsToTarget, forwardSlotSteps(preJumpTape, canonicalSlot));
+    }
+  }
+});
+
+Deno.test("jump with other ephemerals on path rebuilds to canonical target", () => {
+  const harness = createTestController();
+  harness.controller.initialize(10, ids(10));
+  harness.fireScheduled();
+  harness.fireScheduled();
+  harness.controller.enqueuePreview("c10");
+  harness.fireScheduled();
+
+  const preJumpTape = harness.controller.getState().window;
+  const fromCabin = harness.controller.getState().currentCabin;
+  const targetCabin = 5;
+  const targetId = `c${targetCabin}`;
+  const canonicalSlot = findForwardCanonicalPostInTape(preJumpTape, targetId);
+  assertEquals(canonicalSlot !== null, true);
+
+  const ephemeralsOnPath = hasEphemeralOnPathToSlot(preJumpTape, canonicalSlot!);
+
+  harness.published.length = 0;
+  harness.controller.handleUserCommand({ type: "jump", cabinNumber: targetCabin });
+  const cmd = harness.published[0];
+  const center = cmd.window?.[CENTER_SLOT];
+
+  assertEquals(cmd.type, "jump");
+  assertEquals(center?.submissionId, targetId);
+  assertEquals(center?.ephemeral, undefined);
+  assertEquals(cmd.currentCabin, targetCabin);
+  assertEquals(harness.controller.getState().currentCabin, targetCabin);
+
+  if (ephemeralsOnPath) {
+    assertEquals(cmd.stepsToTarget, computeJumpStepCount(fromCabin, targetCabin, 10));
+    assertEquals(cmd.stepsToTarget !== forwardSlotSteps(preJumpTape, canonicalSlot!), true);
+  }
+});
+
+Deno.test("jump with forward ephemeral preview centers on canonical not preview seq", () => {
+  const harness = createTestController();
+  harness.controller.initialize(10, ids(10));
+  harness.controller.enqueuePreview("c4");
+  harness.fireScheduled();
+
+  const preJumpTape = harness.controller.getState().window;
+  const ephemeralSeq = preJumpTape.find(
+    (s, i) => i > CENTER_SLOT && s.submissionId === "c4" && s.ephemeral,
+  )?.seq;
+  const canonicalSlot = findForwardCanonicalPostInTape(preJumpTape, "c4");
+
+  harness.published.length = 0;
+  harness.controller.handleUserCommand({ type: "jump", cabinNumber: 4 });
+  const cmd = harness.published[0];
+  const center = cmd.window?.[CENTER_SLOT];
+
+  assertEquals(cmd.type, "jump");
+  assertEquals(center?.submissionId, "c4");
+  assertEquals(center?.ephemeral, undefined);
+
+  if (ephemeralSeq !== undefined && canonicalSlot === null) {
+    assertEquals(center?.seq !== ephemeralSeq, true);
+  } else if (
+    canonicalSlot !== null &&
+    !hasEphemeralOnPathToSlot(preJumpTape, canonicalSlot)
+  ) {
+    assertEquals(cmd.stepsToTarget, forwardSlotSteps(preJumpTape, canonicalSlot));
+  }
 });
 
 Deno.test("setCabinIds clamps current cabin", () => {

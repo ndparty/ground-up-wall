@@ -176,6 +176,27 @@ export function applyServerWindow(
   };
 }
 
+/** Reconstruct server steps from a resolved render window (for jump overlay merge). */
+export function renderWindowToSteps(window: RenderCabin[]): TrainStep[] {
+  return window.map((c) => ({
+    seq: Number.parseInt(c.key.slice(1), 10),
+    kind: c.kind,
+    submissionId: c.submission?.id,
+    destination: c.destination,
+  }));
+}
+
+/** Apply extended animation tape for jump rendering (preserves prior cabin snapshots). */
+export function applyAnimationWindow(
+  state: TrainViewState,
+  animationWindow: TrainStep[],
+): TrainViewState {
+  return {
+    ...state,
+    window: resolveWindow(animationWindow, byId(state.canonical), state.window),
+  };
+}
+
 export function getRenderWindow(state: TrainViewState): RenderCabin[] {
   return state.window;
 }

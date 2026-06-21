@@ -11,11 +11,12 @@ const DEFAULT_TEST_DB = "postgres://localhost:5432/ground_up_wall_test";
 
 export function getTestDatabaseUrl(): string {
   return normalizeDatabaseUrl(
-    Deno.env.get("DATABASE_URL_TEST") ??
-      Deno.env.get("DATABASE_URL") ??
-      DEFAULT_TEST_DB,
+    Deno.env.get("DATABASE_URL_TEST") ?? DEFAULT_TEST_DB,
   );
 }
+
+// Point app DI (main.ts loadConfig) at the test database before main is imported.
+Deno.env.set("DATABASE_URL", getTestDatabaseUrl());
 
 export async function createTestRepository(): Promise<PostgresRepository> {
   const url = getTestDatabaseUrl();
