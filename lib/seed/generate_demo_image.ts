@@ -1,5 +1,5 @@
 export const DEMO_IMAGE_WIDTH = 400;
-export const DEMO_IMAGE_HEIGHT = 300;
+export const DEMO_IMAGE_HEIGHT = 400;
 
 const GLYPH_WIDTH = 5;
 const GLYPH_HEIGHT = 7;
@@ -164,6 +164,7 @@ export function renderDemoImageRgba(
   sequenceNumber: number,
   width = DEMO_IMAGE_WIDTH,
   height = DEMO_IMAGE_HEIGHT,
+  _submitterName?: string,
 ): Uint8ClampedArray {
   const data = new Uint8ClampedArray(width * height * 4);
   fillBackground(data, width, height, sequenceNumber);
@@ -270,8 +271,11 @@ export async function encodePng(
   return png;
 }
 
-export async function generateDemoImage(sequenceNumber: number): Promise<Blob> {
-  const rgba = renderDemoImageRgba(sequenceNumber);
+export async function generateDemoImage(
+  sequenceNumber: number,
+  submitterName?: string,
+): Promise<Blob> {
+  const rgba = renderDemoImageRgba(sequenceNumber, DEMO_IMAGE_WIDTH, DEMO_IMAGE_HEIGHT, submitterName);
   const png = await encodePng(rgba, DEMO_IMAGE_WIDTH, DEMO_IMAGE_HEIGHT);
   return new Blob([png.slice()], { type: "image/png" });
 }

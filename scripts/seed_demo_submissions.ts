@@ -134,7 +134,7 @@ export async function runSeedDemoSubmissions(
     for (let i = 0; i < count; i++) {
       const sequenceNumber = i + 1;
       const content = getDemoSubmissionContent(i);
-      const image = await generateDemoImage(sequenceNumber);
+      const image = await generateDemoImage(sequenceNumber, content.submitterName);
       const imagePath = `submissions/${crypto.randomUUID()}.png`;
       await storage.uploadImage(image, imagePath);
       const imageUrl = storage.getImageUrl(imagePath);
@@ -161,7 +161,7 @@ export async function runSeedDemoSubmissions(
       const sequenceNumber = count + i + 1;
       const content = getPendingDemoContent(i);
       const flag = autoModerator.checkMessage(content.message, SEEDED_DEFAULT_WORD_LIST);
-      const image = await generateDemoImage(sequenceNumber);
+      const image = await generateDemoImage(sequenceNumber, content.submitterName);
       const imagePath = `submissions/${crypto.randomUUID()}.png`;
       await storage.uploadImage(image, imagePath);
       const imageUrl = storage.getImageUrl(imagePath);

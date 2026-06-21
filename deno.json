@@ -11,6 +11,7 @@
     "db:migrate": "deno run -A scripts/migrate.ts",
     "db:seed": "deno run -A scripts/seed.ts",
     "db:seed:demos": "deno run -A scripts/seed_demo_submissions.ts",
+    "generate:mrt-stations": "deno run -A scripts/generate_mrt_stations.ts",
     "check": "deno fmt --check . && deno lint . && deno check main.ts"
   },
   "compilerOptions": {

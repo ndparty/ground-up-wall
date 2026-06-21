@@ -105,3 +105,34 @@ Deno.test({
     }
   },
 });
+
+Deno.test({
+  name: "testSeedMigratesPowDefaultToTrue",
+  async fn() {
+    await cleanupTestData();
+    await runSeed(getTestDatabaseUrl());
+
+    const client = new Client(getTestDatabaseUrl());
+    await client.connect();
+    try {
+      await client.queryArray(
+        `UPDATE system_config SET value = 'false', default_value = 'false' WHERE key = 'pow_challenge_enabled'`,
+      );
+    } finally {
+      await client.end();
+    }
+
+    const second = await runSeed(getTestDatabaseUrl());
+    assertEquals(second.configsUpdated >= 1, true);
+
+    const repo = await createTestRepository();
+    try {
+      const pow = await repo.getSystemConfig("pow_challenge_enabled");
+      assertEquals(pow?.value, "true");
+      assertEquals(pow?.default_value, "true");
+    } finally {
+      await repo.close();
+      await cleanupTestData();
+    }
+  },
+});

@@ -26,11 +26,14 @@ export async function createTestRepository(): Promise<PostgresRepository> {
 }
 
 export async function cleanupTestData(): Promise<void> {
+  const url = getTestDatabaseUrl();
+  await runMigrations(url);
   const { createPostgresClient } = await import("./db_url.ts");
-  const client = createPostgresClient(getTestDatabaseUrl());
+  const client = createPostgresClient(url);
   await client.connect();
   try {
     await client.queryArray("DELETE FROM audit_log");
+    await client.queryArray("DELETE FROM sessions");
     await client.queryArray("DELETE FROM submissions");
     await client.queryArray("DELETE FROM users");
     await client.queryArray("DELETE FROM system_config");

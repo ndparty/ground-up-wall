@@ -1,9 +1,12 @@
 import * as bcrypt from "bcrypt";
 import { Client } from "@db/postgres";
 import { normalizeDatabaseUrl } from "../lib/db_url.ts";
-import { seededWordListJson } from "../lib/admin/parameter_validation.ts";
 import { loadEnvFile } from "../lib/load_env.ts";
 import { PostgresRepository } from "../lib/repositories/postgres_repository.ts";
+import {
+  buildSystemDefaults,
+  CONFIG_MIGRATIONS,
+} from "../lib/defaults/app_defaults.ts";
 import { runMigrations } from "./migrate.ts";
 
 export const ADMIN_USERNAME = "admin";
@@ -12,32 +15,14 @@ export const DISPLAY_USERNAME = "display";
 const LOCAL_DEV_FALLBACK_PASSWORD = "admin123";
 const LOCAL_DEMO_FALLBACK_PASSWORD = "demo123";
 
-const SYSTEM_DEFAULTS = [
-  { key: "train_dwell_time", value: "15", default_value: "15" },
-  {
-    key: "message_prompt_text",
-    value: "Share your National Day moment!",
-    default_value: "Share your National Day moment!",
-  },
-  { key: "message_length_limit", value: "50", default_value: "50" },
-  { key: "message_length_unit", value: "characters", default_value: "characters" },
-  {
-    key: "auto_moderator_word_list",
-    value: seededWordListJson(),
-    default_value: seededWordListJson(),
-  },
-  { key: "default_placeholder_image", value: "", default_value: "" },
-  { key: "pow_challenge_enabled", value: "false", default_value: "false" },
-  { key: "qr_cabin_interval", value: "15", default_value: "15" },
-  { key: "system_killswitch_enabled", value: "false", default_value: "false" },
-  { key: "uploads_enabled", value: "true", default_value: "true" },
-] as const;
+const SYSTEM_DEFAULTS = buildSystemDefaults();
 
 export interface SeedResult {
   adminCreated: boolean;
   moderatorCreated: boolean;
   displayCreated: boolean;
   configsSeeded: number;
+  configsUpdated: number;
   passwordSource: "env" | "local_fallback";
 }
 
@@ -120,21 +105,38 @@ export async function runSeed(databaseUrl?: string): Promise<SeedResult> {
     }
 
     let configsSeeded = 0;
+    let configsUpdated = 0;
     for (const config of SYSTEM_DEFAULTS) {
       const existing = await repo.getSystemConfig(config.key);
-      if (!existing) {
-        const client = new Client(url);
-        await client.connect();
-        try {
+      const client = new Client(url);
+      await client.connect();
+      try {
+        if (!existing) {
           await client.queryArray(
             `INSERT INTO system_config (key, value, default_value, updated_by)
              VALUES ($1, $2, $3, 'seed')`,
             [config.key, config.value, config.default_value],
           );
           configsSeeded++;
-        } finally {
-          await client.end();
+        } else {
+          const migration = CONFIG_MIGRATIONS[config.key];
+          const nextValue = migration && existing.value === migration.from
+            ? migration.to
+            : existing.value;
+          if (
+            existing.default_value !== config.default_value ||
+            nextValue !== existing.value
+          ) {
+            await client.queryArray(
+              `UPDATE system_config SET value = $2, default_value = $3, updated_by = 'seed'
+               WHERE key = $1`,
+              [config.key, nextValue, config.default_value],
+            );
+            configsUpdated++;
+          }
         }
+      } finally {
+        await client.end();
       }
     }
 
@@ -143,6 +145,7 @@ export async function runSeed(databaseUrl?: string): Promise<SeedResult> {
       moderatorCreated,
       displayCreated,
       configsSeeded,
+      configsUpdated,
       passwordSource: source,
     };
   } finally {
@@ -178,6 +181,9 @@ if (import.meta.main) {
     console.log(`✓ Seeded ${result.configsSeeded} system config entries`);
   } else {
     console.log("✓ System config defaults already present");
+  }
+  if (result.configsUpdated > 0) {
+    console.log(`✓ Updated ${result.configsUpdated} system config default(s)`);
   }
   console.log("Seed complete.");
 }
