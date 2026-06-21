@@ -38,6 +38,10 @@ Deno.test({
       (res.headers.get("content-security-policy") ?? "").includes("frame-ancestors 'none'"),
       true,
     );
+    assertEquals(
+      (res.headers.get("content-security-policy") ?? "").includes("worker-src 'self' blob:"),
+      true,
+    );
   },
 });
 

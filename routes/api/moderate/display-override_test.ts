@@ -129,3 +129,57 @@ Deno.test({
     await cleanupTestData();
   },
 });
+
+Deno.test({
+  name: "testReloadDisplay",
+  async fn() {
+    const handler = await createTestHandler();
+    const { token } = await loginAsModerator(handler);
+
+    const form = new FormData();
+    form.append("type", "reload");
+    const res = await handler(
+      authedRequest("http://localhost/api/moderate/display-override", token, {
+        method: "POST",
+        body: form,
+      }),
+      serveInfo,
+    );
+    assertEquals(res.status, 200);
+
+    const repo = await createTestRepository();
+    const logs = await repo.getAuditLog({ action_type: "reload_display" });
+    assertEquals(logs.length, 1);
+    await repo.close();
+
+    await cleanupTestData();
+  },
+});
+
+Deno.test({
+  name: "testPanicDisplay",
+  async fn() {
+    const handler = await createTestHandler();
+    const { token } = await loginAsModerator(handler);
+
+    const form = new FormData();
+    form.append("type", "panic");
+    const res = await handler(
+      authedRequest("http://localhost/api/moderate/display-override", token, {
+        method: "POST",
+        body: form,
+      }),
+      serveInfo,
+    );
+    assertEquals(res.status, 200);
+
+    const repo = await createTestRepository();
+    const state = await repo.getDisplayOverrideState();
+    assertEquals(state?.type, "blank");
+    const logs = await repo.getAuditLog({ action_type: "panic_display" });
+    assertEquals(logs.length, 1);
+    await repo.close();
+
+    await cleanupTestData();
+  },
+});

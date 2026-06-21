@@ -19,7 +19,7 @@ export default function AdminDisplayOverride() {
   }, []);
 
   async function sendCommand(
-    type: "blank" | "placeholder" | "resume",
+    type: "blank" | "placeholder" | "resume" | "reload" | "panic",
     confirmMessage?: string,
     image?: File,
   ) {
@@ -59,6 +59,23 @@ export default function AdminDisplayOverride() {
         </button>
         <button type="button" onClick={() => sendCommand("resume")}>
           Resume display
+        </button>
+        <button
+          type="button"
+          onClick={() =>
+            sendCommand(
+              "reload",
+              "Rebuild the display from the server? The train will restart at the first cabin.",
+            )}
+        >
+          Reload display
+        </button>
+        <button
+          type="button"
+          onClick={() => sendCommand("panic")}
+          style="background: #8b0000; color: white; font-weight: 600;"
+        >
+          Panic
         </button>
         <label style="display: inline-flex; align-items: center; gap: 0.5rem;">
           Placeholder image

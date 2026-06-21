@@ -8,6 +8,8 @@ export function isDeployedEnvironment(): boolean {
 
 // The app relies heavily on inline `style=` attributes and Fresh island hydration,
 // so style/script allow 'unsafe-inline'. img allows data:/blob: for upload previews.
+// worker-src blob: is required for heic-to (HEIC preview conversion in Chrome).
+// The app imports heic-to/csp (no unsafe-eval); worker-src alone is not enough for the default bundle.
 // Tightening script-src with nonces is a future hardening step (NFR-23).
 const CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
@@ -17,6 +19,7 @@ const CONTENT_SECURITY_POLICY = [
   "img-src 'self' data: blob:",
   "style-src 'self' 'unsafe-inline'",
   "script-src 'self' 'unsafe-inline'",
+  "worker-src 'self' blob:",
   "connect-src 'self'",
 ].join("; ");
 

@@ -73,6 +73,7 @@ export interface UseTrainPlaybackResult {
   retryBootstrap: () => void;
   connectionStatus: ConnectionStatus;
   overrideState: OverrideState;
+  reloadGeneration: number;
 }
 
 async function publishTrainCommand(command: TrainCommand): Promise<boolean> {
@@ -93,6 +94,7 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
   const [bootstrapAttempt, setBootstrapAttempt] = useState(0);
   const [pendingAdvances, setPendingAdvances] = useState(0);
   const [overrideState, setOverrideState] = useState<OverrideState>({ type: "normal" });
+  const [reloadGeneration, setReloadGeneration] = useState(0);
 
   const isPlayingRef = useRef(isPlaying);
   const pendingRef = useRef<PendingAdvance[]>([]);
@@ -288,6 +290,11 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
         setOverrideState(mapCommandToOverrideState(command.type, command.imageUrl));
       }
     },
+    display_reload: () => {
+      clearPending();
+      void syncPlaybackFromServer();
+      setReloadGeneration((n) => n + 1);
+    },
   };
 
   const connectionStatus = useReconnectingEventSource(
@@ -342,6 +349,7 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
     retryBootstrap,
     connectionStatus,
     overrideState,
+    reloadGeneration,
   };
 }
 

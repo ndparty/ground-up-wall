@@ -20,6 +20,8 @@ const ACTION_TYPES = [
   "blank_display",
   "show_placeholder",
   "resume_display",
+  "reload_display",
+  "panic_display",
   "change_password",
   "login_failed",
 ];

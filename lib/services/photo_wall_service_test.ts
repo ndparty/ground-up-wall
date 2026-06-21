@@ -400,3 +400,83 @@ Deno.test({
     }
   },
 });
+
+Deno.test({
+  name: "testReloadDisplayResetsPlaybackWithoutChangingOverride",
+  async fn() {
+    const dir = await Deno.makeTempDir();
+    try {
+      await cleanupTestData();
+      const { service, repo, realtime } = await createTestService(dir);
+      let reloadCount = 0;
+      realtime.subscribe("display:reload", () => {
+        reloadCount += 1;
+      });
+
+      const submission = await service.submitSubmission(
+        { image: new Blob([new Uint8Array([1])]), message: "Hi", submitter_name: "A" },
+        [],
+      );
+      await service.approveSubmission(submission.id, "mod-1");
+      await service.ensurePlaybackInitialized();
+      await service.commandDisplayOverride("blank", "mod-1");
+
+      await service.reloadDisplay("mod-1");
+
+      const override = await service.getDisplayOverrideState();
+      assertEquals(override?.type, "blank");
+      assertEquals(reloadCount, 1);
+      const playback = service.getTrainPlaybackState();
+      assertEquals(playback.currentCabin, 1);
+      const logs = await service.getAuditLog({ action_type: "reload_display" });
+      assertEquals(logs.length, 1);
+      await repo.close();
+    } finally {
+      await cleanupTestData();
+      await Deno.remove(dir, { recursive: true });
+    }
+  },
+});
+
+Deno.test({
+  name: "testPanicDisplayBlanksAndResetsPlayback",
+  async fn() {
+    const dir = await Deno.makeTempDir();
+    try {
+      await cleanupTestData();
+      const { service, repo, realtime } = await createTestService(dir);
+      let reloadCount = 0;
+      let overrideCommand: DisplayOverrideCommand | undefined;
+      realtime.subscribe("display:reload", () => {
+        reloadCount += 1;
+      });
+      realtime.onDisplayOverride((cmd) => {
+        overrideCommand = cmd;
+      });
+
+      const submission = await service.submitSubmission(
+        { image: new Blob([new Uint8Array([1])]), message: "Hi", submitter_name: "A" },
+        [],
+      );
+      await service.approveSubmission(submission.id, "mod-1");
+      await service.ensurePlaybackInitialized();
+      service.getTrainPlaybackState();
+
+      await service.panicDisplay("mod-1");
+
+      const override = await service.getDisplayOverrideState();
+      assertEquals(override?.type, "blank");
+      assertEquals(overrideCommand?.type, "blank");
+      assertEquals(reloadCount, 1);
+      const playback = service.getTrainPlaybackState();
+      assertEquals(playback.currentCabin, 1);
+      assertEquals(playback.isPlaying, true);
+      const logs = await service.getAuditLog({ action_type: "panic_display" });
+      assertEquals(logs.length, 1);
+      await repo.close();
+    } finally {
+      await cleanupTestData();
+      await Deno.remove(dir, { recursive: true });
+    }
+  },
+});

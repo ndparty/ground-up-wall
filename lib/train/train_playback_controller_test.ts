@@ -398,3 +398,56 @@ Deno.test("restoreFromSnapshot rejects when window references deleted cabin", ()
   const restored = restarted.controller.restoreFromSnapshot(snapshot, ids(9));
   assertEquals(restored, false);
 });
+
+Deno.test("resetToFreshState clears queue and rebuilds tape at cabin 1", () => {
+  const { controller, published, fireScheduled } = createTestController();
+  controller.initialize(10, ids(10));
+  controller.enqueuePreview("c10");
+  controller.handleUserCommand({ type: "jump", cabinNumber: 5 });
+  published.length = 0;
+
+  controller.resetToFreshState(1);
+
+  const state = controller.getState();
+  assertEquals(state.currentCabin, 1);
+  assertEquals(state.window.length, WINDOW_LENGTH);
+  assertEquals(state.window[CENTER_SLOT]?.submissionId, "c1");
+  for (const step of state.window) {
+    if (step.kind === "post" && step.submissionId) {
+      assertEquals(step.submissionId.startsWith("c"), true);
+    }
+  }
+  const seqs = state.window.map((s) => s.seq);
+  assertEquals(seqs, [1, 2, 3, 4, 5, 6, 7]);
+});
+
+Deno.test("resetToFreshState with zero cabins clears tape and cancels timer", () => {
+  const harness = createTestController();
+  harness.controller.initialize(10, ids(3));
+  harness.controller.setCabinIds([]);
+  harness.controller.resetToFreshState(1);
+  assertEquals(harness.controller.getState().window.length, 0);
+  assertEquals(harness.hasScheduled(), false);
+});
+
+Deno.test("resetToFreshState does not schedule when paused for override", () => {
+  const harness = createTestController();
+  harness.controller.initialize(10, ids(5));
+  harness.controller.pauseForOverride();
+  harness.controller.resetToFreshState(1);
+  assertEquals(harness.hasScheduled(), false);
+  assertEquals(harness.controller.getState().currentCabin, 1);
+});
+
+Deno.test("resetToFreshState after cabin list shrinks excludes removed ids", () => {
+  const { controller } = createTestController();
+  controller.initialize(10, ids(5));
+  controller.setCabinIds(["c1", "c3", "c5"]);
+  controller.resetToFreshState(1);
+  const state = controller.getState();
+  for (const step of state.window) {
+    if (step.kind === "post" && step.submissionId) {
+      assertEquals(["c1", "c3", "c5"].includes(step.submissionId), true);
+    }
+  }
+});

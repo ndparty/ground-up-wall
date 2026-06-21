@@ -73,6 +73,7 @@ export default function TrainDisplay() {
     retryBootstrap,
     connectionStatus,
     overrideState,
+    reloadGeneration,
   } = useTrainPlayback();
 
   const [showFullscreenPrompt, setShowFullscreenPrompt] = useState(false);
@@ -280,6 +281,41 @@ export default function TrainDisplay() {
       cancelled = true;
     };
   }, [overrideView, bootstrapComplete, hasCabins, syncPlaybackFromServer]);
+
+  /** Soft reload from server: clear animation state and snap to fresh window when train is visible. */
+  useEffect(() => {
+    if (!bootstrapComplete || reloadGeneration === 0) return;
+
+    isAnimatingRef.current = false;
+    pendingCommitRef.current = null;
+    useCommittedRenderRef.current = false;
+    recenterSuppressedRef.current = false;
+    jumpHighlightKeyRef.current = null;
+    setJumpOverlaySteps(null);
+    setIsSliding(false);
+    setHighlightReady(true);
+
+    if (overrideView !== "train" || !hasCabins) return;
+
+    let cancelled = false;
+    setInstantSnap(true);
+
+    void (async () => {
+      await syncPlaybackFromServer();
+      if (cancelled) return;
+      await waitForLayout();
+      if (cancelled) return;
+
+      instantRecenterOn(getCenterKey(trainViewRef.current));
+      setTimeout(() => {
+        if (!cancelled) setInstantSnap(false);
+      }, 50);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadGeneration, bootstrapComplete, overrideView, hasCabins, syncPlaybackFromServer]);
 
   useEffect(() => {
     if (!hasCabins || !bootstrapComplete) return;

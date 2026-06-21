@@ -210,6 +210,26 @@ export class TrainPlaybackController {
     this.scheduleNextTick();
   }
 
+  /** Rebuild tape from scratch (cleared queue, fresh seq ids) — used by reload/panic. */
+  resetToFreshState(startCabin = 1): void {
+    this.queue = [];
+    this.emitCount = 0;
+    this.seqCounter = 0;
+
+    if (this.cabinIds.length === 0) {
+      this.tape = [];
+      this.genIndex = 0;
+      this.state.currentCabin = 1;
+      this.cancelScheduleFn();
+      return;
+    }
+
+    this.state.currentCabin = this.clampCabin(startCabin);
+    this.rebuildTape(this.state.currentCabin - 1);
+    this.state.lastTransitionAt = this.now();
+    this.scheduleNextTick();
+  }
+
   private clampCabin(cabin: number): number {
     if (this.cabinIds.length === 0) return 1;
     return Math.max(1, Math.min(cabin, this.cabinIds.length));

@@ -159,9 +159,9 @@ Compatible (JPEG)** on iPhone and retry.
 2. Log in as `moderator` / `demo123` (or your configured password)
 3. You are redirected to **/moderate**
 4. Find the pending submission; approve it (new items appear at the **bottom** of the pending list)
-5. Optional: edit message, reject, use display override controls (blank is immediate — no confirm),
-   or open **Gallery** (`/moderate/approved`) to browse approved submissions with search and
-   pagination
+5. Optional: edit message, reject, use display override controls (blank, reload, panic — panic has
+   no confirm), or open **Gallery** (`/moderate/approved`) to browse approved submissions with
+   search and pagination
 6. **Display train controls**: jump field auto-tracks the current cabin; editing it pauses auto-sync
    for 30 seconds
 
@@ -210,6 +210,25 @@ Automated audit integrity checks: `deno task test:e2e:smoke --filter audit`
 | Seed refuses to run                             | In deployed environments, set `ADMIN_INITIAL_PASSWORD`, `DEMO_MODERATOR_PASSWORD`, and `DEMO_DISPLAY_PASSWORD`                                                                                                                                                                                                                                                                                                                                                                                                   |
 | Demo train empty after seed                     | Ensure app and seed use the same `DATABASE_URL`; run `deno task db:seed:demos --force` if demos were skipped                                                                                                                                                                                                                                                                                                                                                                                                     |
 | PoW challenge on every upload                   | Default is on after seed; disable in Admin → Parameters or re-seed to migrate old DBs                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| HEIC preview stuck on “Loading preview…” (Chrome) | CSP needs `worker-src 'self' blob:` and the app must use `heic-to/csp` (not the default bundle, which requires `unsafe-eval`). Hard-refresh after server restart. Safari often decodes HEIC natively. |
+
+---
+
+## Display override: reload and panic
+
+Moderator and admin **Display override** panels include:
+
+| Control | Behavior |
+|---------|----------|
+| **Blank screen** | Immediate blank on all displays; persisted until Resume |
+| **Reload display** | Rebuilds server train tape at cabin 1 and soft-syncs all displays (confirm dialog). Use after deleting approved content to clear ghost cabins without changing blank/placeholder state |
+| **Panic** | **No confirm** — blanks all displays immediately (SSE first), resets playback, stays blank until Resume |
+| **Resume display** | Returns to normal train |
+
+Panic and reload publish a `display_reload` SSE event; clients re-fetch `/api/display/submissions`
+rather than doing a full page reload.
+
+For offline/LAN deployment details, see [SETUP.md — Offline / standalone event operation](SETUP.md#offline--standalone-event-operation).
 
 ---
 

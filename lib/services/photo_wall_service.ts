@@ -679,6 +679,61 @@ export class PhotoWallService {
     this.publishPlaybackState();
   }
 
+  /** Rebuild server tape from current approved list at cabin 1 (shared by reload/panic). */
+  private async resetDisplayPlaybackFresh(): Promise<void> {
+    await this.ensurePlaybackInitialized();
+    const approved = await this.getApprovedSubmissions();
+    this.playback.setCabinIds(approved.map((s) => s.id));
+    this.playback.resetToFreshState(1);
+  }
+
+  async reloadDisplay(userId: string): Promise<void> {
+    await this.resetDisplayPlaybackFresh();
+
+    await this.audit.logAction({
+      moderator_id: userId,
+      action_type: "reload_display",
+      target_type: "display_override",
+      target_id: "display_override_state",
+    });
+
+    await this.realtime.publish("display:reload", {});
+    this.publishPlaybackState();
+  }
+
+  async panicDisplay(userId: string): Promise<void> {
+    await this.realtime.publish("display_override:command", { type: "blank" });
+    if (this.playbackInitialized) {
+      this.playback.pauseForOverride();
+    }
+
+    const existing = await this.repository.getDisplayOverrideState();
+    const alreadyBlank = existing?.type === "blank";
+
+    if (!alreadyBlank) {
+      const state: DisplayOverrideState = {
+        type: "blank",
+        commanded_by: userId,
+        commanded_at: new Date().toISOString(),
+      };
+      await this.repository.setDisplayOverrideState(state);
+    }
+
+    await this.audit.logAction({
+      moderator_id: userId,
+      action_type: "panic_display",
+      target_type: "display_override",
+      target_id: "display_override_state",
+      new_value: alreadyBlank ? "already_blank" : "blank_and_reload",
+    });
+
+    await this.resetDisplayPlaybackFresh();
+    this.playback.pauseForOverride();
+
+    await this.realtime.publish("display:reload", {});
+    this.publishPlaybackState();
+  }
+
   private async getMessageLengthConfig(): Promise<MessageLengthConfig> {
     const configs = await this.repository.getAllSystemConfigs();
     const byKey = new Map(configs.map((c) => [c.key, c.value]));
@@ -697,6 +752,10 @@ export class PhotoWallService {
     callback: (command: DisplayOverrideCommand) => void,
   ): UnsubscribeFn {
     return this.realtime.onDisplayOverride(callback);
+  }
+
+  subscribeToDisplayReload(callback: () => void): UnsubscribeFn {
+    return this.realtime.subscribe("display:reload", () => callback());
   }
 
   subscribeToSystemConfig(callback: (config: SystemConfig) => void): UnsubscribeFn {

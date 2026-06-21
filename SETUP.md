@@ -116,6 +116,29 @@ Some non-functional requirements require manual verification on target hardware:
 
 Automated checks cover audit-log integrity (`deno task test:e2e:smoke --filter audit`).
 
+## Offline / standalone event operation
+
+At event time the app does **not** load third-party CDN scripts, fonts, or analytics. Browsers
+talk only to your server (`connect-src 'self'` in CSP). Static assets, bundled JS, uploads, API,
+and SSE all come from the same host.
+
+**Typical LAN setup:** one machine runs Deno + local Postgres; display wall, moderator laptop, and
+guest phones use `http://<server-ip>:8080` on the venue Wi‑Fi. Public internet is **not** required
+during the event.
+
+| Requirement | Notes |
+|-------------|--------|
+| Pre-install (once, with internet) | `deno cache` / `deno task start` pulls JSR + npm deps; run `db:migrate` and `db:seed` |
+| On-site | Deno server running; PostgreSQL reachable (default `localhost` or LAN host) |
+| `.env` defaults | `DATABASE_URL` → local Postgres; `REALTIME_PROVIDER=memory`; `STORAGE_PATH=./uploads` |
+| Breaks offline use | Remote cloud Postgres (e.g. Supabase URL); missing pre-cached npm packages |
+
+HEIC preview on Chrome uses the bundled `heic-to/csp` build (Web Worker from `blob:`, no
+`unsafe-eval`). CSP includes `worker-src 'self' blob:` so conversion works without external requests.
+
+This is not a PWA — clients still need the server reachable on the LAN. There is no background sync
+when the server is down.
+
 ## Project structure
 
 ```

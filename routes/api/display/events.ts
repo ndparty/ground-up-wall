@@ -46,6 +46,11 @@ export const handlers = define.handlers({
         }),
       );
       registerCleanup(
+        photoWall.subscribeToDisplayReload(() => {
+          send.send("display_reload", {});
+        }),
+      );
+      registerCleanup(
         photoWall.subscribeToSystemConfig((config) => {
           send.send("system_config_changed", config);
         }),
