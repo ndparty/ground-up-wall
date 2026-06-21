@@ -15,6 +15,7 @@ export const handlers = define.handlers({
 
     const stream = new ReadableStream({
       start(controller) {
+        controller.enqueue(encoder.encode(": connected\n\n"));
         const send = (event: string, data: unknown) => {
           controller.enqueue(
             encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`),

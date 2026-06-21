@@ -1,9 +1,14 @@
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { fetchWithRetry } from "../lib/client/fetch_with_retry.ts";
+import { useReconnectingEventSource } from "../lib/client/use_reconnecting_event_source.ts";
 import { obtainPowToken } from "../lib/security/pow_client.ts";
+import { readJsonError, uploadErrorMessage } from "../lib/api/upload_client.ts";
+import { pickRandomStation } from "../lib/copy/mrt_stations.ts";
 import { POSTING_GUIDELINES_DISCLAIMER } from "../lib/copy/disclaimers.ts";
 import { PRIVACY_NOTICE_ITEMS } from "../lib/copy/privacy_notice.ts";
 import { loadFormProfile, saveFormProfile } from "../lib/upload/form_profile_storage.ts";
 import { compressImage, prepareCabinPreviewBlob } from "../lib/image/compress.ts";
+import ConnectionBanner from "./ConnectionBanner.tsx";
 import TrainCabin from "./TrainCabin.tsx";
 import type { Submission } from "../lib/types.ts";
 import {
@@ -115,9 +120,22 @@ export default function UploadForm({
   }, []);
 
   // FR-13a: live-reload prompt/length config when an admin changes it.
-  useEffect(() => {
-    const es = new EventSource("/api/upload-config/events");
-    es.addEventListener("system_config_changed", (e) => {
+  async function loadUploadConfig() {
+    try {
+      const res = await fetchWithRetry("/api/upload-config");
+      if (!res.ok) return;
+      const cfg = await res.json();
+      setPromptText(cfg.messagePromptText);
+      setLengthLimit(cfg.messageLengthLimit);
+      setLengthUnit(cfg.messageLengthUnit === "words" ? "words" : "characters");
+    } catch {
+      // ignore — banner shows reconnect state
+    }
+  }
+
+  const sseHandlersRef = useRef<Record<string, (event: MessageEvent) => void>>({});
+  sseHandlersRef.current = {
+    system_config_changed: (e) => {
       try {
         const cfg = JSON.parse((e as MessageEvent).data) as { key: string; value: string };
         if (cfg.key === "message_prompt_text") setPromptText(cfg.value);
@@ -128,10 +146,14 @@ export default function UploadForm({
       } catch {
         // ignore malformed payloads
       }
-    });
-    es.onerror = () => es.close();
-    return () => es.close();
-  }, []);
+    },
+  };
+
+  const connectionStatus = useReconnectingEventSource(
+    "/api/upload-config/events",
+    sseHandlersRef,
+    { onReconnect: () => void loadUploadConfig() },
+  );
 
   function persistProfile(name: string, handle: string) {
     saveFormProfile({ submitterName: name, socialHandle: handle });
@@ -225,6 +247,7 @@ export default function UploadForm({
     }
 
     setPhoto(file);
+    setError("");
     clearFieldError("photo");
     void updateCroppedPreview(file);
   }
@@ -262,6 +285,44 @@ export default function UploadForm({
     }
   }
 
+  async function postSubmission(compressed: File) {
+    const buildForm = () => {
+      const form = new FormData();
+      form.append("photo", compressed, "photo.jpg");
+      form.append("message", message);
+      form.append("submitter_name", submitterName.trim());
+      form.append("acknowledged", "true");
+      if (socialHandle.trim()) form.append("social_handle", socialHandle.trim());
+      return form;
+    };
+
+    const send = (powToken?: string) =>
+      fetch("/api/submissions", {
+        method: "POST",
+        body: buildForm(),
+        headers: powToken ? { "x-pow": powToken } : undefined,
+      });
+
+    let res = await send();
+    if (res.status === 428) {
+      const token = await obtainPowToken();
+      if (!token) {
+        setError(uploadErrorMessage(null, 428));
+        return;
+      }
+      res = await send(token);
+    }
+
+    if (!res.ok) {
+      const bodyError = await readJsonError(res);
+      setError(uploadErrorMessage(null, res.status, bodyError));
+      return;
+    }
+
+    persistProfile(submitterName, socialHandle);
+    setSuccess(true);
+  }
+
   async function handleSubmit(e: Event) {
     e.preventDefault();
     setError("");
@@ -284,44 +345,19 @@ export default function UploadForm({
     try {
       const decoded = await decodeUploadImage(photo!);
       const compressed = await compressImage(decoded);
-      const form = new FormData();
-      form.append("photo", compressed, "photo.jpg");
-      form.append("message", message);
-      form.append("submitter_name", submitterName.trim());
-      form.append("acknowledged", "true");
-      if (socialHandle.trim()) form.append("social_handle", socialHandle.trim());
-
-      let res = await fetch("/api/submissions", { method: "POST", body: form });
-      if (res.status === 428) {
-        // Proof-of-work challenge enabled — solve and retry once.
-        const token = await obtainPowToken();
-        if (token) {
-          res = await fetch("/api/submissions", {
-            method: "POST",
-            body: form,
-            headers: { "x-pow": token },
-          });
-        }
-      }
-      const body = await res.json();
-      if (!res.ok) {
-        setError(body.error ?? "Submission failed");
-        return;
-      }
-      persistProfile(submitterName, socialHandle);
-      setSuccess(true);
+      await postSubmission(compressed);
     } catch (err) {
       if (err instanceof UploadImageError) {
         setError(err.message);
-      } else if (err instanceof Error && err.message) {
-        setError(err.message);
       } else {
-        setError("Submission failed");
+        setError(uploadErrorMessage(err));
       }
     } finally {
       setLoading(false);
     }
   }
+
+  const previewDestination = useMemo(() => pickRandomStation(), [preview]);
 
   if (success) {
     return (
@@ -354,7 +390,9 @@ export default function UploadForm({
     : null;
 
   return (
-    <form onSubmit={handleSubmit} style="max-width: 520px; margin: 0 auto;">
+    <>
+      <ConnectionBanner status={connectionStatus} />
+      <form onSubmit={handleSubmit} style="max-width: 520px; margin: 0 auto;">
       <link rel="stylesheet" href="/upload.css" />
 
       <section class="upload-privacy-notice">
@@ -378,9 +416,10 @@ export default function UploadForm({
           <div class="upload-cabin-preview">
             <link rel="stylesheet" href="/train.css" />
             <TrainCabin
+              kind="post"
               submission={previewSubmission}
+              destination={previewDestination}
               isActive={true}
-              index={0}
               onPhotoError={() => void handlePreviewError()}
             />
           </div>
@@ -465,5 +504,6 @@ export default function UploadForm({
         {POSTING_GUIDELINES_DISCLAIMER}
       </p>
     </form>
+    </>
   );
 }

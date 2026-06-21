@@ -3,11 +3,13 @@
   max-width: 320px;
 }
 
-.upload-cabin-preview .train-cabin {
+.upload-cabin-preview .train-cabin-wrap {
   color: var(--sg-white, #ffffff);
   width: 100%;
   max-width: 320px;
-  height: auto;
-  min-height: 420px;
   opacity: 1;
+}
+
+.upload-cabin-preview .train-cabin__body {
+  margin-bottom: 12px;
 }

@@ -1,4 +1,5 @@
 import type { PhotoWallService } from "./services/photo_wall_service.ts";
+import { DEFAULT_MESSAGE_PROMPT } from "./defaults/app_defaults.ts";
 import { normalizeMessageLengthConfig } from "./validation/message_length.ts";
 
 export interface UploadFormConfig {
@@ -8,7 +9,7 @@ export interface UploadFormConfig {
 }
 
 export const DEFAULT_UPLOAD_CONFIG: UploadFormConfig = {
-  messagePromptText: "Share your National Day moment!",
+  messagePromptText: DEFAULT_MESSAGE_PROMPT,
   messageLengthLimit: 50,
   messageLengthUnit: "characters",
 };
