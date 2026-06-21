@@ -18,7 +18,7 @@ This document maps all functional requirements (FR), non-functional requirements
 | FR-02b | Posting guidelines disclaimer on upload form and success page: re-submit advice, moderator editing notice, no rejection notifications | UploadComponent | PhotoWallService | Test: Disclaimer displayed |
 | FR-03 | Submitted photos held in moderation queue | UploadComponent, ModerationComponent | PhotoWallService, Repository | Test: Pending status |
 | FR-04 | Success message after submission | UploadComponent | PhotoWallService | Test: Success response |
-| FR-05 | Upload page accessible via QR code and short URL | UploadComponent | - | Test: URL routing |
+| FR-05 | Upload page via short URL; in-app QR generated from base origin + top base-URL bar (Update 05) | UploadComponent, DisplayComponent | - | Code: `lib/qr/qr_code.ts`, `TrainCabin.tsx` (QR cabin), `TrainDisplay.tsx` (join bar) |
 
 ### Photo Moderation Panel (FR-06 to FR-10)
 
@@ -56,12 +56,14 @@ This document maps all functional requirements (FR), non-functional requirements
 | Requirement | Description | Components | Services | Verification |
 |-------------|-------------|------------|----------|--------------|
 | FR-17 | Display wall shows moving MRT-style metro train animation scrolling right to left | DisplayComponent | PhotoWallService | Code: `TrainDisplay.tsx`, `train.css`, `center_track.ts` |
-| FR-18 | Train consists of cabins, each displaying photo + message + name + optional social handle | DisplayComponent | PhotoWallService | Code: `TrainCabin.tsx` |
+| FR-18 | Cabins display 1:1 photo + message + name + optional handle; constant-height info panel (Update 05) | DisplayComponent | PhotoWallService | Code: `TrainCabin.tsx`, `train.css`, `lib/image/cabin_image.ts` |
 | FR-19 | Configurable dwell time per cabin (default ~15s, range 3-60s, 1s increments) | DisplayComponent | PhotoWallService, Repository | Code: `train_playback_controller.ts`, `SystemParameters.tsx` |
 | FR-20 | Transition between cabins uses smooth scroll animation — train physically moves left | DisplayComponent | PhotoWallService | Code: `TrainDisplay.tsx`, `center_track.ts`, `slide_duration.ts` |
-| FR-20a | Off-screen node-list mutation invariant: ephemeral insert/remove and jump collapse/restore occur strictly outside the visible band (center +-K); no visible-band cabin changes | DisplayComponent | - | Code: `train_view.ts` (`applyEphemeralInsert`, `updateEphemeralVisibility`, `getRenderWindow`, `walkBaseNextSkippingCollapsed`); tests `train_view_test.ts` |
-| FR-21 | Cabin order is chronological (oldest first) | DisplayComponent | PhotoWallService, Repository | Code: `postgres_repository.getSubmissionsByStatus`, `train_view.ts` |
-| FR-22 | New approved submissions added automatically in real-time (within 30s) | DisplayComponent | PhotoWallService, RealtimeService | Code: `events.ts` SSE, `use_train_playback.ts` |
+| FR-20a | Off-screen mutation invariant — satisfied by construction by the right-edge generator (Update 05); cabins only enter at the right edge and leave past the left edge | DisplayComponent | PhotoWallService | Code: `train_playback_controller.ts` (right-edge emission), `train_view.ts`; tests `train_playback_controller_test.ts`, `train_view_test.ts` |
+| FR-21 | Chronological canonical sequence (oldest first); approved post appended + previewed once (Update 05) | DisplayComponent | PhotoWallService, Repository | Code: `postgres_repository.getSubmissionsByStatus`, `train_playback_controller.ts` |
+| FR-22 | Server-authoritative generator + FIFO queue; per-tick right-edge emit, full-window broadcast (Update 05) | DisplayComponent | PhotoWallService, RealtimeService | Code: `train_playback_controller.ts`, `events.ts` SSE, `use_train_playback.ts` |
+| FR-22a | Recurring in-app QR "join the wall" cabin at `qr_cabin_interval` via the FIFO queue (Update 05) | DisplayComponent | PhotoWallService | Code: `train_playback_controller.ts` (QR enqueue), `lib/qr/qr_code.ts`, `TrainCabin.tsx` |
+| FR-13b | Event killswitch + public-uploads toggle gating dynamic routes (Update 05) | AdminComponent | PhotoWallService | Code: `lib/middleware/access_gate.ts`, `main.ts`, `parameter_validation.ts`; tests `access_gate_test.ts` |
 | FR-23 | Branded waiting screen when no submissions approved | DisplayComponent | PhotoWallService | Code: `TrainDisplay.tsx` empty state |
 | FR-24 | Display wall runs full-screen in browser on laptop/PC connected to TV via HDMI | DisplayComponent | - | Code: `train.css` fixed layout |
 | FR-24a | Pause/play/jump-to-cabin controls on display wall (moderator/admin only); on refresh, restart from cabin 0 in playing state | DisplayComponent, AuthComponent | PhotoWallService, RealtimeService | Code: `TrainControls.tsx`, `train-command.ts`, `use_train_playback.ts` — see verification note |
