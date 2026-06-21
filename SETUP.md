@@ -139,6 +139,7 @@ Uploaded images are served at `/submissions/`, `/placeholders/`, and `/overrides
 | SSL / TLS errors (`Could not check if server accepts SSL`, response `69` or `0`) | Local dev auto-appends `sslmode=disable` for loopback hosts; ensure Postgres is running (`Get-Service postgresql*` on Windows) |
 | Migration errors | Run `deno task db:migrate` on a clean database |
 | Tests fail with auth errors | Create `ground_up_wall_test`; set `DATABASE_URL_TEST`; avoid running dev server against the test DB during `deno task test` |
+| `session was terminated unexpectedly` on dev restart | Postgres is up but the old connection was stale — fixed by reconnect logic; if it persists after rapid restarts, wait a few seconds or restart the PostgreSQL service |
 | Seed says admin exists | Idempotent — safe to re-run |
 | Images 404 on display | Confirm files exist under `./uploads/` and server is running |
 

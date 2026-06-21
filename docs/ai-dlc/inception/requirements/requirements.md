@@ -155,7 +155,7 @@ Display Wall User (TV account — view train display only; admin-created; separa
   - **Request body-size guard** on the public upload endpoint, rejecting oversized requests before buffering the body.
   - **Per-IP rate limiting** on the public upload endpoint and the login endpoint.
   - **Login brute-force protection**: temporary lockout/throttle after repeated failed attempts (keyed by username + client IP), with failures recorded in the audit log.
-  - **Admin-toggleable proof-of-work (PoW) challenge** gating BOTH public upload and login (`pow_challenge_enabled` system parameter, default off): when enabled, the client must solve a server-issued challenge and present the token, which the server verifies as a cheap, early no-op (before reading the request body and before bcrypt) so failed/missing tokens are rejected without significant server work; nonces are single-use. When disabled, the challenge is skipped.
+  - **Admin-toggleable proof-of-work (PoW) challenge** gating BOTH public upload and login (`pow_challenge_enabled` system parameter, default on): when enabled, the client must solve a server-issued challenge and present the token, which the server verifies as a cheap, early no-op (before reading the request body and before bcrypt) so failed/missing tokens are rejected without significant server work; nonces are single-use. When disabled, the challenge is skipped.
   - Constraints: implemented within free-tier / no third-party services (C-06); rate-limit, lockout, and PoW nonce stores are in-memory (single-instance in Phase 1) and reset on restart.
 
 ---
