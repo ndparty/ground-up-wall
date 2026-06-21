@@ -1,6 +1,6 @@
 import { forwardRef } from "preact/compat";
 import type { Submission } from "../lib/types.ts";
-import { qrCodeSvg } from "../lib/qr/qr_code.ts";
+import { qrCodeDataUrl } from "../lib/qr/qr_code.ts";
 import {
   QR_CABIN_DESTINATION,
   QR_CABIN_MESSAGE,
@@ -88,7 +88,7 @@ const TrainCabin = forwardRef<HTMLElement, TrainCabinProps>(function TrainCabin(
 ) {
   const roofLabel = kind === "qr" ? QR_CABIN_DESTINATION : (destination ?? "—");
   const messageText = kind === "qr" ? QR_CABIN_MESSAGE : (submission?.message ?? "");
-  const { wrapRef, textRef, fontSizeRem } = useFitText(messageText, kind === "post");
+  const { wrapRef, textRef } = useFitText(messageText, kind === "post");
   const signVariant = kind === "qr" ? "simple" : CABIN_SIGN_VARIANT;
 
   return (
@@ -107,10 +107,14 @@ const TrainCabin = forwardRef<HTMLElement, TrainCabinProps>(function TrainCabin(
           {kind === "qr"
             ? (
               <div class="train-cabin__qr">
-                <div
-                  class="train-cabin__qr-code"
-                  dangerouslySetInnerHTML={{ __html: qrUrl ? qrCodeSvg(qrUrl) : "" }}
-                />
+                {qrUrl && (
+                  <img
+                    class="train-cabin__qr-code"
+                    src={qrCodeDataUrl(qrUrl)}
+                    alt="Upload QR code"
+                    decoding="async"
+                  />
+                )}
               </div>
             )
             : (
@@ -140,8 +144,7 @@ const TrainCabin = forwardRef<HTMLElement, TrainCabinProps>(function TrainCabin(
                 <div class="train-cabin__message-wrap" ref={wrapRef}>
                   <p
                     ref={textRef}
-                    class="train-cabin__message"
-                    style={{ fontSize: `${fontSizeRem}rem` }}
+                    class="train-cabin__message train-cabin__message--dynamic"
                   >
                     {submission?.message}
                   </p>

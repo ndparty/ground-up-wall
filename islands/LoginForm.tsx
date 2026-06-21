@@ -61,28 +61,28 @@ export default function LoginForm({ initialError = "" }: LoginFormProps) {
 
   return (
     <form method="post" action="/login" onSubmit={handleSubmit}>
-      <label style="display: block; margin-bottom: 1rem;">
+      <label class="form-label">
         Username
         <input
           name="username"
           required
-          style="display: block; width: 100%; margin-top: 0.25rem; padding: 0.5rem;"
+          class="form-input"
         />
       </label>
-      <label style="display: block; margin-bottom: 1rem;">
+      <label class="form-label">
         Password
         <input
           name="password"
           type="password"
           required
-          style="display: block; width: 100%; margin-top: 0.25rem; padding: 0.5rem;"
+          class="form-input"
         />
       </label>
-      {error && <p style="color: #ef3340;">{error}</p>}
+      {error && <p class="text-error">{error}</p>}
       <button
         type="submit"
         disabled={loading}
-        style="background: #ef3340; color: white; border: none; padding: 0.5rem 1.5rem; cursor: pointer;"
+        class="btn btn--primary"
       >
         {loading ? "Signing in…" : "Sign in"}
       </button>

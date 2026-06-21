@@ -1,4 +1,6 @@
 import { isManagedRole } from "../../../../lib/admin/user_route_helpers.ts";
+import { toPublicError } from "../../../../lib/api/public_error.ts";
+import { validatePassword } from "../../../../lib/security/password_policy.ts";
 import { define } from "../../../../utils.ts";
 
 export const handlers = define.handlers({
@@ -11,6 +13,10 @@ export const handlers = define.handlers({
 
     if (!userId || !newPassword) {
       return ctx.json({ error: "userId and newPassword are required" }, { status: 400 });
+    }
+    const passwordError = validatePassword(newPassword);
+    if (passwordError) {
+      return ctx.json({ error: passwordError }, { status: 400 });
     }
 
     const target = await ctx.state.services.repository.getUserById(userId);
@@ -28,8 +34,7 @@ export const handlers = define.handlers({
       ctx.state.services.auth.invalidateSessionsForUser(userId);
       return ctx.json({ ok: true });
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Reset failed";
-      return ctx.json({ error: message }, { status: 400 });
+      return ctx.json({ error: toPublicError(err, "Reset failed") }, { status: 400 });
     }
   },
 });

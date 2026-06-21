@@ -1,3 +1,4 @@
+import { toPublicError } from "../../../lib/api/public_error.ts";
 import { define } from "../../../utils.ts";
 
 export const handlers = define.handlers({
@@ -28,8 +29,7 @@ export const handlers = define.handlers({
       }
       return ctx.json({ ok: true });
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Override failed";
-      return ctx.json({ error: message }, { status: 400 });
+      return ctx.json({ error: toPublicError(err, "Override failed") }, { status: 400 });
     }
   },
 });

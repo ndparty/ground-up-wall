@@ -13,15 +13,15 @@ export const handlers = define.handlers({
 
 export default define.page<typeof handlers>(function UploadPage({ data }) {
   return (
-    <div style="padding: 2rem 1.5rem;">
-      <h2 style="color: #ef3340; text-align: center;">Share your moment!</h2>
+    <div class="page page--upload">
+      <h2 class="heading-brand--center">Share your moment!</h2>
       <UploadForm
         messagePromptText={data.messagePromptText}
         messageLengthLimit={data.messageLengthLimit}
         messageLengthUnit={data.messageLengthUnit}
       />
       {UPLOAD_FOOTER_NOTE && (
-        <p style="max-width: 520px; margin: 2rem auto 0; font-size: 0.85rem; color: #666; text-align: center;">
+        <p class="text-subtle--center">
           {UPLOAD_FOOTER_NOTE}
         </p>
       )}

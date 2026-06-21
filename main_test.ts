@@ -1,9 +1,15 @@
 import { assertEquals } from "@std/assert";
 import { Builder } from "$fresh/dev";
 import { FileStorageService } from "./lib/repositories/file_storage_service.ts";
+import {
+  authedRequest,
+  createTestHandler as createAuthedHandler,
+  loginAsDisplayWall,
+  serveInfo,
+} from "./lib/api/display_route_test_helpers.ts";
 import { app } from "./main.ts";
 
-const serveInfo: Deno.ServeHandlerInfo = {
+const serveInfoLocal: Deno.ServeHandlerInfo = {
   remoteAddr: { hostname: "127.0.0.1", port: 8000, transport: "tcp" },
   completed: Promise.resolve(),
 };
@@ -19,7 +25,7 @@ Deno.test({
   name: "testServerStarts",
   async fn() {
     const handler = await createTestHandler();
-    const res = await handler(new Request("http://localhost/"), serveInfo);
+    const res = await handler(new Request("http://localhost/"), serveInfoLocal);
     assertEquals(res.status, 302);
     assertEquals(res.headers.get("location"), "/upload");
   },
@@ -29,7 +35,7 @@ Deno.test({
   name: "testSecurityHeadersPresent",
   async fn() {
     const handler = await createTestHandler();
-    const res = await handler(new Request("http://localhost/"), serveInfo);
+    const res = await handler(new Request("http://localhost/"), serveInfoLocal);
     await res.body?.cancel();
     assertEquals(res.headers.get("x-content-type-options"), "nosniff");
     assertEquals(res.headers.get("x-frame-options"), "DENY");
@@ -51,7 +57,7 @@ Deno.test({
     const handler = await createTestHandler();
     const res = await handler(
       new Request("http://localhost/this-route-does-not-exist"),
-      serveInfo,
+      serveInfoLocal,
     );
     const html = await res.text();
     assertEquals(html.includes("404"), true);
@@ -61,7 +67,7 @@ Deno.test({
 });
 
 Deno.test({
-  name: "testServesUploadedImage",
+  name: "testServesUploadedImageRequiresAuth",
   async fn() {
     const handler = await createTestHandler();
     const storage = new FileStorageService("./uploads");
@@ -71,6 +77,27 @@ Deno.test({
     try {
       const res = await handler(
         new Request(`http://localhost/${relativePath}`),
+        serveInfoLocal,
+      );
+      assertEquals(res.status, 401);
+    } finally {
+      await storage.deleteImage(relativePath);
+    }
+  },
+});
+
+Deno.test({
+  name: "testServesUploadedImageWithAuth",
+  async fn() {
+    const handler = await createAuthedHandler();
+    const { token } = await loginAsDisplayWall(handler);
+    const storage = new FileStorageService("./uploads");
+    const content = new Uint8Array([0xff, 0xd8, 0xff]);
+    const relativePath = `submissions/test-${crypto.randomUUID()}.jpg`;
+    await storage.uploadImage(new Blob([content], { type: "image/jpeg" }), relativePath);
+    try {
+      const res = await handler(
+        authedRequest(`http://localhost/${relativePath}`, token),
         serveInfo,
       );
       assertEquals(res.status, 200);

@@ -1,11 +1,12 @@
 import { parseSubmissionForm } from "../../../lib/api/submission_request.ts";
+import { toPublicError } from "../../../lib/api/public_error.ts";
 import { getUploadFormConfig } from "../../../lib/upload_config.ts";
 import {
   clientKey,
-  exceedsBodyLimit,
   RateLimiter,
   tooManyRequests,
 } from "../../../lib/security/rate_limit.ts";
+import { BodyTooLargeError, readFormDataWithLimit } from "../../../lib/security/body_limit.ts";
 import { verifyPowToken } from "../../../lib/security/pow_challenge_store.ts";
 import { securityGatesDisabled } from "../../../lib/security/gate_mode.ts";
 import { define } from "../../../utils.ts";
@@ -25,9 +26,6 @@ export const handlers = define.handlers({
         return ctx.json({ error: "Proof-of-work required", powRequired: true }, { status: 428 });
       }
     }
-    if (exceedsBodyLimit(ctx.req, MAX_UPLOAD_REQUEST_BYTES)) {
-      return ctx.json({ error: "Upload too large" }, { status: 413 });
-    }
     if (gatesOn) {
       const limit = uploadRateLimiter.check(clientKey(ctx.req, ctx.info));
       if (!limit.allowed) {
@@ -35,7 +33,7 @@ export const handlers = define.handlers({
       }
     }
     try {
-      const form = await ctx.req.formData();
+      const form = await readFormDataWithLimit(ctx.req, MAX_UPLOAD_REQUEST_BYTES);
       const uploadConfig = await getUploadFormConfig(ctx.state.services.photoWall);
       const { data } = parseSubmissionForm(form, {
         limit: uploadConfig.messageLengthLimit,
@@ -51,7 +49,10 @@ export const handlers = define.handlers({
         { status: 201 },
       );
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Invalid submission";
+      if (err instanceof BodyTooLargeError) {
+        return ctx.json({ error: "Upload too large" }, { status: 413 });
+      }
+      const message = toPublicError(err, "Invalid submission");
       return ctx.json({ error: message }, { status: 400 });
     }
   },

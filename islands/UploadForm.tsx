@@ -361,13 +361,13 @@ export default function UploadForm({
 
   if (success) {
     return (
-      <div style="text-align: center; padding: 2rem 0;">
-        <h2 style="color: #2e7d32;">Thank you!</h2>
+      <div class="upload-success">
+        <h2 class="heading-success">Thank you!</h2>
         <p>Your photo has been submitted and is waiting for moderation.</p>
-        <p style="margin-top: 1.5rem; font-size: 0.9rem; color: #555;">
+        <p class="text-subtle mt-lg">
           {POSTING_GUIDELINES_DISCLAIMER}
         </p>
-        <a href="/upload" style="display: inline-block; margin-top: 1.5rem; color: #ef3340;">
+        <a href="/upload" class="link-brand--block">
           Submit another photo
         </a>
       </div>
@@ -392,7 +392,7 @@ export default function UploadForm({
   return (
     <>
       <ConnectionBanner status={connectionStatus} />
-      <form onSubmit={handleSubmit} style="max-width: 520px; margin: 0 auto;">
+      <form onSubmit={handleSubmit} class="form">
         <link rel="stylesheet" href="/upload.css" />
 
         <section class="upload-privacy-notice">
@@ -402,13 +402,13 @@ export default function UploadForm({
           </ul>
         </section>
 
-        <label data-field="photo" style="display: block; margin-bottom: 1rem;">
+        <label data-field="photo" class="form-label">
           Photo
           <input
             type="file"
             accept={UPLOAD_ACCEPT_ATTR}
             onChange={handlePhotoChange}
-            style="display: block; margin-top: 0.25rem;"
+            class="form-input--file"
           />
           {fieldErrors.photo && <span class="upload-field-error">{fieldErrors.photo}</span>}
           {previewLoading && <span class="upload-preview-loading">Loading preview…</span>}
@@ -426,7 +426,7 @@ export default function UploadForm({
           )}
         </label>
 
-        <label data-field="message" style="display: block; margin-bottom: 1rem;">
+        <label data-field="message" class="form-label">
           Message
           <textarea
             value={message}
@@ -435,15 +435,15 @@ export default function UploadForm({
             onPaste={handleMessagePaste}
             placeholder={promptText}
             rows={4}
-            style="display: block; width: 100%; margin-top: 0.25rem; padding: 0.5rem;"
+            class="form-input"
           />
-          <span style="font-size: 0.85rem; color: #666;">
+          <span class="text-small">
             {remaining} {lengthConfig.unit} remaining
           </span>
           {fieldErrors.message && <span class="upload-field-error">{fieldErrors.message}</span>}
         </label>
 
-        <label data-field="submitter_name" style="display: block; margin-bottom: 1rem;">
+        <label data-field="submitter_name" class="form-label">
           Your name
           <input
             value={submitterName}
@@ -453,14 +453,14 @@ export default function UploadForm({
               persistProfile(value, socialHandle);
               clearFieldError("submitter_name");
             }}
-            style="display: block; width: 100%; margin-top: 0.25rem; padding: 0.5rem;"
+            class="form-input"
           />
           {fieldErrors.submitter_name && (
             <span class="upload-field-error">{fieldErrors.submitter_name}</span>
           )}
         </label>
 
-        <label style="display: block; margin-bottom: 1rem;">
+        <label class="form-label">
           Instagram handle (optional)
           <input
             value={socialHandle}
@@ -469,12 +469,12 @@ export default function UploadForm({
               setSocialHandle(value);
               persistProfile(submitterName, value);
             }}
-            style="display: block; width: 100%; margin-top: 0.25rem; padding: 0.5rem;"
+            class="form-input"
           />
         </label>
 
-        <div data-field="acknowledged" style="margin-bottom: 1rem;">
-          <label style="display: flex; gap: 0.5rem; align-items: flex-start;">
+        <div data-field="acknowledged" class="form-field">
+          <label class="form-label--row">
             <input
               type="checkbox"
               checked={acknowledged}
@@ -503,12 +503,12 @@ export default function UploadForm({
         <button
           type="submit"
           disabled={loading}
-          style="background: #ef3340; color: white; border: none; padding: 0.6rem 1.5rem; cursor: pointer; opacity: 1;"
+          class="btn btn--primary-lg"
         >
           {loading ? "Processing photo…" : "Submit"}
         </button>
 
-        <p style="margin-top: 1.5rem; font-size: 0.9rem; color: #555;">
+        <p class="text-subtle mt-lg">
           {POSTING_GUIDELINES_DISCLAIMER}
         </p>
       </form>

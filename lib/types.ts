@@ -110,6 +110,8 @@ export interface AuditFilter {
   target_type?: string;
   date_from?: string;
   date_to?: string;
+  limit?: number;
+  offset?: number;
 }
 
 export interface SystemConfig {

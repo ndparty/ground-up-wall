@@ -17,17 +17,17 @@ const adminLinks = [
 
 export default define.page(function AdminIndexPage() {
   return (
-    <div style="padding: 2rem 1.5rem; max-width: 900px; margin: 0 auto;">
-      <h2 style="color: #ef3340;">Admin Panel</h2>
-      <div style="display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));">
+    <div class="page page--moderate">
+      <h2 class="heading-brand">Admin Panel</h2>
+      <div class="admin-grid">
         {adminLinks.map((link) => (
           <a
             key={link.href}
             href={link.href}
-            style="display: block; padding: 1.25rem; border: 1px solid #ddd; border-radius: 8px; text-decoration: none; color: inherit; background: #fafafa;"
+            class="admin-card"
           >
-            <strong style="color: #ef3340;">{link.title}</strong>
-            <p style="margin: 0.5rem 0 0; font-size: 0.9rem; color: #555;">{link.desc}</p>
+            <strong class="admin-card__title">{link.title}</strong>
+            <p class="admin-card__desc">{link.desc}</p>
           </a>
         ))}
       </div>

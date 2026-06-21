@@ -33,15 +33,12 @@ export default function TrainModeratorControls({
   }
 
   if (trainLength === 0) {
-    return <p style="color: #666;">No approved submissions on the display yet.</p>;
+    return <p class="text-muted">No approved submissions on the display yet.</p>;
   }
 
   return (
-    <section
-      class="moderate-train-panel"
-      style="margin-bottom: 2rem; padding: 1rem; border: 1px solid #ddd; border-radius: 8px; background: #fafafa;"
-    >
-      <h3 style="margin: 0 0 0.75rem; color: #ef3340;">Display train controls</h3>
+    <section class="panel--muted moderate-train-panel">
+      <h3 class="panel__title">Display train controls</h3>
       <link rel="stylesheet" href="/train.css" />
       <TrainControls
         variant="moderate"

@@ -11,6 +11,7 @@ import {
   serveInfo,
 } from "../../../lib/api/moderate_route_test_helpers.ts";
 import { cleanupTestData, createTestRepository } from "../../../lib/test_helpers.ts";
+import { testJpegBlob } from "../../../lib/image/test_jpeg.ts";
 
 async function createPendingSubmission(): Promise<string> {
   const dir = await Deno.makeTempDir();
@@ -24,7 +25,7 @@ async function createPendingSubmission(): Promise<string> {
     new AutoModeratorServiceImpl(),
   );
   const submission = await service.submitPublicSubmission({
-    image: new Blob([new Uint8Array([1, 2, 3])], { type: "image/jpeg" }),
+    image: testJpegBlob(),
     message: "Test message",
     submitter_name: "Tester",
   });

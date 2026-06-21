@@ -31,13 +31,17 @@ export default function ConnectionBanner({ status }: ConnectionBannerProps) {
     ? "Connection lost"
     : "Back online";
 
-  const background = isReconnecting ? "#f57c00" : status === "offline" ? "#c62828" : "#2e7d32";
+  const bannerClass = isReconnecting
+    ? "connection-banner connection-banner--reconnecting"
+    : status === "offline"
+    ? "connection-banner connection-banner--offline"
+    : "connection-banner connection-banner--online";
 
   return (
     <div
       role="status"
       aria-live="polite"
-      style={`position: fixed; bottom: 0; left: 0; right: 0; z-index: 9999; padding: 0.5rem 1rem; text-align: center; color: white; font-size: 0.95rem; background: ${background};`}
+      class={bannerClass}
     >
       {message}
     </div>

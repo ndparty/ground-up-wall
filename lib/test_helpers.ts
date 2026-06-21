@@ -41,4 +41,6 @@ export async function cleanupTestData(): Promise<void> {
   } finally {
     await client.end();
   }
+  const { resetTestSessionCache } = await import("../main.ts");
+  resetTestSessionCache();
 }

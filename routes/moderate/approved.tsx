@@ -15,11 +15,11 @@ export const handlers = define.handlers({
 
 export default define.page(function ModerateApprovedPage() {
   return (
-    <div style="padding: 2rem 1.5rem; max-width: 900px; margin: 0 auto;">
-      <p style="margin: 0 0 1rem;">
-        <a href="/moderate" style="color: #ef3340;">← Back to moderation</a>
+    <div class="page page--moderate">
+      <p class="mb-md">
+        <a href="/moderate" class="link-back">← Back to moderation</a>
       </p>
-      <h2 style="color: #ef3340;">Gallery</h2>
+      <h2 class="heading-brand">Gallery</h2>
       <DisplayOverrideControls />
       <ModeratorTrainPanel />
       <ModerateApprovedGallery />

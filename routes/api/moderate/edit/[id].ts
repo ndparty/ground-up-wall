@@ -1,4 +1,5 @@
 import type { SubmissionEditData } from "../../../../lib/types.ts";
+import { toPublicError } from "../../../../lib/api/public_error.ts";
 import { define } from "../../../../utils.ts";
 
 export const handlers = define.handlers({
@@ -10,8 +11,7 @@ export const handlers = define.handlers({
       const submission = await ctx.state.services.photoWall.editSubmission(id, body, user.id);
       return ctx.json(submission);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Edit failed";
-      return ctx.json({ error: message }, { status: 400 });
+      return ctx.json({ error: toPublicError(err, "Edit failed") }, { status: 400 });
     }
   },
 });

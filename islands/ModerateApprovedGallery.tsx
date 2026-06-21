@@ -83,9 +83,9 @@ export default function ModerateApprovedGallery() {
   return (
     <>
       <ConnectionBanner status={connectionStatus} />
-      {error && <p style="color: #c62828;">{error}</p>}
+      {error && <p class="text-error--block">{error}</p>}
       {!loaded
-        ? <p style="text-align: center; color: #666;">Loading approved…</p>
+        ? <p class="text-loading">Loading approved…</p>
         : (
           <ApprovedWallList
             approved={approved}

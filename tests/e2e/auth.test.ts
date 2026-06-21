@@ -19,8 +19,8 @@ Deno.test({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           currentPassword: "modpass",
-          newPassword: "newmodpass",
-          confirmPassword: "newmodpass",
+          newPassword: "newmodpass12",
+          confirmPassword: "newmodpass12",
         }),
       }),
       serveInfo,
@@ -41,8 +41,8 @@ Deno.test({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           currentPassword: "wrong",
-          newPassword: "newmodpass",
-          confirmPassword: "newmodpass",
+          newPassword: "newmodpass12",
+          confirmPassword: "newmodpass12",
         }),
       }),
       serveInfo,
@@ -63,7 +63,7 @@ Deno.test({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           currentPassword: "modpass",
-          newPassword: "newmodpass",
+          newPassword: "newmodpass12",
           confirmPassword: "different",
         }),
       }),

@@ -13,13 +13,13 @@ function formatTime(iso: string): string {
 function MessageText({ message, flaggedWords }: { message: string; flaggedWords?: string[] }) {
   const segments = highlightFlaggedWords(message, flaggedWords ?? []);
   return (
-    <p style="margin: 0.5rem 0; line-height: 1.5;">
+    <p class="submission-card__message">
       {segments.map((seg, i) =>
         seg.highlighted
           ? (
             <mark
               key={i}
-              style="background: #ffe0e0; color: #c41e3a; text-decoration: underline;"
+              class="submission-card__highlight"
             >
               {seg.text}
             </mark>
@@ -57,10 +57,6 @@ function SubmissionCard({
   const [socialHandle, setSocialHandle] = useState(submission.social_handle ?? "");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-
-  const flaggedStyle = submission.is_flagged
-    ? "border: 2px solid #f0ad4e; background: #fff8e6;"
-    : "border: 1px solid #ddd; background: white;";
 
   async function handleReject() {
     if (!globalThis.confirm("Reject this submission?")) return;
@@ -119,31 +115,31 @@ function SubmissionCard({
 
   return (
     <article
-      style={`padding: 1rem; border-radius: 8px; margin-bottom: 1rem; ${flaggedStyle}`}
+      class={`submission-card ${submission.is_flagged ? "submission-card--flagged" : ""}`}
     >
       {submission.is_flagged && (
-        <p style="margin: 0 0 0.5rem; color: #b8860b; font-weight: 600;">
+        <p class="submission-card__flag">
           ⚠ Flagged for review
           {submission.flagged_words?.length ? ` (${submission.flagged_words.join(", ")})` : ""}
         </p>
       )}
-      <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+      <div class="submission-card__body">
         <img
           src={submission.image_url}
           alt="Submission"
           loading={lazyImage ? "lazy" : undefined}
-          style="width: 120px; height: 120px; object-fit: cover; border-radius: 4px;"
+          class="submission-card__thumb"
         />
-        <div style="flex: 1; min-width: 0; max-width: 100%;">
+        <div class="submission-card__content">
           {editing
             ? (
-              <div style="display: flex; flex-direction: column; gap: 0.5rem; max-width: 100%;">
+              <div class="form-stack">
                 <textarea
                   value={message}
                   onInput={(e) => setMessage((e.target as HTMLTextAreaElement).value)}
                   rows={3}
                   aria-label="Submission message"
-                  style="width: 100%; max-width: 100%; box-sizing: border-box; padding: 0.5rem; resize: vertical;"
+                  class="submission-card__textarea"
                 />
                 <input
                   type="text"
@@ -151,7 +147,7 @@ function SubmissionCard({
                   onInput={(e) => setSubmitterName((e.target as HTMLInputElement).value)}
                   placeholder="Name"
                   aria-label="Submitter name"
-                  style="width: 100%; max-width: 100%; box-sizing: border-box; padding: 0.5rem;"
+                  class="submission-card__input"
                 />
                 <input
                   type="text"
@@ -159,14 +155,14 @@ function SubmissionCard({
                   onInput={(e) => setSocialHandle((e.target as HTMLInputElement).value)}
                   placeholder="Social handle"
                   aria-label="Social handle"
-                  style="width: 100%; max-width: 100%; box-sizing: border-box; padding: 0.5rem;"
+                  class="submission-card__input"
                 />
-                <div style="display: flex; gap: 0.5rem;">
+                <div class="form-row--actions">
                   <button
                     type="button"
                     disabled={busy}
                     onClick={handleSaveEdit}
-                    style="padding: 0.4rem 0.8rem; background: #ef3340; color: white; border: none; border-radius: 4px; cursor: pointer;"
+                    class="btn btn--danger"
                   >
                     Save
                   </button>
@@ -174,7 +170,7 @@ function SubmissionCard({
                     type="button"
                     disabled={busy}
                     onClick={() => setEditing(false)}
-                    style="padding: 0.4rem 0.8rem; background: #ccc; border: none; border-radius: 4px; cursor: pointer;"
+                    class="btn btn--cancel"
                   >
                     Cancel
                   </button>
@@ -187,15 +183,15 @@ function SubmissionCard({
                   message={submission.message}
                   flaggedWords={submission.flagged_words}
                 />
-                <p style="margin: 0.25rem 0; font-size: 0.9rem;">
+                <p class="submission-card__meta">
                   <strong>{submission.submitter_name}</strong>
                   {submission.social_handle && ` · ${submission.social_handle}`}
                 </p>
-                <p style="margin: 0; font-size: 0.8rem; color: #666;">
+                <p class="submission-card__time">
                   {formatTime(submission.created_at)}
                 </p>
                 {submission.edit_count > 0 && (
-                  <p style="margin: 0.25rem 0 0; font-size: 0.8rem; color: #666; font-style: italic;">
+                  <p class="submission-card__edited">
                     Edited{submission.edited_by
                       ? ` (moderator ${submission.edited_by_username ?? submission.edited_by})`
                       : ""}
@@ -207,13 +203,13 @@ function SubmissionCard({
         </div>
       </div>
       {!editing && (
-        <div style="margin-top: 0.75rem; display: flex; flex-wrap: wrap; gap: 0.5rem;">
+        <div class="submission-card__actions">
           {onApprove && (
             <button
               type="button"
               disabled={busy}
               onClick={handleApprove}
-              style="padding: 0.4rem 0.8rem; background: #2e7d32; color: white; border: none; border-radius: 4px; cursor: pointer;"
+              class="btn btn--approve"
             >
               Approve
             </button>
@@ -223,7 +219,7 @@ function SubmissionCard({
               type="button"
               disabled={busy}
               onClick={handleReject}
-              style="padding: 0.4rem 0.8rem; background: #c62828; color: white; border: none; border-radius: 4px; cursor: pointer;"
+              class="btn btn--reject"
             >
               Reject
             </button>
@@ -233,7 +229,7 @@ function SubmissionCard({
               type="button"
               disabled={busy}
               onClick={() => setEditing(true)}
-              style="padding: 0.4rem 0.8rem; background: #1565c0; color: white; border: none; border-radius: 4px; cursor: pointer;"
+              class="btn btn--edit"
             >
               Edit
             </button>
@@ -243,7 +239,7 @@ function SubmissionCard({
               type="button"
               disabled={busy}
               onClick={handleDelete}
-              style="padding: 0.4rem 0.8rem; background: #333; color: white; border: none; border-radius: 4px; cursor: pointer;"
+              class="btn btn--dark"
             >
               Delete
             </button>
@@ -253,14 +249,14 @@ function SubmissionCard({
               type="button"
               disabled={busy}
               onClick={() => void onShowOnDisplay()}
-              style="padding: 0.4rem 0.8rem; background: #6a1b9a; color: white; border: none; border-radius: 4px; cursor: pointer;"
+              class="btn btn--purple"
             >
               Show on display (cabin {cabinNumber})
             </button>
           )}
         </div>
       )}
-      {error && <p style="color: #c62828; margin: 0.5rem 0 0; font-size: 0.9rem;">{error}</p>}
+      {error && <p class="submission-card__error">{error}</p>}
     </article>
   );
 }
@@ -371,17 +367,17 @@ export default function ModerationQueue() {
   }
 
   if (!loaded) {
-    return <p style="text-align: center; color: #666;">Loading queue…</p>;
+    return <p class="text-loading">Loading queue…</p>;
   }
 
   return (
     <div>
       <ConnectionBanner status={connectionStatus} />
-      {error && <p style="color: #c62828;">{error}</p>}
+      {error && <p class="text-error--block">{error}</p>}
 
-      <h3 style="color: #ef3340;">Pending submissions</h3>
+      <h3 class="heading-section">Pending submissions</h3>
       {pending.length === 0
-        ? <p style="color: #666;">No pending submissions</p>
+        ? <p class="text-muted">No pending submissions</p>
         : pending.map((sub) => (
           <SubmissionCard
             key={sub.id}
@@ -409,7 +405,7 @@ export default function ModerationQueue() {
           />
         ))}
 
-      <h3 style="color: #ef3340; margin-top: 2rem;">Approved on wall</h3>
+      <h3 class="heading-section--spaced">Approved on wall</h3>
       <ApprovedWallList
         approved={approved}
         onEdit={async (sub, data) => {

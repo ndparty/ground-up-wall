@@ -27,7 +27,7 @@ Deno.test({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           userId: mod.id,
-          newPassword: "newpass123",
+          newPassword: "newpass123456",
           role: "moderator",
         }),
       }),
@@ -36,7 +36,7 @@ Deno.test({
     assertEquals(res.status, 200);
 
     const user = await repo.authenticateUser(mod.username);
-    assertEquals(await bcrypt.verify("newpass123", user!.password_hash), true);
+    assertEquals(await bcrypt.verify("newpass123456", user!.password_hash), true);
 
     const logs = await repo.getAuditLog({ action_type: "reset_password" });
     assertEquals(logs.some((e) => e.target_id === mod.id), true);

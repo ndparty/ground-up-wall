@@ -481,6 +481,27 @@ export class PostgresRepository implements Repository {
   }
 
   async getAuditLog(filters: AuditFilter): Promise<AuditEntry[]> {
+    const { where, params } = this.buildAuditLogWhere(filters);
+    let pagination = "";
+    if (filters.limit !== undefined) {
+      params.push(filters.limit);
+      pagination += ` LIMIT $${params.length}`;
+    }
+    if (filters.offset !== undefined) {
+      params.push(filters.offset);
+      pagination += ` OFFSET $${params.length}`;
+    }
+    const rows = await this.query<AuditRow>(
+      `SELECT a.*, u.username AS moderator_username
+       FROM audit_log a
+       LEFT JOIN users u ON u.id::text = a.moderator_id
+       ${where} ORDER BY a.timestamp DESC${pagination}`,
+      params,
+    );
+    return rows.map(mapAudit);
+  }
+
+  private buildAuditLogWhere(filters: AuditFilter): { where: string; params: unknown[] } {
     const conditions: string[] = [];
     const params: unknown[] = [];
 
@@ -506,14 +527,16 @@ export class PostgresRepository implements Repository {
     }
 
     const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
-    const rows = await this.query<AuditRow>(
-      `SELECT a.*, u.username AS moderator_username
-       FROM audit_log a
-       LEFT JOIN users u ON u.id::text = a.moderator_id
-       ${where} ORDER BY a.timestamp DESC`,
+    return { where, params };
+  }
+
+  async countAuditLog(filters: AuditFilter): Promise<number> {
+    const { where, params } = this.buildAuditLogWhere(filters);
+    const rows = await this.query<{ count: string }>(
+      `SELECT COUNT(*)::text AS count FROM audit_log a ${where}`,
       params,
     );
-    return rows.map(mapAudit);
+    return Number(rows[0]?.count ?? 0);
   }
 
   async createDisplayWallUser(data: CreateUserData): Promise<User> {

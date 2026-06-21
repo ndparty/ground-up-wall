@@ -15,8 +15,8 @@ export const handlers = define.handlers({
 
 export default define.page(function ModeratePage() {
   return (
-    <div style="padding: 2rem 1.5rem; max-width: 900px; margin: 0 auto;">
-      <h2 style="color: #ef3340;">Moderation</h2>
+    <div class="page page--moderate">
+      <h2 class="heading-brand">Moderation</h2>
       <DisplayOverrideControls />
       <ModeratorTrainPanel />
       <ModerationQueue />

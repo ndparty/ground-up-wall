@@ -17,6 +17,7 @@ import {
   type TrainPlaybackState,
 } from "../train/train_playback_controller.ts";
 import { SEEDED_DEFAULT_WORD_LIST } from "./auto_moderator_service_impl.ts";
+import { safeError } from "../log_safe.ts";
 import { isMessageValid, type MessageLengthConfig } from "../validation/message_length.ts";
 import type {
   AuditEntry,
@@ -85,7 +86,7 @@ export class PhotoWallService {
       JSON.stringify(snapshot),
       "system",
     ).catch((error) => {
-      console.error("Failed to persist train playback state:", error);
+      console.error("Failed to persist train playback state:", safeError(error));
     });
   }
 
@@ -220,8 +221,18 @@ export class PhotoWallService {
     moderatorId: string,
     reason?: string,
   ): Promise<Submission> {
+    const existing = await this.repository.getSubmissionById(id);
+    if (!existing || existing.status !== "pending") {
+      throw new Error("Submission is not pending");
+    }
+
     const submission = await this.repository.updateSubmissionStatusIfPending(id, "rejected");
     if (!submission) throw new Error("Submission is not pending");
+
+    if (existing.image_url) {
+      const path = existing.image_url.replace(/^\//, "");
+      await this.storage.deleteImage(path);
+    }
 
     await this.audit.logAction({
       moderator_id: moderatorId,
@@ -534,6 +545,18 @@ export class PhotoWallService {
 
   async getAuditLog(filters: AuditFilter): Promise<AuditEntry[]> {
     return await this.audit.getLog(filters);
+  }
+
+  async getAuditLogPage(
+    filters: AuditFilter,
+    limit: number,
+    offset: number,
+  ): Promise<{ entries: AuditEntry[]; total: number }> {
+    const [entries, total] = await Promise.all([
+      this.repository.getAuditLog({ ...filters, limit, offset }),
+      this.repository.countAuditLog(filters),
+    ]);
+    return { entries, total };
   }
 
   async listDisplayWallUsers(): Promise<DisplayWallUser[]> {
