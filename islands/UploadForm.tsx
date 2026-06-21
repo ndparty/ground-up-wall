@@ -461,7 +461,7 @@ export default function UploadForm({
       </label>
 
       <label style="display: block; margin-bottom: 1rem;">
-        Social handle (optional)
+        Instagram handle (optional)
         <input
           value={socialHandle}
           onInput={(e) => {
@@ -483,7 +483,7 @@ export default function UploadForm({
               clearFieldError("acknowledged");
             }}
           />
-          <span>I've read and understood the privacy notice and posting guidelines</span>
+          <span>By submitting content to the photowall (e.g. photo, message, name and Instagram handle), I consent to the National Day Ground-Up Party (NDGUP) team displaying my submitted content during the event, e.g. on the central display screen. I understand that the photowall is in a public event setting and may be viewed, photographed, recorded, or shared by other participants. I understand that the NDGUP team and its 3rd parties, including NLB, may use the submitted content for publicity and any other purposes.</span>
         </label>
         {fieldErrors.acknowledged && (
           <span class="upload-field-error">{fieldErrors.acknowledged}</span>

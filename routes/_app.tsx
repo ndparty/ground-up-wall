@@ -7,7 +7,7 @@ export default define.page(function App({ Component }) {
       <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Ground Up Wall — National Day</title>
+        <title>Ground-Up Photowall — National Day Ground-Up Party</title>
         <link rel="icon" href="/sg-flag.svg" type="image/svg+xml" />
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
@@ -49,7 +49,7 @@ export default define.page(function App({ Component }) {
       <body>
         <header class="brand-header">
           <img src="/logo-dark.png" alt="National Day" />
-          <h1>Ground Up Wall</h1>
+          <h1>Ground-Up Photowall</h1>
           <AuthStatus />
         </header>
         <main>

@@ -116,7 +116,7 @@ Deno.test({
     const res = await handler(new Request("http://localhost/upload"), serveInfo);
     assertEquals(res.status, 200);
     const html = await res.text();
-    assertStringIncludes(html, "Share your moment");
+    assertStringIncludes(html, "Share your moment!");
     await teardownTestDb();
   },
 });

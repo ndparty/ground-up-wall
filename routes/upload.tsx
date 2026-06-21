@@ -14,7 +14,7 @@ export const handlers = define.handlers({
 export default define.page<typeof handlers>(function UploadPage({ data }) {
   return (
     <div style="padding: 2rem 1.5rem;">
-      <h2 style="color: #ef3340; text-align: center;">Share your moment</h2>
+      <h2 style="color: #ef3340; text-align: center;">Share your moment!</h2>
       <UploadForm
         messagePromptText={data.messagePromptText}
         messageLengthLimit={data.messageLengthLimit}
