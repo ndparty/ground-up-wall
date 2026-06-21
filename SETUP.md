@@ -75,7 +75,7 @@ For a step-by-step demo walkthrough, see **[DEMO.md](DEMO.md)**.
    deno task start
    ```
 
-   Open http://localhost:8000
+   Open http://localhost:8080
 
 ## Default accounts
 

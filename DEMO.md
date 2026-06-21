@@ -43,7 +43,7 @@ deno task db:seed:demos
 deno task start
 ```
 
-Open **http://localhost:8000**
+Open **http://localhost:8080**
 
 The app loads variables from `.env` automatically at startup (via `lib/load_env.ts`). You do not need to export every variable to your shell unless you want to override `.env` values.
 
@@ -93,7 +93,7 @@ Use separate browser windows or profiles so sessions do not overwrite each other
 
 ### Window 1 — Participant upload (no login)
 
-1. Open **http://localhost:8000/upload**
+1. Open **http://localhost:8080/upload**
 2. Choose a photo (max 10 MB)
 3. Enter name and message; check the privacy acknowledgment
 4. Submit — you should see a success confirmation
@@ -111,7 +111,7 @@ If HEIC fails on a device, ask the participant to enable **Settings → Camera �
 
 ### Window 2 — Moderator approval
 
-1. Open **http://localhost:8000/login**
+1. Open **http://localhost:8080/login**
 2. Log in as `moderator` / `demo123` (or your configured password)
 3. You are redirected to **/moderate**
 4. Find the pending submission; approve it
@@ -119,7 +119,7 @@ If HEIC fails on a device, ask the participant to enable **Settings → Camera �
 
 ### Window 3 — Display wall
 
-1. Open **http://localhost:8000/login** in a new window
+1. Open **http://localhost:8080/login** in a new window
 2. Log in as `display` / `demo123`
 3. You are redirected to **/display**
 4. If the fullscreen prompt appears, choose **Go fullscreen** or **Not now** (or press F11 later)
@@ -129,7 +129,7 @@ If HEIC fails on a device, ask the participant to enable **Settings → Camera �
 ### Optional — Admin panel
 
 1. Log in as `admin`
-2. Visit **http://localhost:8000/admin**
+2. Visit **http://localhost:8080/admin**
 3. Try: **Users**, **Parameters** (dwell time, word list), **Audit log**, **Display override**
 
 ---
@@ -165,7 +165,7 @@ Automated audit integrity checks: `deno task test:e2e:smoke --filter audit`
 
 | Command | Purpose |
 |---------|---------|
-| `deno task start` | Dev server with hot reload (port 8000) |
+| `deno task start` | Dev server with hot reload (port 8080) |
 | `deno task db:migrate` | Create/update database schema |
 | `deno task db:seed` | Admin + demo users + default system parameters |
 | `deno task db:seed:demos` | 40 approved demo submissions with numbered images |

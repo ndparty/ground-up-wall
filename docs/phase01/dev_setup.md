@@ -61,7 +61,7 @@ deno task db:seed
 deno task start
 ```
 
-Open http://localhost:8000. Full demo walkthrough: **[../../DEMO.md](../../DEMO.md)**. Developer details: **[../../SETUP.md](../../SETUP.md)**.
+Open http://localhost:8080. Full demo walkthrough: **[../../DEMO.md](../../DEMO.md)**. Developer details: **[../../SETUP.md](../../SETUP.md)**.
 
 OS-specific install instructions for each step are below.
 

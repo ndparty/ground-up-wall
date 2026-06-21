@@ -34,7 +34,7 @@ deno task db:seed
 deno task start
 ```
 
-Open http://localhost:8000 — see [DEMO.md](DEMO.md) for the full walkthrough and demo accounts.
+Open http://localhost:8080 — see [DEMO.md](DEMO.md) for the full walkthrough and demo accounts.
 
 The app reads `.env` at startup automatically. Full setup: **[SETUP.md](SETUP.md)**  
 OS-specific tool install: **[docs/phase01/dev_setup.md](docs/phase01/dev_setup.md)**
