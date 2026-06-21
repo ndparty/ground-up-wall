@@ -1,5 +1,6 @@
 import { useState } from "preact/hooks";
 import { loginRedirectPath } from "../lib/auth/login_redirect.ts";
+import { readJsonError, uploadErrorMessage } from "../lib/api/upload_client.ts";
 import { obtainPowToken } from "../lib/security/pow_client.ts";
 import type { User } from "../lib/types.ts";
 
@@ -32,13 +33,16 @@ export default function LoginForm({ initialError = "" }: LoginFormProps) {
 
       let res = await send();
       if (res.status === 428) {
-        // Proof-of-work challenge enabled — solve and retry once.
         const token = await obtainPowToken();
-        if (token) res = await send(token);
+        if (!token) {
+          setError(uploadErrorMessage(null, 428));
+          return;
+        }
+        res = await send(token);
       }
       if (!res.ok) {
-        const body = await res.json();
-        setError(body.error ?? "Login failed");
+        const bodyError = await readJsonError(res);
+        setError(uploadErrorMessage(null, res.status, bodyError));
         return;
       }
       const body = await res.json();
@@ -48,8 +52,8 @@ export default function LoginForm({ initialError = "" }: LoginFormProps) {
       } else {
         globalThis.location.href = "/upload";
       }
-    } catch {
-      setError("Login failed");
+    } catch (err) {
+      setError(uploadErrorMessage(err));
     } finally {
       setLoading(false);
     }

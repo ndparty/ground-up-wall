@@ -9,6 +9,7 @@ export default function AuthStatus() {
     fetch("/api/auth/me")
       .then((res) => (res.ok ? res.json() : { user: null }))
       .then((data) => setUser(data.user ?? null))
+      .catch(() => setUser(null))
       .finally(() => setLoaded(true));
   }, []);
 
