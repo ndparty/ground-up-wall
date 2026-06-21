@@ -43,7 +43,7 @@
 
 ### 2. DisplayComponent
 
-**Purpose**: Renders the SMRT train animation on the TV screen
+**Purpose**: Renders the metro train animation on the TV screen
 
 **Responsibilities**:
 - Fetch approved submissions (initial load)
@@ -53,18 +53,16 @@
 - Display branded waiting screen when no submissions exist
 - Maintain 60fps animation performance
 - Pause/play/jump-to-cabin controls (visible to logged-in Moderators/Admins only, FR-24a Update 01)
-  - **Jump-to-cabin** uses a *chain-relinking* algorithm: the target cabin is temporarily linked as the immediate next cabin of the current cabin, a single `transitionToNextCabin()` scroll is executed, then the original chain is restored. See `jumpToCabin()` in component-methods.md for the full algorithm.
+  - **Jump-to-cabin** uses the K-buffer forward-only model in `lib/train/train_view.ts`: temporarily collapse ring nodes between V+K and T−K, animate a single proportional slide to target, then snap. See Update 03 in `component-methods.md`.
+  - Server dwell timer pauses during blank/placeholder override (FR-24c); resume recenters on frozen cabin.
 - Require authentication (Display Wall User / Photo Moderator / Admin only); show 403 message for unauthenticated/Participant access (FR-24b revised, Update 02)
 - Respond to display override commands (blank screen, placeholder image, resume) from mod/admin panel via RealtimeService (FR-24c, Update 02)
-- On refresh, restart from cabin 0 in playing state (FR-24a note)
+- On refresh, client bootstraps from server playback state (`currentCabin`, `isPlaying`) — see verification note on FR-24a vs NFR-11
 **Interfaces**:
 - `loadApprovedSubmissions(): Promise<Submission[]>`
 - `subscribeToUpdates(callback: (submission: Submission) => void): UnsubscribeFn`
 - `renderTrain(submissions: Submission[]): void`
-- `transitionToNextCabin(): void`
-- `pauseTrain(): void` (Update 01)
-- `resumeTrain(): void` (Update 01)
-- `jumpToCabin(cabinNumber: number): void` (Update 01)
+- `useTrainPlayback()` hook — pause/play/jump, SSE sync (Update 03)
 - `checkAuthAccess(): Promise<{allowed: boolean, role: string}>` (Update 02)
 - `handleDisplayOverride(command: DisplayOverrideCommand): void` (Update 02)
 - `subscribeToDisplayOverride(callback: (command: DisplayOverrideCommand) => void): UnsubscribeFn` (Update 02)

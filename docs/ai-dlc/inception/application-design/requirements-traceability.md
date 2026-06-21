@@ -18,7 +18,7 @@ This document maps all functional requirements (FR), non-functional requirements
 | FR-02b | Posting guidelines disclaimer on upload form and success page: re-submit advice, moderator editing notice, no rejection notifications | UploadComponent | PhotoWallService | Test: Disclaimer displayed |
 | FR-03 | Submitted photos held in moderation queue | UploadComponent, ModerationComponent | PhotoWallService, Repository | Test: Pending status |
 | FR-04 | Success message after submission | UploadComponent | PhotoWallService | Test: Success response |
-| FR-05 | Upload page accessible via QR code and short URL | UploadComponent | - | Test: URL routing |
+| FR-05 | Upload page via short URL; in-app QR generated from base origin + top base-URL bar (Update 05) | UploadComponent, DisplayComponent | - | Code: `lib/qr/qr_code.ts`, `TrainCabin.tsx` (QR cabin), `TrainDisplay.tsx` (join bar) |
 
 ### Photo Moderation Panel (FR-06 to FR-10)
 
@@ -55,17 +55,20 @@ This document maps all functional requirements (FR), non-functional requirements
 
 | Requirement | Description | Components | Services | Verification |
 |-------------|-------------|------------|----------|--------------|
-| FR-17 | Display wall shows moving SMRT train animation scrolling right to left | DisplayComponent | PhotoWallService | Test: Animation renders |
-| FR-18 | Train consists of cabins, each displaying photo + message + name + optional social handle | DisplayComponent | PhotoWallService | Test: Cabin display |
-| FR-19 | Configurable dwell time per cabin (default ~15s, range 3-60s, 1s increments) | DisplayComponent | PhotoWallService, Repository | Test: Configurable timing |
-| FR-20 | Transition between cabins uses smooth scroll animation — train physically moves left | DisplayComponent | PhotoWallService | Test: Smooth transition |
-| FR-21 | Cabin order is chronological (oldest first) | DisplayComponent | PhotoWallService, Repository | Test: Chronological order |
-| FR-22 | New approved submissions added automatically in real-time (within 30s) | DisplayComponent | PhotoWallService, RealtimeService | Test: Real-time update |
-| FR-23 | Branded waiting screen when no submissions approved | DisplayComponent | PhotoWallService | Test: Empty state |
-| FR-24 | Display wall runs full-screen in browser on laptop/PC connected to TV via HDMI | DisplayComponent | - | Test: Full-screen mode |
-| FR-24a | Pause/play/jump-to-cabin controls on display wall (moderator/admin only); on refresh, restart from cabin 0 in playing state | DisplayComponent, AuthComponent | PhotoWallService, RealtimeService | Test: Pause/play/jump |
-| FR-24b | Display wall requires authentication (Display Wall User / Mod / Admin only); 403 for unauthenticated/participants; persisted auth model | DisplayComponent, AuthComponent | PhotoWallService, Repository | Test: Auth-only access |
-| FR-24c | Display override controls (blank/placeholder/resume) from mod/admin panel; broadcast via RealtimeService; persisted state; auditable | ModerationComponent, AdminComponent, DisplayComponent | PhotoWallService, RealtimeService, Repository, AuditService | Test: Display override commands |
+| FR-17 | Display wall shows moving MRT-style metro train animation scrolling right to left | DisplayComponent | PhotoWallService | Code: `TrainDisplay.tsx`, `train.css`, `center_track.ts` |
+| FR-18 | Cabins display 1:1 photo + message + name + optional handle; constant-height info panel (Update 05) | DisplayComponent | PhotoWallService | Code: `TrainCabin.tsx`, `train.css`, `lib/image/cabin_image.ts` |
+| FR-19 | Configurable dwell time per cabin (default ~15s, range 3-60s, 1s increments) | DisplayComponent | PhotoWallService, Repository | Code: `train_playback_controller.ts`, `SystemParameters.tsx` |
+| FR-20 | Transition between cabins uses smooth scroll animation — train physically moves left | DisplayComponent | PhotoWallService | Code: `TrainDisplay.tsx`, `center_track.ts`, `slide_duration.ts` |
+| FR-20a | Off-screen mutation invariant — satisfied by construction by the right-edge generator (Update 05); cabins only enter at the right edge and leave past the left edge | DisplayComponent | PhotoWallService | Code: `train_playback_controller.ts` (right-edge emission), `train_view.ts`; tests `train_playback_controller_test.ts`, `train_view_test.ts` |
+| FR-21 | Chronological canonical sequence (oldest first); approved post appended + previewed once (Update 05) | DisplayComponent | PhotoWallService, Repository | Code: `postgres_repository.getSubmissionsByStatus`, `train_playback_controller.ts` |
+| FR-22 | Server-authoritative generator + FIFO queue; per-tick right-edge emit, full-window broadcast (Update 05) | DisplayComponent | PhotoWallService, RealtimeService | Code: `train_playback_controller.ts`, `events.ts` SSE, `use_train_playback.ts` |
+| FR-22a | Recurring in-app QR "join the wall" cabin at `qr_cabin_interval` via the FIFO queue (Update 05) | DisplayComponent | PhotoWallService | Code: `train_playback_controller.ts` (QR enqueue), `lib/qr/qr_code.ts`, `TrainCabin.tsx` |
+| FR-13b | Event killswitch + public-uploads toggle gating dynamic routes (Update 05) | AdminComponent | PhotoWallService | Code: `lib/middleware/access_gate.ts`, `main.ts`, `parameter_validation.ts`; tests `access_gate_test.ts` |
+| FR-23 | Branded waiting screen when no submissions approved | DisplayComponent | PhotoWallService | Code: `TrainDisplay.tsx` empty state |
+| FR-24 | Display wall runs full-screen in browser on laptop/PC connected to TV via HDMI | DisplayComponent | - | Code: `train.css` fixed layout |
+| FR-24a | Pause/play/jump-to-cabin controls on display wall (moderator/admin only); on refresh, restart from cabin 0 in playing state | DisplayComponent, AuthComponent | PhotoWallService, RealtimeService | Code: `TrainControls.tsx`, `train-command.ts`, `use_train_playback.ts` — see verification note |
+| FR-24b | Display wall requires authentication (Display Wall User / Mod / Admin only); 403 for unauthenticated/participants; persisted auth model | DisplayComponent, AuthComponent | PhotoWallService, Repository | Code: `routes/display.tsx` |
+| FR-24c | Display override controls (blank/placeholder/resume) from mod/admin panel; broadcast via RealtimeService; persisted state; auditable | ModerationComponent, AdminComponent, DisplayComponent | PhotoWallService, RealtimeService, Repository, AuditService | Code: `commandDisplayOverride`, `DisplayOverrideControls.tsx` |
 
 ---
 
@@ -123,13 +126,19 @@ This document maps all functional requirements (FR), non-functional requirements
 |-------------|-------------|-------------------|------------|--------------|
 | NFR-22 | Append-only audit log for moderator/admin actions; capture user ID, action type (including display override), target, old/new value, timestamp (UTC ms); filterable read-only view in Admin panel | Dedicated `audit_log` table, AuditService module, Admin UI with filtering | AuditService, AdminComponent, PhotoWallService, Repository | Test: Audit entry creation + integrity |
 
+### Security Hardening (NFR-23, Update 04)
+
+| Requirement | Description | Technical Strategy | Components | Verification |
+|-------------|-------------|-------------------|------------|--------------|
+| NFR-23 | Public-surface hardening: security headers, Secure cookie, upload body-size guard, per-IP rate limiting, login lockout, admin-toggleable proof-of-work for upload + login | Security-headers middleware; in-memory rate limiter + login throttle; isomorphic hashcash PoW with single-use nonce store; `pow_challenge_enabled` system param | Public routes, AuthService, PhotoWallService | Code: `lib/middleware/security_headers.ts`, `lib/cookies.ts`, `lib/security/rate_limit.ts`, `lib/security/login_throttle.ts`, `lib/security/pow.ts`, `lib/security/pow_challenge_store.ts`, `routes/api/pow/challenge.ts`; tests `rate_limit_test.ts`, `login_throttle_test.ts`, `pow_test.ts`, `main_test.ts` |
+
 ---
 
 ## Design Requirements Traceability
 
 | Requirement | Description | Technical Strategy | Components | Verification |
 |-------------|-------------|-------------------|------------|--------------|
-| DR-01 | Realistic SMRT MRT train look (red/white) | CSS styling, SVG/CSS train graphics | DisplayComponent | Test: Visual design review |
+| DR-01 | Realistic red-and-white MRT-style metro train look | CSS styling, SVG/CSS train graphics | DisplayComponent | Test: Visual design review |
 | DR-02 | Singapore National Day branding (subtle) | Red/white color palette, national day motifs | DisplayComponent | Test: Visual design review |
 | DR-03 | Festive and community-oriented feel | Appropriate typography, colors, spacing | All UI Components | Test: Visual design review |
 | DR-04 | Warm, community-appropriate tone for all user-facing copy (privacy notice, disclaimer, success, errors) | Copywriting guidelines, DR-04 tone applied to all participant-facing text | UploadComponent, All components with user copy | Test: Copy review |

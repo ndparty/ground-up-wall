@@ -70,7 +70,7 @@ This document provides detailed method signatures for all components. Business r
 
 **Purpose**: Load configurable prompt text from system parameters
 
-**Returns**: Prompt text string (default: "What does National Day mean to you?")
+**Returns**: Prompt text string (default: "Share your National Day moment!", Update 04)
 
 **Business Rules**:
 - Fetches from system parameters via PhotoWallService
@@ -138,7 +138,7 @@ This document provides detailed method signatures for all components. Business r
 
 ### `renderTrain(submissions: Submission[]): void`
 
-**Purpose**: Render the SMRT train animation
+**Purpose**: Render the metro train animation
 
 **Parameters**:
 - `submissions`: Array of approved submissions
@@ -238,44 +238,35 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 
 ---
 
-### `jumpToCabin(cabinNumber: number): void` (Update 01 — Revised Implementation)
+### `jumpToCabin(cabinNumber: number): void` (Update 01 — superseded by Update 03)
 
-**Purpose**: Jump to a specific cabin by number (1-based) using chain-relinking to ensure a single smooth scroll
+> **Update 03**: Display playback no longer uses chain-relinking in `lib/train/chain.ts` (`jumpToCabin` remains for legacy unit tests only). Runtime jumps use `lib/train/train_view.ts`.
+
+**Purpose**: Jump to a specific cabin by number (1-based) via forward-only K-buffer animation.
 
 **Parameters**:
-- `cabinNumber`: Target cabin index (1-based, clamped to train length)
+- `cabinNumber`: Target cabin (1-based, clamped to train length)
 
-**Implementation — Chain Relinking Algorithm**:
+**Implementation — K-buffer model** (`lib/train/train_view.ts`):
 
-The jump is achieved by temporarily re-linking the cabin chain so that the target cabin becomes the immediate next cabin of the current cabin. This ensures only a single `transitionToNextCabin()` scroll is needed, maintaining smooth 60fps animation.
+1. **`beginJump(state, targetCabin)`** — compute collapsed node IDs between V+K and T−K on the forward arc; set `jump.stepsRemaining`.
+2. **`getRenderWindow(state)`** — jump mode renders K-left + effective path + K-right of target (virtualized DOM).
+3. **`TrainDisplay` orchestrator** — preload path + K-after-target images; single `slideTo()` proportional to path length; `commitJumpTarget()` snaps on completion.
+4. **Server** — `TrainPlaybackController.jump()` updates authoritative `currentCabin`; SSE `train_playback_state` syncs all tabs.
 
-```
-Before jump (current = C, target = T):
-  ... → [C] → [C+1] → ... → [T-1] → [T] → [T+1] → ...
-
-Step 1 — Temporarily re-link:
-  currentCabin.next = targetNode         // C → T (skip everything between)
-  targetNode.prev = currentCabin         // T → C (circular consistency)
-
-Step 2 — Execute single transition:
-  transitionToNextCabin()                // Smooth scroll from C to T (one cabin move)
-
-Step 3 — Restore original chain:
-  currentCabin.next = originalNext       // Restore C's original next
-  targetNode.prev = originalPrev         // Restore T's original previous
-  setCurrentCabin(targetNode)            // Mark T as the new current cabin
-```
+**Constants** (`lib/train/train_view_constants.ts`):
+- `VIEWPORT_K = 4`
+- Normal render: `LEFT_RENDER = K`, `RIGHT_RENDER = 2K+2`
+- Slide duration: `slideDurationMs(steps)` — base 800ms, max 3× at 9 steps
 
 **Business Rules**:
-- If `cabinNumber` refers to the currently displayed cabin, do nothing
-- If `cabinNumber` equals the next cabin in sequence, no relinking needed — just call `transitionToNextCabin()` normally
-- Clamp `cabinNumber` to [1, trainChain.length] — values beyond the length clamp to the last cabin
-- If train is empty (no approved submissions), do nothing
-- Only the `next` and `prev` pointers of `currentCabin` and `targetNode` are modified — all other chain pointers remain intact
-- After restoration, the circular chain is unchanged from its original state
-- Publish `train_jump` event via RealtimeService for other tabs (contains `{ currentSubmissions: ... }` for full state sync)
-- Visible only to logged-in Moderators/Admins
-- The chain structure is entirely in-memory on the client side; no server state is modified
+- All jumps use forward ring distance (never backward visual motion)
+- Short jumps (d ≤ 2K): animate full path without collapse
+- Long jumps: collapse strictly between V+K and T−K
+- Clamp target to [1, train length]
+- Publish jump via `/api/display/train-command` → SSE `train_command` + `train_playback_state`
+- Visible only to logged-in Moderators/Admins on display wall; moderator panel remote controls
+
 ---
 
 ### `checkAuthAccess(): Promise<{allowed: boolean, role: string}>` (Update 01, revised Update 02)

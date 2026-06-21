@@ -33,7 +33,7 @@ Maps Functional Requirements (FRs) and Non-Functional Requirements (NFRs) to Use
 | FR-15b | Admins can delete moderator accounts (preserves audit) | US-18 |
 | FR-15c | User management page shows active/disabled status | US-10, US-18 |
 | FR-16 | Initial Admin credentials set by developer in backend | US-09 (implied) |
-| FR-17 | Moving SMRT MRT train animation scrolling right to left | US-07 |
+| FR-17 | Moving MRT-style metro train animation scrolling right to left | US-07 |
 | FR-18 | Cabins display photo + message + name + optional social handle | US-07 |
 | FR-19 | Configurable dwell time per cabin (default ~15s, range 3-60s) | US-07 |
 | FR-20 | Smooth scroll animation — train moves left to next cabin | US-07 |

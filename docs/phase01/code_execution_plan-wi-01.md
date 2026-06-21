@@ -162,7 +162,7 @@ A Code Execution Plan describes *how to implement* the changes defined in a work
 - [ ] All existing tests pass
 - [ ] New tests pass
 - [ ] Code coverage meets ≥80% threshold for new/modified code
-- [ ] `deno task start` serves the app on `localhost:8000` and returns 200 on `/`
+- [ ] `deno task start` serves the app on `localhost:8080` and returns 200 on `/`
 - [ ] Git branch `wi-01-foundation` is active and all scaffold files are committed
 
 ---

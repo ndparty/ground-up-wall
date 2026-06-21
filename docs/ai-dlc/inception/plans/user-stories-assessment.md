@@ -1,7 +1,7 @@
 # User Stories Assessment — ground-up-wall
 
 ## Request Analysis
-- **Original Request**: Build a photowall webapp for a Singapore National Day community party event with photo upload, organiser moderation, and a moving SMRT MRT train display wall
+- **Original Request**: Build a photowall webapp for a Singapore National Day community party event with photo upload, organiser moderation, and a moving MRT-style metro train display wall
 - **User Impact**: Direct — three distinct user types interact with the system
 - **Complexity Level**: Complex — multiple components (upload app, admin panel, display wall, backend), multiple user types, real-time updates, phased delivery
 - **Stakeholders**: Event participants (uploaders), Event organisers (moderators), Event attendees (display wall viewers)
