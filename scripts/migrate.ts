@@ -76,6 +76,25 @@ const MIGRATIONS = [
     name: "idx_audit_log_timestamp",
     sql: `CREATE INDEX IF NOT EXISTS idx_audit_log_timestamp ON audit_log(timestamp);`,
   },
+  {
+    name: "sessions",
+    sql: `
+      CREATE TABLE IF NOT EXISTS sessions (
+        token TEXT PRIMARY KEY,
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        user_snapshot JSONB NOT NULL,
+        expires_at TIMESTAMPTZ NOT NULL
+      );
+    `,
+  },
+  {
+    name: "idx_sessions_user_id",
+    sql: `CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);`,
+  },
+  {
+    name: "idx_sessions_expires",
+    sql: `CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);`,
+  },
 ];
 
 export async function runMigrations(databaseUrl?: string): Promise<void> {

@@ -10,7 +10,10 @@ import { MemoryRealtimeService } from "./repositories/memory_realtime_service.ts
 import { AuditServiceImpl } from "./services/audit_service_impl.ts";
 import { AutoModeratorServiceImpl } from "./services/auto_moderator_service_impl.ts";
 import { AuthService } from "./services/auth_service.ts";
-import { createSessionStore } from "./services/session_store.ts";
+import {
+  createSessionStore,
+  isPostgresSessionStore,
+} from "./services/session_store.ts";
 import { PhotoWallService } from "./services/photo_wall_service.ts";
 
 export interface AppState {
@@ -48,8 +51,25 @@ export function createPhotoWallService(config: AppConfig): PhotoWallService {
   );
 }
 
-export function createAppState(config: AppConfig): AppState {
+export async function createAppState(config: AppConfig): Promise<AppState> {
   const deps = createServices(config);
+
+  try {
+    await deps.repository.connect();
+  } catch (error) {
+    console.error(
+      `Postgres not reachable at ${config.database.url} — is the service running?`,
+    );
+    throw error;
+  }
+
+  const sessions = createSessionStore(deps.repository);
+  if (isPostgresSessionStore(sessions)) {
+    await sessions.ready();
+  } else {
+    sessions.load();
+  }
+
   const photoWall = new PhotoWallService(
     deps.repository,
     deps.storage,
@@ -57,6 +77,10 @@ export function createAppState(config: AppConfig): AppState {
     deps.audit,
     deps.autoModerator,
   );
-  const auth = new AuthService(deps.repository, deps.audit, createSessionStore());
+  const auth = new AuthService(deps.repository, deps.audit, sessions);
   return { auth, photoWall, repository: deps.repository };
+}
+
+export async function closeAppState(state: AppState): Promise<void> {
+  await state.repository.close();
 }

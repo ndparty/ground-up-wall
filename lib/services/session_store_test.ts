@@ -2,7 +2,7 @@ import { assertEquals } from "@std/assert";
 import * as bcrypt from "bcrypt";
 import { AuditServiceImpl } from "./audit_service_impl.ts";
 import { AuthService } from "./auth_service.ts";
-import { FileSessionStore } from "./session_store.ts";
+import { FileSessionStore, PostgresSessionStore } from "./session_store.ts";
 import { cleanupTestData, createTestRepository } from "../test_helpers.ts";
 
 Deno.test({
@@ -75,6 +75,36 @@ Deno.test({
       await repo.close();
     } finally {
       await Deno.remove(dir, { recursive: true });
+    }
+  },
+});
+
+Deno.test({
+  name: "testPostgresSessionStorePersistsAcrossInstances",
+  async fn() {
+    await cleanupTestData();
+    const repo = await createTestRepository();
+    try {
+      const hash = await bcrypt.hash("secret123");
+      const user = await repo.createUser({
+        username: "pg_session_user",
+        password_hash: hash,
+        role: "admin",
+      });
+
+      const store1 = new PostgresSessionStore(repo);
+      await store1.ready();
+      store1.set("pg-token-1", {
+        user: { id: user.id, username: user.username, role: user.role },
+        expires: new Date(Date.now() + 60_000),
+      });
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      const store2 = new PostgresSessionStore(repo);
+      await store2.ready();
+      assertEquals(store2.get("pg-token-1")?.user.username, "pg_session_user");
+    } finally {
+      await repo.close();
     }
   },
 });

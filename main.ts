@@ -1,6 +1,6 @@
 import { App, staticFiles } from "fresh";
 import { loadConfig } from "./lib/config.ts";
-import { createAppState } from "./lib/di.ts";
+import { closeAppState, createAppState, type AppState } from "./lib/di.ts";
 import { loadEnvFile } from "./lib/load_env.ts";
 import { accessGateMiddleware } from "./lib/middleware/access_gate.ts";
 import { securityHeadersMiddleware } from "./lib/middleware/security_headers.ts";
@@ -9,11 +9,32 @@ import { sessionMiddleware } from "./lib/middleware/session.ts";
 
 loadEnvFile();
 const config = loadConfig();
-const appState = createAppState(config);
+
+let appState: AppState | null = null;
+
+export async function shutdownApp(): Promise<void> {
+  if (!appState) return;
+  await closeAppState(appState);
+  appState = null;
+}
+
+function registerShutdownHandlers(): void {
+  let shuttingDown = false;
+  const shutdown = () => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    void shutdownApp().finally(() => Deno.exit(0));
+  };
+  Deno.addSignalListener("SIGINT", shutdown);
+  Deno.addSignalListener("SIGTERM", shutdown);
+}
+
+appState = await createAppState(config);
+registerShutdownHandlers();
 
 export const app = new App<import("./utils.ts").State>()
   .use((ctx) => {
-    ctx.state.services = appState;
+    ctx.state.services = appState!;
     return ctx.next();
   })
   .use(securityHeadersMiddleware)
