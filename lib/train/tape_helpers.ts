@@ -1,4 +1,5 @@
 import type { TrainStep } from "../interfaces/realtime_service.ts";
+import { computeJumpAnimationPath, computeJumpStepCount, forwardDistance } from "./train_view.ts";
 import { CENTER_SLOT } from "./train_view_constants.ts";
 
 /** Index of the first post step for a submission in the tape. */
@@ -104,6 +105,198 @@ export function mergeRightBufferSteps(
     merged.push(step);
   }
   return merged;
+}
+
+/** Build a linear left-to-right tape from an initial window plus center steps after each shift. */
+export function linearizeCenterShiftSequence(
+  startTape: TrainStep[],
+  shiftSnapshots: TrainStep[][],
+): TrainStep[] {
+  const seen = new Set(startTape.map((step) => step.seq));
+  const linear = [...startTape];
+  for (const snapshot of shiftSnapshots) {
+    const center = snapshot[CENTER_SLOT];
+    if (center && !seen.has(center.seq)) {
+      seen.add(center.seq);
+      linear.push(center);
+    }
+  }
+  return linear;
+}
+
+/** First snapshot whose center post matches the target submission id. */
+export function findSnapshotIndexAtCenter(
+  snapshots: TrainStep[][],
+  submissionId: string,
+): number {
+  return snapshots.findIndex((s) => {
+    const center = s[CENTER_SLOT];
+    return center?.kind === "post" && center.submissionId === submissionId;
+  });
+}
+
+/** Append forward-buffer steps from a target-centered snapshot (slots after center). */
+export function appendRightBufferFromSnapshot(
+  linear: TrainStep[],
+  snapshot: TrainStep[],
+): TrainStep[] {
+  const seen = new Set(linear.map((step) => step.seq));
+  const out = [...linear];
+  for (let i = CENTER_SLOT + 1; i < snapshot.length; i++) {
+    const step = snapshot[i];
+    if (step && !seen.has(step.seq)) {
+      seen.add(step.seq);
+      out.push(step);
+    }
+  }
+  return out;
+}
+
+/** Last-wins map of submission id to destination label from generator steps. */
+export function collectDestinationsBySubmission(steps: TrainStep[]): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const step of steps) {
+    if (step.kind === "post" && step.submissionId && step.destination) {
+      map.set(step.submissionId, step.destination);
+    }
+  }
+  return map;
+}
+
+/** Collect destinations for jump rebuild: seed pre-jump canonical, merge simulation canonical. */
+export function collectDestinationsForJump(
+  preJumpTape: TrainStep[],
+  simulationSteps: TrainStep[],
+): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const step of preJumpTape) {
+    if (
+      step.kind === "post" &&
+      step.submissionId &&
+      step.destination &&
+      !step.ephemeral
+    ) {
+      map.set(step.submissionId, step.destination);
+    }
+  }
+  for (const step of simulationSteps) {
+    if (step.kind !== "post" || !step.submissionId || !step.destination) continue;
+    if (step.ephemeral) {
+      if (!map.has(step.submissionId)) map.set(step.submissionId, step.destination);
+    } else {
+      map.set(step.submissionId, step.destination);
+    }
+  }
+  return map;
+}
+
+/** Merge on-chain ephemeral steps from pre-jump tape into jump animation overlay. */
+export function mergePreJumpEphemerals(
+  preJumpTape: TrainStep[],
+  animationWindow: TrainStep[],
+): TrainStep[] {
+  const seen = new Set(animationWindow.map((step) => step.seq));
+  const result = [...animationWindow];
+
+  for (let tapeIdx = 0; tapeIdx < preJumpTape.length; tapeIdx++) {
+    const step = preJumpTape[tapeIdx];
+    if (!step?.ephemeral || seen.has(step.seq)) continue;
+
+    let anchorId: string | null = null;
+    for (let i = tapeIdx - 1; i >= 0; i--) {
+      const prev = preJumpTape[i];
+      if (prev?.kind === "post" && prev.submissionId) {
+        anchorId = prev.submissionId;
+        break;
+      }
+    }
+
+    const insertAfter = anchorId
+      ? result.findLastIndex((s) => s.submissionId === anchorId)
+      : -1;
+    if (insertAfter >= 0) {
+      result.splice(insertAfter + 1, 0, step);
+    } else {
+      result.push(step);
+    }
+    seen.add(step.seq);
+  }
+
+  return result;
+}
+
+/** Copy preserved destinations onto rebuilt tape steps (mutates in place). */
+export function applyPreservedDestinations(
+  tape: TrainStep[],
+  destinations: Map<string, string>,
+): void {
+  for (const step of tape) {
+    if (step.kind !== "post" || !step.submissionId) continue;
+    const destination = destinations.get(step.submissionId);
+    if (destination) step.destination = destination;
+  }
+}
+
+/** Pick shift snapshots whose center cabin follows the collapsed jump animation path. */
+export function pickShiftSnapshotsForJumpPath(
+  snapshots: TrainStep[][],
+  fromCabin: number,
+  toCabin: number,
+  length: number,
+  cabinIds: string[],
+): TrainStep[][] {
+  const path = computeJumpAnimationPath(fromCabin, toCabin, length);
+  if (path.length <= 1) return [];
+
+  const picked: TrainStep[][] = [];
+  for (const cabin of path.slice(1)) {
+    const targetId = cabinIds[cabin - 1]!;
+    const snap = snapshots.find((s) => {
+      const center = s[CENTER_SLOT];
+      return center?.kind === "post" && center.submissionId === targetId;
+    });
+    if (snap) picked.push(snap);
+  }
+
+  const expected = path.length - 1;
+  if (picked.length === expected) return picked;
+
+  return subsampleStepWindows(snapshots, expected);
+}
+
+/** Linear jump overlay: subsample shift snapshots to collapsed path length, then extend start tape. */
+export function buildJumpAnimationWindow(
+  startTape: TrainStep[],
+  fromCabin: number,
+  toCabin: number,
+  length: number,
+  shiftSnapshots: TrainStep[][],
+  cabinIds: string[],
+): TrainStep[] {
+  const ringSteps = forwardDistance(fromCabin - 1, toCabin - 1, length);
+  const stepsToTarget = computeJumpStepCount(fromCabin, toCabin, length);
+  const collapsed = stepsToTarget > 0 && stepsToTarget < ringSteps;
+  const sampled = collapsed
+    ? pickShiftSnapshotsForJumpPath(
+      shiftSnapshots,
+      fromCabin,
+      toCabin,
+      length,
+      cabinIds,
+    )
+    : shiftSnapshots;
+  if (!collapsed) {
+    return linearizeShiftSequence(startTape, sampled);
+  }
+
+  let result = linearizeCenterShiftSequence(startTape, sampled);
+  const targetId = cabinIds[toCabin - 1]!;
+  const atTarget = findSnapshotIndexAtCenter(shiftSnapshots, targetId);
+  if (atTarget >= 0) {
+    result = appendRightBufferFromSnapshot(result, shiftSnapshots[atTarget]!);
+    result = linearizeShiftSequence(result, shiftSnapshots.slice(atTarget + 1));
+  }
+  return result;
 }
 
 /** Pick `count` evenly spaced windows from a longer force-generate sequence. */

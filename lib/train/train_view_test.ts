@@ -10,7 +10,9 @@ import {
   getCanonicalCount,
   getCenterKey,
   getCurrentCabin,
+  getCenterKeyFromSteps,
   getForwardSlideTargetKey,
+  getJumpSlideTargetKey,
   getRenderWindow,
   hasCabins,
   getSlideSlotDistance,
@@ -144,6 +146,41 @@ Deno.test("getSlideTargetKey falls back when next center is not yet in window", 
   assertEquals(getSlideTargetKey(state, nextWindow), getForwardSlideTargetKey(state));
 });
 
+Deno.test("getJumpSlideTargetKey resolves overlay seq when committed center uses rebuild seq", () => {
+  const overlay: TrainStep[] = [
+    { seq: 1, kind: "post", submissionId: "sub-9" },
+    { seq: 2, kind: "post", submissionId: "sub-10" },
+    { seq: 42, kind: "post", submissionId: "sub-14" },
+  ];
+  const committed: TrainStep[] = [
+    { seq: 90, kind: "post", submissionId: "sub-12" },
+    { seq: 91, kind: "post", submissionId: "sub-13" },
+    { seq: 99, kind: "post", submissionId: "sub-14" },
+    { seq: 92, kind: "post", submissionId: "sub-15" },
+    { seq: 93, kind: "post", submissionId: "sub-16" },
+    { seq: 94, kind: "post", submissionId: "sub-17" },
+    { seq: 95, kind: "post", submissionId: "sub-18" },
+  ];
+  assertEquals(getJumpSlideTargetKey(overlay, committed), "s42");
+  assertEquals(getCenterKeyFromSteps(committed), "s99");
+});
+
+Deno.test("getJumpSlideTargetKey falls back to committed center when target not in overlay", () => {
+  const overlay: TrainStep[] = [
+    { seq: 1, kind: "post", submissionId: "sub-1" },
+  ];
+  const committed: TrainStep[] = [
+    { seq: 12, kind: "post", submissionId: "sub-12" },
+    { seq: 13, kind: "post", submissionId: "sub-13" },
+    { seq: 14, kind: "post", submissionId: "sub-14" },
+    { seq: 15, kind: "post", submissionId: "sub-15" },
+    { seq: 16, kind: "post", submissionId: "sub-16" },
+    { seq: 17, kind: "post", submissionId: "sub-17" },
+    { seq: 18, kind: "post", submissionId: "sub-18" },
+  ];
+  assertEquals(getJumpSlideTargetKey(overlay, committed), "s14");
+});
+
 Deno.test("isJumpTargetInCurrentWindow when target center is already rendered", () => {
   let state = initTrainView(makeSubmissions(10));
   const currentWindow: TrainStep[] = [
@@ -192,6 +229,22 @@ Deno.test("isJumpTargetInCurrentWindow false when target center is not in window
     { seq: 206, kind: "post", submissionId: "sub-3" },
   ];
   assertEquals(isJumpTargetInCurrentWindow(state, rebuiltWindow), false);
+});
+
+Deno.test("isJumpTargetInCurrentWindow true when submission matches despite different seq", () => {
+  let state = initTrainView(makeSubmissions(10));
+  state = applyServerWindow(state, postWindow(3, 10), 3);
+
+  const nextWindow: TrainStep[] = [
+    { seq: 200, kind: "post", submissionId: "sub-2" },
+    { seq: 201, kind: "post", submissionId: "sub-3" },
+    { seq: 202, kind: "post", submissionId: "sub-4" },
+    { seq: 203, kind: "post", submissionId: "sub-5" },
+    { seq: 204, kind: "post", submissionId: "sub-6" },
+    { seq: 205, kind: "post", submissionId: "sub-7" },
+    { seq: 206, kind: "post", submissionId: "sub-8" },
+  ];
+  assertEquals(isJumpTargetInCurrentWindow(state, nextWindow), true);
 });
 
 Deno.test("qr step resolves to a qr render cabin", () => {

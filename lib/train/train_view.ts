@@ -223,13 +223,45 @@ export function getCenterKeyFromSteps(window: TrainStep[]): string | null {
   return center ? `s${center.seq}` : null;
 }
 
+/** DOM key in overlay to slide toward for a jump (seq may differ from committed window). */
+export function getJumpSlideTargetKey(
+  overlay: TrainStep[],
+  committedWindow: TrainStep[],
+): string | null {
+  const centerStep = committedWindow[CENTER_SLOT];
+  if (!centerStep) return getCenterKeyFromSteps(committedWindow);
+
+  if (centerStep.kind === "post" && centerStep.submissionId) {
+    for (let i = overlay.length - 1; i >= 0; i--) {
+      const step = overlay[i];
+      if (
+        step?.kind === "post" &&
+        step.submissionId === centerStep.submissionId &&
+        !step.ephemeral
+      ) {
+        return `s${step.seq}`;
+      }
+    }
+  }
+
+  return getCenterKeyFromSteps(committedWindow);
+}
+
 /** True when the jump target center cabin is already rendered in the current window. */
 export function isJumpTargetInCurrentWindow(
   current: TrainViewState,
   nextWindow: TrainStep[],
 ): boolean {
-  const key = getCenterKeyFromSteps(nextWindow);
-  return !!key && current.window.some((c) => c.key === key);
+  const centerStep = nextWindow[CENTER_SLOT];
+  if (
+    !centerStep ||
+    centerStep.kind !== "post" ||
+    !centerStep.submissionId ||
+    centerStep.ephemeral
+  ) {
+    return false;
+  }
+  return current.window.some((c) => c.submission?.id === centerStep.submissionId);
 }
 
 /** The cabin that will become center after one forward step (slide target). */

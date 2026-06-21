@@ -11,12 +11,15 @@ import {
 } from "./train_view_constants.ts";
 import { computeJumpStepCount, forwardDistance } from "./train_view.ts";
 import {
+  applyPreservedDestinations,
+  buildJumpAnimationWindow,
+  collectDestinationsForJump,
+  mergePreJumpEphemerals,
   findForwardCanonicalPostInTape,
   forwardSlotSteps,
   hasEphemeralOnPathToSlot,
   hasForwardEphemeralPostInTape,
   linearizeShiftSequence,
-  mergeRightBufferSteps,
 } from "./tape_helpers.ts";
 
 export interface TrainPlaybackState {
@@ -80,7 +83,7 @@ export class TrainPlaybackController {
   private state: Omit<TrainPlaybackState, "window"> = {
     isPlaying: true,
     currentCabin: 1,
-    dwellSeconds: 15,
+    dwellSeconds: 10,
     lastTransitionAt: Date.now(),
     cabinCount: 0,
   };
@@ -355,6 +358,22 @@ export class TrainPlaybackController {
     return windows;
   }
 
+  /** Simulate from an ephemeral-free window at fromIdx without mutating live tape. */
+  private simulateJumpFromCleanWindow(
+    fromIdx: number,
+    stepCount: number,
+  ): { cleanStart: TrainStep[]; snapshots: TrainStep[][]; finalTape: TrainStep[] } {
+    const savedTape = [...this.tape];
+    const savedGen = this.genIndex;
+    this.rebuildTape(fromIdx);
+    const cleanStart = [...this.tape];
+    const snapshots = this.simulateForwardSteps(stepCount, true);
+    const finalTape = [...this.tape];
+    this.tape = savedTape;
+    this.genIndex = savedGen;
+    return { cleanStart, snapshots, finalTape };
+  }
+
   private targetAtCanonicalCenter(targetCabin: number, targetId: string): boolean {
     if (this.state.currentCabin !== targetCabin) return false;
     const center = this.tape[CENTER_SLOT];
@@ -400,8 +419,12 @@ export class TrainPlaybackController {
       !hasEphemeralOnPathToSlot(this.tape, canonicalSlot)
     ) {
       stepsToTarget = forwardSlotSteps(this.tape, canonicalSlot);
-      const snapshots = this.simulateForwardSteps(stepsToTarget, true);
-      animationWindow = linearizeShiftSequence(startTape, snapshots);
+      const { cleanStart, snapshots, finalTape } = this.simulateJumpFromCleanWindow(
+        fromCabin - 1,
+        stepsToTarget,
+      );
+      this.tape = finalTape;
+      animationWindow = linearizeShiftSequence(cleanStart, snapshots);
     } else {
       const fromIdx = fromCabin - 1;
       const ringSteps = forwardDistance(fromIdx, targetIdx, len);
@@ -413,11 +436,38 @@ export class TrainPlaybackController {
         ringSteps > 2 * VIEWPORT_K || previewOnlyForward || canonicalSlot === null ||
         ephemeralsOnPath
       ) {
+        const { cleanStart, snapshots } = this.simulateJumpFromCleanWindow(fromIdx, ringSteps);
+        const destMap = collectDestinationsForJump(startTape, snapshots.flat());
+        animationWindow = buildJumpAnimationWindow(
+          cleanStart,
+          fromCabin,
+          targetCabin,
+          len,
+          snapshots,
+          this.cabinIds,
+        );
+        applyPreservedDestinations(animationWindow, destMap);
+        animationWindow = mergePreJumpEphemerals(startTape, animationWindow);
         this.rebuildTape(targetIdx);
-        animationWindow = mergeRightBufferSteps(startTape, this.tape);
+        applyPreservedDestinations(this.tape, destMap);
+        const committedCenter = this.tape[CENTER_SLOT];
+        if (
+          committedCenter &&
+          !animationWindow.some((s) => s.seq === committedCenter.seq) &&
+          !animationWindow.some((s) =>
+            s.kind === "post" &&
+            s.submissionId === committedCenter.submissionId
+          )
+        ) {
+          animationWindow.push(committedCenter);
+        }
       } else if (ringSteps > 0) {
-        const snapshots = this.simulateForwardSteps(ringSteps, true);
-        animationWindow = linearizeShiftSequence(startTape, snapshots);
+        const { cleanStart, snapshots, finalTape } = this.simulateJumpFromCleanWindow(
+          fromIdx,
+          ringSteps,
+        );
+        this.tape = finalTape;
+        animationWindow = linearizeShiftSequence(cleanStart, snapshots);
       }
     }
 
