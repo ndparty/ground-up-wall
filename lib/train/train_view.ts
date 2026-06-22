@@ -307,7 +307,7 @@ export function findCanonicalTargetSlotInOverlay(
   return found;
 }
 
-/** True when slideToKey toward getJumpSlideTargetKey would move backward (target at or left of center). */
+/** True when slideToKey toward getJumpSlideTargetKey would move backward (target left of center). */
 export function isBackwardSlideTarget(
   overlay: TrainStep[],
   committedWindow: TrainStep[],
@@ -323,7 +323,7 @@ export function isBackwardSlideTarget(
   }
   const slot = findCanonicalTargetSlotInOverlay(overlay, centerStep.submissionId);
   if (slot === null) return false;
-  return slot <= CENTER_SLOT;
+  return slot < CENTER_SLOT;
 }
 
 /** Forward DOM anchor for long / backward-target jumps — never a left-of-center canonical. */

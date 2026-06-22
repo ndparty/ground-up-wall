@@ -231,6 +231,29 @@ Deno.test("isBackwardSlideTarget false when canonical forward of center", () => 
   assertEquals(isBackwardSlideTarget(overlay, committed), false);
 });
 
+Deno.test("isBackwardSlideTarget false when canonical at center slot", () => {
+  const overlay: TrainStep[] = [
+    { seq: 1, kind: "post", submissionId: "sub-3" },
+    { seq: 2, kind: "post", submissionId: "sub-4" },
+    { seq: 3, kind: "post", submissionId: "sub-5" },
+    { seq: 4, kind: "post", submissionId: "sub-6" },
+    { seq: 5, kind: "post", submissionId: "sub-7" },
+    { seq: 6, kind: "post", submissionId: "sub-8" },
+    { seq: 7, kind: "post", submissionId: "sub-9" },
+  ];
+  const committed: TrainStep[] = [
+    { seq: 10, kind: "post", submissionId: "sub-3" },
+    { seq: 11, kind: "post", submissionId: "sub-4" },
+    { seq: 12, kind: "post", submissionId: "sub-5" },
+    { seq: 13, kind: "post", submissionId: "sub-6" },
+    { seq: 14, kind: "post", submissionId: "sub-7" },
+    { seq: 15, kind: "post", submissionId: "sub-8" },
+    { seq: 16, kind: "post", submissionId: "sub-9" },
+  ];
+  assertEquals(findCanonicalTargetSlotInOverlay(overlay, "sub-5"), 2);
+  assertEquals(isBackwardSlideTarget(overlay, committed), false);
+});
+
 Deno.test("overlayDomKeys maps every overlay step to s-seq keys", () => {
   const overlay: TrainStep[] = [
     { seq: 3, kind: "post", submissionId: "sub-1" },

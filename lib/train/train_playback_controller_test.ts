@@ -199,6 +199,19 @@ Deno.test("jump on-tape left of center uses long forward steps J-N5", () => {
   assertEquals(cmd.stepsToTarget, 5);
 });
 
+Deno.test("jump to current cabin at center is server no-op", () => {
+  const harness = createTestController();
+  harness.controller.initialize(10, ids(10));
+  while (harness.controller.getState().currentCabin < 5) {
+    harness.fireScheduled();
+  }
+  harness.published.length = 0;
+
+  harness.controller.handleUserCommand({ type: "jump", cabinNumber: 5 });
+  assertEquals(harness.published.length, 0);
+  assertEquals(harness.controller.getState().currentCabin, 5);
+});
+
 Deno.test("far jump c2 to c9 does not ring-walk every cabin", () => {
   const harness = createTestController();
   harness.controller.initialize(10, ids(10));

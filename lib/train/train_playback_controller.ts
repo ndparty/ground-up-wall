@@ -10,6 +10,7 @@ import {
 } from "./train_view_constants.ts";
 import {
   buildAppendOnlyJump,
+  isCanonicalAtCenter,
   preserveDestinationsFromPreJumpTape,
 } from "./tape_helpers.ts";
 
@@ -359,6 +360,11 @@ export class TrainPlaybackController {
     const targetCabin = this.clampCabin(cabinNumber);
     const startTape = [...this.tape];
     const fromCabin = this.state.currentCabin;
+    const targetId = this.cabinIds[targetCabin - 1]!;
+
+    if (targetCabin === fromCabin && isCanonicalAtCenter(startTape, targetId)) {
+      return;
+    }
 
     const { animationWindow, committedTape, stepsToTarget } = buildAppendOnlyJump(
       startTape,
