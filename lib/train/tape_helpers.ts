@@ -1,6 +1,262 @@
 import type { TrainStep } from "../interfaces/realtime_service.ts";
 import { computeJumpAnimationPath, computeJumpStepCount, forwardDistance } from "./train_view.ts";
-import { CENTER_SLOT } from "./train_view_constants.ts";
+import {
+  CENTER_SLOT,
+  LEFT_RENDER,
+  RIGHT_RENDER,
+} from "./train_view_constants.ts";
+
+export interface AppendOnlyJumpResult {
+  animationWindow: TrainStep[];
+  committedTape: TrainStep[];
+  stepsToTarget: number;
+}
+
+export interface AppendOnlyJumpDeps {
+  emitNextStep: () => TrainStep;
+  createCanonicalPost: (cabin: number) => TrainStep;
+}
+
+/** Canonical cabin numbers (c1..cN) on tape left→right; ephemerals ignored. */
+export function canonicalCabinNumbersOnTape(
+  tape: TrainStep[],
+  cabinIds: string[],
+): number[] {
+  const nums: number[] = [];
+  for (const step of tape) {
+    if (step.kind === "post" && !step.ephemeral && step.submissionId) {
+      const pos = cabinIds.indexOf(step.submissionId);
+      if (pos >= 0) nums.push(pos + 1);
+    }
+  }
+  return nums;
+}
+
+/** End-state neighborhood around target: target−K .. target+K+preload (7 cabins). */
+export function cabinsAroundTargetWithBuffer(targetCabin: number, len: number): number[] {
+  const result: number[] = [];
+  const centerIdx = targetCabin - 1;
+  for (let off = -LEFT_RENDER; off <= RIGHT_RENDER; off++) {
+    result.push(((centerIdx + off + len) % len) + 1);
+  }
+  return result;
+}
+
+/** Longest suffix of canonical ids on tape matching prefix of end-state list. */
+export function canonicalSuffixPrefixOverlap(
+  tape: TrainStep[],
+  endStateCabins: number[],
+  cabinIds: string[],
+): number {
+  const onTape = canonicalCabinNumbersOnTape(tape, cabinIds);
+  let maxOverlap = 0;
+  for (let n = 1; n <= Math.min(onTape.length, endStateCabins.length); n++) {
+    const suffix = onTape.slice(-n);
+    const prefix = endStateCabins.slice(0, n);
+    if (suffix.every((c, i) => c === prefix[i])) maxOverlap = n;
+  }
+  return maxOverlap;
+}
+
+/** True when a non-ephemeral post for the submission already exists in linear tape. */
+export function hasCanonicalPostInLinear(
+  linear: TrainStep[],
+  submissionId: string,
+): boolean {
+  return linear.some(
+    (s) => s.kind === "post" && s.submissionId === submissionId && !s.ephemeral,
+  );
+}
+
+/** Assemble the 7-slot committed window centered on canonical target. */
+export function buildCommittedWindow(
+  linear: TrainStep[],
+  targetCabin: number,
+  cabinIds: string[],
+  createCanonicalPost: (cabin: number) => TrainStep,
+): TrainStep[] {
+  const len = cabinIds.length;
+  const targetId = cabinIds[targetCabin - 1]!;
+  const targetIdx = findRightmostCanonicalTargetIdx(linear, targetId);
+
+  if (
+    targetIdx !== null &&
+    targetIdx >= LEFT_RENDER &&
+    hasJumpBufferAtTarget(linear, targetIdx)
+  ) {
+    return linear.slice(targetIdx - LEFT_RENDER, targetIdx + RIGHT_RENDER + 1);
+  }
+
+  const neighborhood = cabinsAroundTargetWithBuffer(targetCabin, len);
+  return neighborhood.map((cabin) => {
+    const id = cabinIds[cabin - 1]!;
+    const existing = linear.findLast(
+      (s) => s.kind === "post" && s.submissionId === id && !s.ephemeral,
+    );
+    return existing ?? createCanonicalPost(cabin);
+  });
+}
+
+/** Short jump: fill preload slots right of target only. */
+export function appendRightBufferOnly(
+  linear: TrainStep[],
+  targetIdx: number,
+  emitNextStep: () => TrainStep,
+): TrainStep[] {
+  const out = [...linear];
+  while (!hasJumpBufferAtTarget(out, targetIdx)) {
+    out.push(emitNextStep());
+  }
+  return out;
+}
+
+/** Long jump: add collapsed-path canonical visits not already on tape. */
+export function appendMissingPathVisits(
+  linear: TrainStep[],
+  pathCabins: number[],
+  cabinIds: string[],
+  createCanonicalPost: (cabin: number) => TrainStep,
+): TrainStep[] {
+  const out = [...linear];
+  for (const cabin of pathCabins) {
+    const id = cabinIds[cabin - 1]!;
+    if (!hasCanonicalPostInLinear(out, id)) {
+      out.push(createCanonicalPost(cabin));
+    }
+  }
+  return out;
+}
+
+/** Long jump: append end-state cabins from overlap cut point. */
+export function appendEndStateTail(
+  linear: TrainStep[],
+  targetCabin: number,
+  cabinIds: string[],
+  createCanonicalPost: (cabin: number) => TrainStep,
+): TrainStep[] {
+  const len = cabinIds.length;
+  const endState = cabinsAroundTargetWithBuffer(targetCabin, len);
+  const overlap = canonicalSuffixPrefixOverlap(linear, endState, cabinIds);
+  const out = [...linear];
+  for (let i = overlap; i < endState.length; i++) {
+    const cabin = endState[i]!;
+    const id = cabinIds[cabin - 1]!;
+    if (!hasCanonicalPostInLinear(out, id)) {
+      out.push(createCanonicalPost(cabin));
+    }
+  }
+  return out;
+}
+
+/** Rightmost canonical (non-ephemeral) instance of the target submission in a linear tape. */
+export function findRightmostCanonicalTargetIdx(
+  linear: TrainStep[],
+  targetId: string,
+): number | null {
+  let found: number | null = null;
+  for (let i = 0; i < linear.length; i++) {
+    const step = linear[i];
+    if (
+      step?.kind === "post" &&
+      step.submissionId === targetId &&
+      !step.ephemeral
+    ) {
+      found = i;
+    }
+  }
+  return found;
+}
+
+/** True when targetIdx has K slots left, K visible right, and PRELOAD_AHEAD buffer right. */
+export function hasJumpBufferAtTarget(linear: TrainStep[], targetIdx: number): boolean {
+  return targetIdx >= LEFT_RENDER && (linear.length - 1 - targetIdx) >= RIGHT_RENDER;
+}
+
+/** True when animationWindow begins with the same seq prefix as the live window. */
+export function animationWindowPreservesLivePrefix(
+  liveTape: TrainStep[],
+  animationWindow: TrainStep[],
+): boolean {
+  if (animationWindow.length < liveTape.length) return false;
+  for (let i = 0; i < liveTape.length; i++) {
+    if (animationWindow[i]?.seq !== liveTape[i]?.seq) return false;
+  }
+  return true;
+}
+
+/**
+ * Build jump overlay by appending generated steps to the live tape — never removing
+ * on-chain cabins. Committed window is a slice of the same object references.
+ */
+export function buildAppendOnlyJump(
+  startTape: TrainStep[],
+  fromCabin: number,
+  targetCabin: number,
+  cabinIds: string[],
+  deps: AppendOnlyJumpDeps,
+): AppendOnlyJumpResult {
+  const len = cabinIds.length;
+  if (len === 0 || startTape.length === 0) {
+    return {
+      animationWindow: [...startTape],
+      committedTape: [...startTape],
+      stepsToTarget: 0,
+    };
+  }
+
+  const targetId = cabinIds[targetCabin - 1]!;
+  const { emitNextStep, createCanonicalPost } = deps;
+  const forwardSlot = findForwardCanonicalPostInTape(startTape, targetId);
+  const atCenter = isCanonicalAtCenter(startTape, targetId);
+  const isShortJump = forwardSlot !== null || atCenter;
+
+  if (isShortJump) {
+    let linear = [...startTape];
+    const targetIdx = forwardSlot ?? CENTER_SLOT;
+
+    let stepsToTarget: number;
+    if (atCenter && forwardSlot === null) {
+      stepsToTarget = 0;
+    } else if (hasEphemeralOnPathToSlot(startTape, targetIdx)) {
+      stepsToTarget = computeJumpStepCount(fromCabin, targetCabin, len);
+    } else {
+      stepsToTarget = targetIdx - CENTER_SLOT;
+    }
+
+    linear = appendRightBufferOnly(linear, targetIdx, emitNextStep);
+
+    return {
+      animationWindow: linear,
+      committedTape: buildCommittedWindow(linear, targetCabin, cabinIds, createCanonicalPost),
+      stepsToTarget,
+    };
+  }
+
+  // Long jump: collapsed path visits + end-state tail (overlap-aware).
+  const pathCabins = computeJumpAnimationPath(fromCabin, targetCabin, len).slice(1);
+  const stepsToTarget = computeJumpStepCount(fromCabin, targetCabin, len);
+
+  let linear = [...startTape];
+  linear = appendMissingPathVisits(linear, pathCabins, cabinIds, createCanonicalPost);
+  linear = appendEndStateTail(linear, targetCabin, cabinIds, createCanonicalPost);
+
+  return {
+    animationWindow: linear,
+    committedTape: buildCommittedWindow(linear, targetCabin, cabinIds, createCanonicalPost),
+    stepsToTarget,
+  };
+}
+
+/** True when canonical target is already at the center slot (non-ephemeral). */
+export function isCanonicalAtCenter(
+  tape: TrainStep[],
+  submissionId: string,
+): boolean {
+  const center = tape[CENTER_SLOT];
+  return center?.kind === "post" &&
+    center.submissionId === submissionId &&
+    !center.ephemeral;
+}
 
 /** Index of the first post step for a submission in the tape. */
 export function findPostInTape(tape: TrainStep[], submissionId: string): number | null {
@@ -150,6 +406,64 @@ export function appendRightBufferFromSnapshot(
     }
   }
   return out;
+}
+
+/** Map of generator seq to roof destination label. */
+export function collectDestinationsBySeq(steps: TrainStep[]): Map<number, string> {
+  const map = new Map<number, string>();
+  for (const step of steps) {
+    if (step.destination) map.set(step.seq, step.destination);
+  }
+  return map;
+}
+
+/** Copy preserved destinations onto steps that share a pre-jump seq (mutates in place). */
+export function applyPreservedDestinationsBySeq(
+  tape: TrainStep[],
+  destinations: Map<number, string>,
+): void {
+  for (const step of tape) {
+    const destination = destinations.get(step.seq);
+    if (destination) step.destination = destination;
+  }
+}
+
+function postDestinationKey(step: TrainStep): string | null {
+  if (step.kind !== "post" || !step.submissionId) return null;
+  return `${step.submissionId}:${step.ephemeral ? "e" : "c"}`;
+}
+
+/**
+ * Restore roof labels for on-chain cabins after jump simulation.
+ * Matches by seq first, then by submission id + ephemeral flag for rebuilt steps.
+ */
+export function preserveDestinationsFromPreJumpTape(
+  steps: TrainStep[],
+  preJumpTape: TrainStep[],
+): void {
+  const bySeq = collectDestinationsBySeq(preJumpTape);
+  applyPreservedDestinationsBySeq(steps, bySeq);
+
+  const byPostKey = new Map<string, string>();
+  for (const step of preJumpTape) {
+    const key = postDestinationKey(step);
+    if (key && step.destination) byPostKey.set(key, step.destination);
+  }
+
+  const preQrDestination = preJumpTape.find((s) => s.kind === "qr")?.destination;
+
+  for (const step of steps) {
+    if (bySeq.has(step.seq)) continue;
+    if (step.kind === "qr" && preQrDestination) {
+      step.destination = preQrDestination;
+      continue;
+    }
+    const key = postDestinationKey(step);
+    if (key) {
+      const destination = byPostKey.get(key);
+      if (destination) step.destination = destination;
+    }
+  }
 }
 
 /** Last-wins map of submission id to destination label from generator steps. */

@@ -3,20 +3,30 @@ import type { TrainStep } from "../interfaces/realtime_service.ts";
 import { computeJumpAnimationPath } from "./train_view.ts";
 import { CENTER_SLOT, LEFT_RENDER, RIGHT_RENDER } from "./train_view_constants.ts";
 import {
+  animationWindowPreservesLivePrefix,
+  appendEndStateTail,
   appendRightBufferFromSnapshot,
+  appendRightBufferOnly,
+  buildAppendOnlyJump,
   buildJumpAnimationWindow,
-  collectDestinationsForJump,
+  canonicalSuffixPrefixOverlap,
+  cabinsAroundTargetWithBuffer,
+  collectDestinationsBySeq,
   findForwardCanonicalPostInTape,
   findForwardPostInTape,
   findPostInTape,
   forwardSlotSteps,
+  hasCanonicalPostInLinear,
   hasEphemeralOnPathToSlot,
   hasForwardEphemeralPostInTape,
+  isCanonicalAtCenter,
   linearizeCenterShiftSequence,
   linearizeShiftSequence,
   mergeRightBufferSteps,
+  preserveDestinationsFromPreJumpTape,
   subsampleStepWindows,
 } from "./tape_helpers.ts";
+import { computeJumpStepCount } from "./train_view.ts";
 
 function post(id: string, seq: number, ephemeral?: boolean): TrainStep {
   return { seq, kind: "post", submissionId: id, ephemeral };
@@ -223,10 +233,207 @@ Deno.test("buildJumpAnimationWindow 9 to 16 collapsed path includes buffer tail 
   }
 });
 
-Deno.test("collectDestinationsForJump prefers canonical over ephemeral", () => {
-  const map = collectDestinationsForJump(
-    [postWithDest("c4", 1, "Preview", true), postWithDest("c4", 2, "Seed", false)],
-    [postWithDest("c4", 3, "Simulation", false)],
-  );
-  assertEquals(map.get("c4"), "Simulation");
+Deno.test("preserveDestinationsFromPreJumpTape keeps labels by seq and post identity", () => {
+  const preJump = [
+    postWithDest("c4", 1, "Preview", true),
+    postWithDest("c4", 2, "Canonical", false),
+    postWithDest("c5", 3, "HoldFive", false),
+  ];
+  const rebuilt = [
+    postWithDest("c4", 99, "Simulation", false),
+    postWithDest("c5", 100, "NewFive", false),
+    postWithDest("c4", 1, "Preview", true),
+  ];
+  preserveDestinationsFromPreJumpTape(rebuilt, preJump);
+  assertEquals(rebuilt[0]?.destination, "Canonical");
+  assertEquals(rebuilt[1]?.destination, "HoldFive");
+  assertEquals(rebuilt[2]?.destination, "Preview");
+});
+
+Deno.test("collectDestinationsBySeq maps every labeled step", () => {
+  const map = collectDestinationsBySeq([
+    postWithDest("c1", 1, "A"),
+    postWithDest("c2", 2, "B"),
+  ]);
+  assertEquals(map.get(1), "A");
+  assertEquals(map.get(2), "B");
+});
+
+Deno.test("canonicalSuffixPrefixOverlap finds longest matching suffix", () => {
+  const cabinIds = ids(10);
+  const tape = [
+    post("c1", 1), post("c2", 2), post("c3", 3),
+    post("c4", 4), post("c5", 5), post("c6", 6), post("c7", 7),
+  ];
+  const endState = cabinsAroundTargetWithBuffer(9, 10);
+  assertEquals(endState, [7, 8, 9, 10, 1, 2, 3]);
+  assertEquals(canonicalSuffixPrefixOverlap(tape, endState, cabinIds), 1);
+});
+
+Deno.test("canonicalSuffixPrefixOverlap ignores ephemeral on tape", () => {
+  const cabinIds = ids(10);
+  const tape = [
+    post("c1", 1), post("c2", 2), post("c3", 3),
+    post("c4", 4), post("c5", 5), post("c6", 6), post("c8", 7, true),
+  ];
+  const endState = cabinsAroundTargetWithBuffer(9, 10);
+  assertEquals(canonicalSuffixPrefixOverlap(tape, endState, cabinIds), 0);
+});
+
+Deno.test("appendRightBufferOnly fills only right-of-target preload", () => {
+  const start = [
+    post("c3", 1), post("c4", 2), post("c5", 3),
+    post("c6", 4), post("c7", 5), post("c8", 6), post("c9", 7),
+  ];
+  let emitted = 0;
+  const result = appendRightBufferOnly(start, CENTER_SLOT, () => {
+    emitted++;
+    return post("c10", 100 + emitted);
+  });
+  assertEquals(emitted, 0);
+  assertEquals(result.length, 7);
+});
+
+Deno.test("buildAppendOnlyJump long jump c3 to c9 appends minimal tail", () => {
+  const startTape = [
+    postCabin(1, 1), postCabin(2, 2), postCabin(3, 3), postCabin(4, 4),
+    postCabin(5, 5), postCabin(6, 6), postCabin(7, 7),
+  ];
+  const cabinIds = ids(10);
+  let nextSeq = 8;
+  const result = buildAppendOnlyJump(startTape, 3, 9, cabinIds, {
+    emitNextStep: () => postCabin(99, nextSeq++),
+    createCanonicalPost: (cabin) => postCabin(cabin, nextSeq++),
+  });
+
+  assertEquals(result.stepsToTarget, computeJumpStepCount(3, 9, 10));
+  assertEquals(result.animationWindow.length, 10);
+  assertEquals(result.committedTape[CENTER_SLOT]?.submissionId, "c9");
+  assertEquals(animationWindowPreservesLivePrefix(startTape, result.animationWindow), true);
+  for (const cabin of [8, 9, 10]) {
+    assertEquals(
+      hasCanonicalPostInLinear(result.animationWindow, `c${cabin}`),
+      true,
+    );
+  }
+});
+
+Deno.test("buildAppendOnlyJump appends steps without removing live prefix", () => {
+  const startTape = [
+    postWithDest("c1", 1, "One"),
+    postWithDest("c2", 2, "Two"),
+    postWithDest("c10", 3, "Preview", true),
+    postWithDest("c3", 4, "Three"),
+    postWithDest("c4", 5, "Four"),
+    postWithDest("c5", 6, "Five"),
+    postWithDest("c6", 7, "Six"),
+  ];
+  const cabinIds = Array.from({ length: 10 }, (_, i) => `c${i + 1}`);
+  let nextSeq = 8;
+  const result = buildAppendOnlyJump(startTape, 3, 5, cabinIds, {
+    emitNextStep: () => postWithDest("c7", nextSeq++, "Seven"),
+    createCanonicalPost: (cabin) =>
+      postWithDest(`c${cabin}`, nextSeq++, `Canon${cabin}`),
+  });
+
+  assertEquals(result.committedTape.length, 7);
+  assertEquals(result.committedTape[CENTER_SLOT]?.submissionId, "c5");
+  assertEquals(result.committedTape[CENTER_SLOT]?.ephemeral, undefined);
+  assertEquals(result.animationWindow[2]?.seq, 3);
+  assertEquals(result.animationWindow[2]?.destination, "Preview");
+  assertEquals(result.stepsToTarget, 3);
+});
+
+Deno.test("buildAppendOnlyJump returns early when target already buffered", () => {
+  const startTape = [
+    post("c3", 1),
+    post("c4", 2),
+    post("c5", 3),
+    post("c6", 4),
+    post("c7", 5),
+    post("c8", 6),
+    post("c9", 7),
+  ];
+  const cabinIds = ids(10);
+  let emitted = 0;
+  const result = buildAppendOnlyJump(startTape, 5, 5, cabinIds, {
+    emitNextStep: () => {
+      emitted++;
+      return post("c1", 100 + emitted);
+    },
+    createCanonicalPost: (cabin) => post(`c${cabin}`, 200 + cabin),
+  });
+
+  assertEquals(emitted, 0);
+  assertEquals(result.animationWindow.length, 7);
+  assertEquals(result.committedTape[CENTER_SLOT]?.submissionId, "c5");
+  assertEquals(result.stepsToTarget, 0);
+});
+
+Deno.test("buildAppendOnlyJump long jump does not call emitNextStep", () => {
+  const startTape = [
+    postCabin(1, 1), postCabin(2, 2), postCabin(3, 3), postCabin(4, 4),
+    postCabin(5, 5), postCabin(6, 6), postCabin(7, 7),
+  ];
+  const cabinIds = ids(10);
+  let emitted = 0;
+  let nextSeq = 8;
+  buildAppendOnlyJump(startTape, 3, 9, cabinIds, {
+    emitNextStep: () => {
+      emitted++;
+      return postCabin(99, nextSeq++);
+    },
+    createCanonicalPost: (cabin) => postCabin(cabin, nextSeq++),
+  });
+  assertEquals(emitted, 0);
+});
+
+Deno.test("buildAppendOnlyJump on-tape left of center uses long forward path J-N5", () => {
+  const startTape = [
+    postCabin(3, 1), postCabin(4, 2), postCabin(5, 3),
+    postCabin(6, 4), postCabin(7, 5), postCabin(8, 6), postCabin(9, 7),
+  ];
+  const cabinIds = ids(10);
+  let emitted = 0;
+  let nextSeq = 8;
+  const result = buildAppendOnlyJump(startTape, 5, 4, cabinIds, {
+    emitNextStep: () => {
+      emitted++;
+      return postCabin(99, nextSeq++);
+    },
+    createCanonicalPost: (cabin) => postCabin(cabin, nextSeq++),
+  });
+
+  assertEquals(emitted, 0);
+  assertEquals(result.stepsToTarget, computeJumpStepCount(5, 4, 10));
+  assertEquals(result.committedTape[CENTER_SLOT]?.submissionId, "c4");
+  assertEquals(findForwardCanonicalPostInTape(startTape, "c4"), null);
+});
+
+Deno.test("buildAppendOnlyJump at-center canonical is no-op short", () => {
+  const startTape = [
+    postCabin(3, 1), postCabin(4, 2), postCabin(5, 3),
+    postCabin(6, 4), postCabin(7, 5), postCabin(8, 6), postCabin(9, 7),
+  ];
+  const cabinIds = ids(10);
+  assertEquals(isCanonicalAtCenter(startTape, "c5"), true);
+  const result = buildAppendOnlyJump(startTape, 5, 5, cabinIds, {
+    emitNextStep: () => postCabin(99, 100),
+    createCanonicalPost: (cabin) => postCabin(cabin, 200 + cabin),
+  });
+  assertEquals(result.stepsToTarget, 0);
+  assertEquals(result.animationWindow.length, 7);
+});
+
+function ids(n: number): string[] {
+  return Array.from({ length: n }, (_, i) => `c${i + 1}`);
+}
+
+Deno.test("animationWindowPreservesLivePrefix requires matching seq prefix", () => {
+  const live = [post("c1", 1), post("c2", 2), post("c3", 3)];
+  const good = [post("c1", 1), post("c2", 2), post("c3", 3), post("c4", 4)];
+  const bad = [post("c1", 1), post("c2", 99), post("c3", 3)];
+  assertEquals(animationWindowPreservesLivePrefix(live, good), true);
+  assertEquals(animationWindowPreservesLivePrefix(live, bad), false);
+  assertEquals(animationWindowPreservesLivePrefix(live, live.slice(0, 2)), false);
 });
