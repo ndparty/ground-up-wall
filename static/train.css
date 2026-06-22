@@ -466,6 +466,23 @@ body.display-wall-mode main {
   overflow: hidden;
 }
 
+/* CSP-safe fit-text steps (used by use_fit_text.ts). */
+.fit-text-120 { font-size: 1.2rem; }
+.fit-text-115 { font-size: 1.15rem; }
+.fit-text-110 { font-size: 1.1rem; }
+.fit-text-105 { font-size: 1.05rem; }
+.fit-text-100 { font-size: 1rem; }
+.fit-text-95 { font-size: 0.95rem; }
+.fit-text-90 { font-size: 0.9rem; }
+.fit-text-85 { font-size: 0.85rem; }
+.fit-text-80 { font-size: 0.8rem; }
+.fit-text-75 { font-size: 0.75rem; }
+.fit-text-70 { font-size: 0.7rem; }
+.fit-text-65 { font-size: 0.65rem; }
+.fit-text-60 { font-size: 0.6rem; }
+.fit-text-55 { font-size: 0.55rem; }
+.fit-text-50 { font-size: 0.5rem; }
+
 /* Undercarriage below the carriage shell. */
 .train-cabin__undercarriage {
   flex: 0 0 auto;
@@ -502,7 +519,6 @@ body.display-wall-mode main {
 
 .train-cabin__message {
   margin: 0 0 0.5rem;
-  font-size: 1.2rem;
   line-height: 1.3;
   font-weight: 500;
 }
