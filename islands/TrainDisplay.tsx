@@ -6,39 +6,38 @@ import {
   compensateTrackForSlotDelta,
   computeTrackTranslateX,
   ensureTrackCanAnimate,
+  jumpSlideStartTx,
   measureSlotPitchPx,
+  prepareJumpSlideOffset,
   slideTo,
   waitForLayout,
   waitForTrackTransition,
 } from "../lib/train/center_track.ts";
 import {
   applyAnimationWindow,
-  computeJumpAnimationPath,
   getCenterKey,
   getCenterKeyFromSteps,
+  getForwardJumpSlideAnchorKey,
   getJumpSlideTargetKey,
   getRenderWindow,
   getSlideSlotDistance,
   getSlideTargetKey,
   hasCabins as viewHasCabins,
-  isJumpTargetInCurrentWindow,
+  isBackwardSlideTarget,
   type RenderCabin,
+  overlayDomKeys,
   renderWindowToSteps,
-  shouldCollapseJump,
   type TrainViewState,
 } from "../lib/train/train_view.ts";
 import {
-  cabinsAroundTargetWithBuffer,
-  cabinsForJumpPreload,
-  cabinsForShortJumpPreload,
-  imageUrlsForJumpPreload,
+  imageUrlsFromWindow,
   preloadCabinImages,
 } from "../lib/train/preload_cabin_images.ts";
 import { jumpSlideDurationMs, slideDurationMs } from "../lib/train/slide_duration.ts";
 import { shouldShowTrainControls } from "../lib/train/playback.ts";
 import { useTrainPlayback } from "../lib/train/use_train_playback.ts";
-import { LEFT_RENDER, PRELOAD_AHEAD, VIEWPORT_K } from "../lib/train/train_view_constants.ts";
-import { mergeRightBufferSteps } from "../lib/train/tape_helpers.ts";
+import { LEFT_RENDER, VIEWPORT_K } from "../lib/train/train_view_constants.ts";
+import { animationWindowPreservesLivePrefix, mergeRightBufferSteps } from "../lib/train/tape_helpers.ts";
 import type { TrainStep } from "../interfaces/realtime_service.ts";
 import { resolveOverrideView } from "../lib/train/display_override.ts";
 import ConnectionBanner from "./ConnectionBanner.tsx";
@@ -175,6 +174,13 @@ export default function TrainDisplay() {
   async function waitForCabinRef(key: string, maxFrames = 5): Promise<void> {
     for (let i = 0; i < maxFrames; i++) {
       if (cabinRefs.current.get(key)) return;
+      await waitForLayout();
+    }
+  }
+
+  async function waitForAllCabinRefs(keys: string[], maxFrames = 60): Promise<void> {
+    for (let i = 0; i < maxFrames; i++) {
+      if (keys.every((key) => cabinRefs.current.get(key))) return;
       await waitForLayout();
     }
   }
@@ -331,15 +337,31 @@ export default function TrainDisplay() {
 
     let cancelled = false;
 
-    async function slideToKey(targetKey: string, durationMs: number): Promise<boolean> {
+    async function slideToKey(
+      targetKey: string,
+      durationMs: number,
+      options?: { forwardJump?: boolean; slideSteps?: number },
+    ): Promise<boolean> {
       const stage = stageRef.current;
       const track = trackRef.current;
       const el = cabinRefs.current.get(targetKey);
       if (!stage || !track || !el) return false;
 
       ensureTrackCanAnimate(track);
-      const targetTx = computeTrackTranslateX(stage, track, el);
-      slideTo(track, targetTx, durationMs);
+      const finalTx = computeTrackTranslateX(stage, track, el);
+
+      if (options?.forwardJump && options.slideSteps && options.slideSteps > 0) {
+        const pitch = measureSlotPitchPx(track);
+        if (pitch > 0) {
+          prepareJumpSlideOffset(
+            track,
+            jumpSlideStartTx(finalTx, options.slideSteps, pitch),
+          );
+          await waitForLayout();
+        }
+      }
+
+      slideTo(track, finalTx, durationMs);
       await waitForTrackTransition(track, durationMs + 150);
       return !cancelled;
     }
@@ -367,44 +389,34 @@ export default function TrainDisplay() {
 
           if (peek.kind === "jump") {
             const viewBefore = view;
-            const fromCabin = peek.fromCabin ?? view.currentCabin;
-            const toCabin = peek.currentCabin;
-            const len = view.canonical.length;
             const animationWindow = peek.animationWindow ?? peek.window;
-            const slideSteps = peek.slideSteps ?? 0;
-            const inChain = isJumpTargetInCurrentWindow(viewBefore, peek.window);
-            const collapsed = shouldCollapseJump(fromCabin - 1, toCabin - 1, len);
 
             const currentSteps = renderWindowToSteps(viewBefore.window);
-            const overlay =
-              animationWindow.length >= currentSteps.length
-                ? animationWindow
-                : mergeRightBufferSteps(currentSteps, animationWindow ?? peek.window);
+            const rawAnimation = animationWindow ?? peek.window;
+            const overlay = animationWindowPreservesLivePrefix(currentSteps, rawAnimation)
+              ? rawAnimation
+              : mergeRightBufferSteps(currentSteps, rawAnimation);
 
-            const jumpSlideTargetKey = getJumpSlideTargetKey(overlay, peek.window);
-
-            const preloadPath = inChain
-              ? cabinsForJumpPreload(
-                computeJumpAnimationPath(fromCabin, toCabin, len),
-                toCabin,
-                len,
-              )
-              : collapsed
-              ? cabinsAroundTargetWithBuffer(toCabin, len, VIEWPORT_K, PRELOAD_AHEAD)
-              : cabinsForShortJumpPreload(fromCabin, toCabin, len);
+            const slideSteps = peek.slideSteps ?? 0;
+            const backward = isBackwardSlideTarget(overlay, peek.window);
+            const jumpSlideTargetKey = backward
+              ? getForwardJumpSlideAnchorKey(overlay, slideSteps)
+              : getJumpSlideTargetKey(overlay, peek.window);
 
             if (jumpSlideTargetKey) jumpHighlightKeyRef.current = jumpSlideTargetKey;
 
-            await preloadCabinImages(imageUrlsForJumpPreload(preloadPath, overlay, view.canonical));
-            if (cancelled) return;
-
             setJumpOverlaySteps(overlay);
             await waitForLayout();
-            await waitForLayout();
-            if (jumpSlideTargetKey) await waitForCabinRef(jumpSlideTargetKey, 60);
+            await waitForAllCabinRefs(overlayDomKeys(overlay));
+            await preloadCabinImages(imageUrlsFromWindow(overlay, view.canonical));
+            if (cancelled) return;
 
             if (slideSteps > 0 && jumpSlideTargetKey) {
-              const ok = await slideToKey(jumpSlideTargetKey, jumpSlideDurationMs(slideSteps));
+              const ok = await slideToKey(
+                jumpSlideTargetKey,
+                jumpSlideDurationMs(slideSteps),
+                backward ? { forwardJump: true, slideSteps } : undefined,
+              );
               if (cancelled) return;
               if (track) clearTrackTransition(track);
               if (!ok) {

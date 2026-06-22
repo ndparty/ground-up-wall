@@ -13,6 +13,10 @@ import {
   getCenterKeyFromSteps,
   getForwardSlideTargetKey,
   getJumpSlideTargetKey,
+  getForwardJumpSlideAnchorKey,
+  findCanonicalTargetSlotInOverlay,
+  isBackwardSlideTarget,
+  overlayDomKeys,
   getRenderWindow,
   hasCabins,
   getSlideSlotDistance,
@@ -181,6 +185,60 @@ Deno.test("getJumpSlideTargetKey falls back to committed center when target not 
   assertEquals(getJumpSlideTargetKey(overlay, committed), "s14");
 });
 
+Deno.test("isBackwardSlideTarget true when canonical only left of center in overlay", () => {
+  const overlay: TrainStep[] = [
+    { seq: 1, kind: "post", submissionId: "sub-4" },
+    { seq: 2, kind: "post", submissionId: "sub-5" },
+    { seq: 3, kind: "post", submissionId: "sub-6" },
+    { seq: 4, kind: "post", submissionId: "sub-7" },
+    { seq: 5, kind: "post", submissionId: "sub-8" },
+    { seq: 6, kind: "post", submissionId: "sub-9" },
+    { seq: 7, kind: "post", submissionId: "sub-10" },
+  ];
+  const committed: TrainStep[] = [
+    { seq: 10, kind: "post", submissionId: "sub-2" },
+    { seq: 11, kind: "post", submissionId: "sub-3" },
+    { seq: 12, kind: "post", submissionId: "sub-4" },
+    { seq: 13, kind: "post", submissionId: "sub-5" },
+    { seq: 14, kind: "post", submissionId: "sub-6" },
+    { seq: 15, kind: "post", submissionId: "sub-7" },
+    { seq: 16, kind: "post", submissionId: "sub-8" },
+  ];
+  assertEquals(findCanonicalTargetSlotInOverlay(overlay, "sub-4"), 0);
+  assertEquals(isBackwardSlideTarget(overlay, committed), true);
+  assertEquals(getForwardJumpSlideAnchorKey(overlay, 5), "s7");
+});
+
+Deno.test("isBackwardSlideTarget false when canonical forward of center", () => {
+  const overlay: TrainStep[] = [
+    { seq: 1, kind: "post", submissionId: "sub-3" },
+    { seq: 2, kind: "post", submissionId: "sub-4" },
+    { seq: 3, kind: "post", submissionId: "sub-5" },
+    { seq: 4, kind: "post", submissionId: "sub-6" },
+    { seq: 5, kind: "post", submissionId: "sub-7" },
+    { seq: 6, kind: "post", submissionId: "sub-8" },
+    { seq: 7, kind: "post", submissionId: "sub-9" },
+  ];
+  const committed: TrainStep[] = [
+    { seq: 10, kind: "post", submissionId: "sub-4" },
+    { seq: 11, kind: "post", submissionId: "sub-5" },
+    { seq: 12, kind: "post", submissionId: "sub-6" },
+    { seq: 13, kind: "post", submissionId: "sub-7" },
+    { seq: 14, kind: "post", submissionId: "sub-8" },
+    { seq: 15, kind: "post", submissionId: "sub-9" },
+    { seq: 16, kind: "post", submissionId: "sub-10" },
+  ];
+  assertEquals(isBackwardSlideTarget(overlay, committed), false);
+});
+
+Deno.test("overlayDomKeys maps every overlay step to s-seq keys", () => {
+  const overlay: TrainStep[] = [
+    { seq: 3, kind: "post", submissionId: "sub-1" },
+    { seq: 7, kind: "post", submissionId: "sub-2" },
+  ];
+  assertEquals(overlayDomKeys(overlay), ["s3", "s7"]);
+});
+
 Deno.test("isJumpTargetInCurrentWindow when target center is already rendered", () => {
   let state = initTrainView(makeSubmissions(10));
   const currentWindow: TrainStep[] = [
@@ -313,4 +371,82 @@ Deno.test("applyAnimationWindow extends render tape for jump animation", () => {
   state = applyAnimationWindow(state, extended);
   assertEquals(getRenderWindow(state).length, 9);
   assertEquals(getRenderWindow(state)[8]?.key, "s100");
+});
+
+Deno.test("applyAnimationWindow keeps prior destination when overlay changes label", () => {
+  let state = initTrainView(makeSubmissions(10));
+  const window: TrainStep[] = [
+    { seq: 1, kind: "post", submissionId: "sub-1", destination: "Bishan" },
+    { seq: 2, kind: "post", submissionId: "sub-2", destination: "Ang Mo Kio" },
+    { seq: 3, kind: "post", submissionId: "sub-3", destination: "Yio Chu Kang" },
+    { seq: 4, kind: "post", submissionId: "sub-4", destination: "Khatib" },
+    { seq: 5, kind: "post", submissionId: "sub-5", destination: "Yishun" },
+    { seq: 6, kind: "post", submissionId: "sub-6", destination: "Sembawang" },
+    { seq: 7, kind: "post", submissionId: "sub-7", destination: "Woodlands" },
+  ];
+  state = applyServerWindow(state, window, 3);
+  const overlay: TrainStep[] = window.map((step) => ({
+    ...step,
+    destination: step.seq === 3 ? "Changed" : step.destination,
+  }));
+  state = applyAnimationWindow(state, overlay);
+  assertEquals(getRenderWindow(state)[LEFT_RENDER]?.destination, "Yio Chu Kang");
+});
+
+Deno.test("applyServerWindow preserves destination when commit uses new seq keys", () => {
+  let state = initTrainView(makeSubmissions(10));
+  const initial: TrainStep[] = [
+    { seq: 1, kind: "post", submissionId: "sub-1", destination: "Bishan" },
+    { seq: 2, kind: "post", submissionId: "sub-2", destination: "Ang Mo Kio" },
+    { seq: 3, kind: "post", submissionId: "sub-3", destination: "Yio Chu Kang" },
+    { seq: 4, kind: "post", submissionId: "sub-4", destination: "Khatib" },
+    { seq: 5, kind: "post", submissionId: "sub-5", destination: "Yishun" },
+    { seq: 6, kind: "post", submissionId: "sub-6", destination: "Sembawang" },
+    { seq: 7, kind: "post", submissionId: "sub-7", destination: "Woodlands" },
+  ];
+  state = applyServerWindow(state, initial, 3);
+
+  const commit: TrainStep[] = [
+    { seq: 20, kind: "post", submissionId: "sub-3", destination: "Regenerated" },
+    { seq: 21, kind: "post", submissionId: "sub-4", destination: "Regenerated" },
+    { seq: 22, kind: "post", submissionId: "sub-5", destination: "Regenerated" },
+    { seq: 23, kind: "post", submissionId: "sub-6", destination: "Regenerated" },
+    { seq: 24, kind: "post", submissionId: "sub-7", destination: "Regenerated" },
+    { seq: 25, kind: "post", submissionId: "sub-8", destination: "Regenerated" },
+    { seq: 26, kind: "post", submissionId: "sub-9", destination: "Regenerated" },
+  ];
+  state = applyServerWindow(state, commit, 5);
+
+  assertEquals(getRenderWindow(state)[LEFT_RENDER]?.destination, "Yishun");
+  assertEquals(getRenderWindow(state)[LEFT_RENDER + 1]?.destination, "Sembawang");
+  assertEquals(getRenderWindow(state)[LEFT_RENDER]?.key, "s22");
+});
+
+Deno.test("applyServerWindow preserves ephemeral destination when seq keys change", () => {
+  let state = initTrainView(makeSubmissions(10));
+  const initial: TrainStep[] = [
+    { seq: 1, kind: "post", submissionId: "sub-1", destination: "Bishan" },
+    { seq: 2, kind: "post", submissionId: "sub-2", destination: "Ang Mo Kio" },
+    { seq: 3, kind: "post", submissionId: "sub-10", ephemeral: true, destination: "Preview Stop" },
+    { seq: 4, kind: "post", submissionId: "sub-3", destination: "Yio Chu Kang" },
+    { seq: 5, kind: "post", submissionId: "sub-4", destination: "Khatib" },
+    { seq: 6, kind: "post", submissionId: "sub-5", destination: "Yishun" },
+    { seq: 7, kind: "post", submissionId: "sub-6", destination: "Sembawang" },
+  ];
+  state = applyServerWindow(state, initial, 2);
+
+  const commit: TrainStep[] = [
+    { seq: 40, kind: "post", submissionId: "sub-1", destination: "New" },
+    { seq: 41, kind: "post", submissionId: "sub-2", destination: "New" },
+    { seq: 42, kind: "post", submissionId: "sub-10", ephemeral: true, destination: "New Preview" },
+    { seq: 43, kind: "post", submissionId: "sub-3", destination: "New" },
+    { seq: 44, kind: "post", submissionId: "sub-4", destination: "New" },
+    { seq: 45, kind: "post", submissionId: "sub-5", destination: "New" },
+    { seq: 46, kind: "post", submissionId: "sub-6", destination: "New" },
+  ];
+  state = applyServerWindow(state, commit, 3);
+
+  const ephemeral = getRenderWindow(state).find((c) => c.ephemeral);
+  assertEquals(ephemeral?.destination, "Preview Stop");
+  assertEquals(ephemeral?.key, "s42");
 });
