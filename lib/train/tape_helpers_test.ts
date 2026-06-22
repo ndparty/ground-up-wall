@@ -5,10 +5,12 @@ import { CENTER_SLOT, LEFT_RENDER, RIGHT_RENDER } from "./train_view_constants.t
 import {
   animationWindowPreservesLivePrefix,
   appendEndStateTail,
+  appendFullEndStateBlock,
   appendRightBufferFromSnapshot,
   appendRightBufferOnly,
   buildAppendOnlyJump,
   buildJumpAnimationWindow,
+  canonicalCabinNumbersOnTape,
   canonicalSuffixPrefixOverlap,
   cabinsAroundTargetWithBuffer,
   collectDestinationsBySeq,
@@ -47,6 +49,14 @@ function cabinId(n: number): string {
 
 function postCabin(cabin: number, seq: number): TrainStep {
   return post(cabinId(cabin), seq);
+}
+
+function appendedTailCabins(
+  prefixLen: number,
+  window: TrainStep[],
+  cabinIds: string[],
+): number[] {
+  return canonicalCabinNumbersOnTape(window.slice(prefixLen), cabinIds);
 }
 
 function buildCenterShiftSnapshots(
@@ -408,6 +418,45 @@ Deno.test("buildAppendOnlyJump on-tape left of center uses long forward path J-N
   assertEquals(result.stepsToTarget, computeJumpStepCount(5, 4, 10));
   assertEquals(result.committedTape[CENTER_SLOT]?.submissionId, "c4");
   assertEquals(findForwardCanonicalPostInTape(startTape, "c4"), null);
+  assertEquals(result.animationWindow.length, 14);
+  assertEquals(
+    appendedTailCabins(startTape.length, result.animationWindow, cabinIds),
+    [2, 3, 4, 5, 6, 7, 8],
+  );
+});
+
+Deno.test("buildAppendOnlyJump on-tape left appends full end-state block c15 to c13", () => {
+  const startTape = [
+    postCabin(13, 1), postCabin(14, 2), postCabin(15, 3),
+    postCabin(16, 4), postCabin(17, 5), postCabin(18, 6), postCabin(19, 7),
+  ];
+  const cabinIds = ids(20);
+  let nextSeq = 8;
+  const result = buildAppendOnlyJump(startTape, 15, 13, cabinIds, {
+    emitNextStep: () => postCabin(99, nextSeq++),
+    createCanonicalPost: (cabin) => postCabin(cabin, nextSeq++),
+  });
+
+  assertEquals(result.stepsToTarget, computeJumpStepCount(15, 13, 20));
+  assertEquals(result.committedTape[CENTER_SLOT]?.submissionId, "c13");
+  assertEquals(result.animationWindow.length, 14);
+  assertEquals(
+    appendedTailCabins(startTape.length, result.animationWindow, cabinIds),
+    [11, 12, 13, 14, 15, 16, 17],
+  );
+  assertEquals(animationWindowPreservesLivePrefix(startTape, result.animationWindow), true);
+});
+
+Deno.test("appendFullEndStateBlock always appends seven cabins", () => {
+  const startTape = [postCabin(13, 1), postCabin(14, 2), postCabin(15, 3)];
+  let nextSeq = 4;
+  const out = appendFullEndStateBlock(startTape, 13, 20, (cabin) =>
+    postCabin(cabin, nextSeq++));
+  assertEquals(out.length, 10);
+  assertEquals(
+    appendedTailCabins(startTape.length, out, ids(20)),
+    [11, 12, 13, 14, 15, 16, 17],
+  );
 });
 
 Deno.test("buildAppendOnlyJump at-center canonical is no-op short", () => {

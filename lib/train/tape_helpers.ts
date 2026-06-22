@@ -148,6 +148,21 @@ export function appendEndStateTail(
   return out;
 }
 
+/** On-tape-left long jump: append full end-state block as new posts at tail. */
+export function appendFullEndStateBlock(
+  linear: TrainStep[],
+  targetCabin: number,
+  len: number,
+  createCanonicalPost: (cabin: number) => TrainStep,
+): TrainStep[] {
+  const endState = cabinsAroundTargetWithBuffer(targetCabin, len);
+  const out = [...linear];
+  for (const cabin of endState) {
+    out.push(createCanonicalPost(cabin));
+  }
+  return out;
+}
+
 /** Rightmost canonical (non-ephemeral) instance of the target submission in a linear tape. */
 export function findRightmostCanonicalTargetIdx(
   linear: TrainStep[],
@@ -237,8 +252,15 @@ export function buildAppendOnlyJump(
   const stepsToTarget = computeJumpStepCount(fromCabin, targetCabin, len);
 
   let linear = [...startTape];
-  linear = appendMissingPathVisits(linear, pathCabins, cabinIds, createCanonicalPost);
-  linear = appendEndStateTail(linear, targetCabin, cabinIds, createCanonicalPost);
+  const onTapeLeftIdx = findRightmostCanonicalTargetIdx(startTape, targetId);
+  const isOnTapeLeft = onTapeLeftIdx !== null && onTapeLeftIdx < CENTER_SLOT;
+
+  if (isOnTapeLeft) {
+    linear = appendFullEndStateBlock(linear, targetCabin, len, createCanonicalPost);
+  } else {
+    linear = appendMissingPathVisits(linear, pathCabins, cabinIds, createCanonicalPost);
+    linear = appendEndStateTail(linear, targetCabin, cabinIds, createCanonicalPost);
+  }
 
   return {
     animationWindow: linear,

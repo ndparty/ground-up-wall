@@ -84,6 +84,7 @@ const isShortJump = forwardSlot !== null || atCenter;
 | Branch | Append mechanism |
 |--------|------------------|
 | **Short** | Only **right-of-target preload** if missing — `emitNextStep()` for buffer **only** |
+| **Long, on-tape-left** | Always append full `cabinsAroundTargetWithBuffer` (7 new canonical posts) at tail — **do not skip** because cabins exist in the live prefix |
 | **Long + overlap** | `createCanonicalPost(n)` from overlap cut + missing collapsed-path visits |
 | **Long, no overlap** | Full end-state block via `createCanonicalPost` |
 
@@ -117,6 +118,7 @@ End-state around target T: `c(T−2)…c(T+K+PRELOAD)` = 7 canonical cabins.
 | `appendRightBufferOnly` | Short jump: `emitNextStep` for preload right of target only |
 | `appendMissingPathVisits` | Long jump: `createCanonicalPost` for collapsed-path cabins not on tape |
 | `appendEndStateTail` | Long jump: end-state tail from overlap cut via `createCanonicalPost` |
+| `appendFullEndStateBlock` | On-tape-left long jump: append all 7 end-state cabins as new posts at tail |
 | `buildCommittedWindow` | 7-slot committed tape centered on target (slice or neighborhood assembly) |
 | `canonicalSuffixPrefixOverlap` | Overlap length for long-jump append trim |
 
@@ -222,8 +224,11 @@ currentCabin=5, jump c4 (canonical at slot 1)
 |-------|-------|
 | Branch | **Long** (`findForwardCanonicalPostInTape` null; slot 1 < center) |
 | stepsToTarget | `computeJumpStepCount(5, 4, N)` — forward collapsed path (**5** for N=10) |
-| Append | Minimal tail via long-jump branches; queue unchanged |
+| Append | Full end-state block `[c2..c8]` appended at tail (7 new posts); queue unchanged |
+| Overlay | live prefix (7) + appended tail (7) = 14 total |
 | Client | `isBackwardSlideTarget` true → forward-only slide; **never** `slideToKey` to c4 at slot 0/1 |
+
+**Reference — c15→c13, N=20:** center c15, target c13 at slot 0. Append tail `[c11..c17]` even though c13–c19 are already in the prefix.
 
 ---
 
