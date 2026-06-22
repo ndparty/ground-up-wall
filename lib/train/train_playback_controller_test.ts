@@ -199,7 +199,7 @@ Deno.test("jump on-tape left of center uses long forward steps J-N5", () => {
   assertEquals(cmd.stepsToTarget, 5);
 });
 
-Deno.test("jump to current cabin at center is server no-op", () => {
+Deno.test("jump to current cabin at center publishes zero-step jump SSE", () => {
   const harness = createTestController();
   harness.controller.initialize(10, ids(10));
   while (harness.controller.getState().currentCabin < 5) {
@@ -208,7 +208,11 @@ Deno.test("jump to current cabin at center is server no-op", () => {
   harness.published.length = 0;
 
   harness.controller.handleUserCommand({ type: "jump", cabinNumber: 5 });
-  assertEquals(harness.published.length, 0);
+  assertEquals(harness.published.length, 1);
+  const cmd = harness.published[0];
+  assertEquals(cmd.type, "jump");
+  assertEquals(cmd.stepsToTarget, 0);
+  assertEquals(cmd.cabinNumber, 5);
   assertEquals(harness.controller.getState().currentCabin, 5);
 });
 

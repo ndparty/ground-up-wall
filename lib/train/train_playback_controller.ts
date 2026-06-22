@@ -363,6 +363,14 @@ export class TrainPlaybackController {
     const targetId = this.cabinIds[targetCabin - 1]!;
 
     if (targetCabin === fromCabin && isCanonicalAtCenter(startTape, targetId)) {
+      this.publish({
+        type: "jump",
+        cabinNumber: targetCabin,
+        currentCabin: targetCabin,
+        window: [...this.tape],
+        animationWindow: [...startTape],
+        stepsToTarget: 0,
+      });
       return;
     }
 

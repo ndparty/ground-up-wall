@@ -12,6 +12,7 @@ import { mapCommandToOverrideState, type OverrideState } from "./display_overrid
 import { shouldApplyPlaybackStateWindow } from "./playback_state_sync.ts";
 import {
   deferJumpCommand,
+  pendingWithoutJumps,
   shouldDeferJumpSse,
   takeDeferredJump,
 } from "./jump_orchestrator_guard.ts";
@@ -81,6 +82,7 @@ export interface UseTrainPlaybackResult {
   reloadGeneration: number;
   setOrchestratorBusy: (busy: boolean) => void;
   flushDeferredJump: () => boolean;
+  clearOrchestratorState: () => void;
 }
 
 async function publishTrainCommand(command: TrainCommand): Promise<boolean> {
@@ -154,14 +156,28 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
     orchestratorBusyRef.current = busy;
   }, []);
 
-  function flushDeferredJump(): boolean {
+  const clearOrchestratorState = useCallback((): void => {
+    orchestratorBusyRef.current = false;
+    deferredJumpRef.current = null;
+  }, []);
+
+  const flushDeferredJump = useCallback((): boolean => {
     const command = takeDeferredJump(deferredJumpRef.current);
     if (!command) return false;
     deferredJumpRef.current = null;
-    clearPending();
-    enqueueJumpSteps(command);
+    pendingRef.current = pendingWithoutJumps(pendingRef.current);
+    setPendingAdvances(pendingRef.current.length);
+    if (!command.window) return false;
+    enqueueAdvance({
+      window: command.window,
+      currentCabin: command.currentCabin ?? 0,
+      kind: "jump",
+      slideSteps: command.stepsToTarget,
+      animationWindow: command.animationWindow,
+      fromCabin: getCurrentCabin(trainViewRef.current),
+    });
     return true;
-  }
+  }, []);
 
   const syncOverrideFromServer = useCallback(async () => {
     try {
@@ -378,6 +394,7 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
     reloadGeneration,
     setOrchestratorBusy,
     flushDeferredJump,
+    clearOrchestratorState,
   };
 }
 

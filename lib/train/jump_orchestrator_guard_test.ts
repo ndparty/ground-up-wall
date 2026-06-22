@@ -2,6 +2,7 @@ import { assertEquals } from "@std/assert";
 import type { TrainCommand } from "../interfaces/realtime_service.ts";
 import {
   deferJumpCommand,
+  pendingWithoutJumps,
   shouldDeferJumpSse,
   takeDeferredJump,
 } from "./jump_orchestrator_guard.ts";
@@ -33,4 +34,16 @@ Deno.test("takeDeferredJump accepts jump with window only", () => {
   assertEquals(takeDeferredJump({ type: "pause" }), null);
   assertEquals(takeDeferredJump({ type: "jump", cabinNumber: 1 }), null);
   assertEquals(takeDeferredJump(null), null);
+});
+
+Deno.test("pendingWithoutJumps keeps advances and drops jumps", () => {
+  const pending = [
+    { kind: "advance" as const, id: 1 },
+    { kind: "jump" as const, id: 2 },
+    { kind: "advance" as const, id: 3 },
+  ];
+  assertEquals(pendingWithoutJumps(pending), [
+    { kind: "advance", id: 1 },
+    { kind: "advance", id: 3 },
+  ]);
 });

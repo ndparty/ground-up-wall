@@ -75,7 +75,7 @@ const isShortJump = forwardSlot !== null || atCenter;
 
 **Do not** use `findRightmostCanonicalTargetIdx >= CENTER_SLOT` — that incorrectly treats left-of-center as short.
 
-**At-center no-op:** when `atCenter && forwardSlot === null`, `stepsToTarget = 0` (no slide). **Controller** also returns without publishing when `targetCabin === currentCabin` and canonical is already at center — no SSE, dwell timer unchanged.
+**At-center no-op:** when `atCenter && forwardSlot === null`, `stepsToTarget = 0` (no slide). **Controller** publishes a zero-step `jump` SSE (tape unchanged, no `scheduleNextTick` reset) so "Show on display" syncs the client even when already at that cabin.
 
 **Root cause (server alone is insufficient):** Even when the server correctly classifies on-tape-left as long, the preserved overlay prefix keeps the target at slot 0/1. `getJumpSlideTargetKey` + `slideToKey` would center that left DOM node and **scroll backward**. Client must use forward-only slide semantics (§2.8).
 
@@ -159,8 +159,10 @@ Before any jump slide starts, [`TrainDisplay.tsx`](../../islands/TrainDisplay.ts
 | Guard | Behavior |
 |-------|----------|
 | Orchestrator busy | Incoming `jump` SSE is **deferred** (latest wins) until current advance/jump animation finishes — never `clearPending()` mid-flight |
+| Deferred flush | Replaces queued jumps only (`pendingWithoutJumps`); **keeps** advances; orchestrator effect uses stable `useCallback` refs (never unstable deps) |
 | `stepsToTarget === 0` | Skip overlay preload and slide compensation; `commitAdvance` only |
 | Jump button | Disabled while `isSliding` on display controls |
+| UI teardown | `finally` always restores `isSliding` / highlight even when effect cleanup cancels in-flight work |
 
 `advance` events continue to enqueue during animation and drain in order after the current animation completes.
 

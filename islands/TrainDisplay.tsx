@@ -76,6 +76,7 @@ export default function TrainDisplay() {
     reloadGeneration,
     setOrchestratorBusy,
     flushDeferredJump,
+    clearOrchestratorState,
   } = useTrainPlayback();
 
   const [showFullscreenPrompt, setShowFullscreenPrompt] = useState(false);
@@ -101,11 +102,13 @@ export default function TrainDisplay() {
   const useCommittedRenderRef = useRef(false);
   const jumpHighlightKeyRef = useRef<string | null>(null);
   const recenterSuppressedRef = useRef(false);
+  const flushDeferredJumpRef = useRef(flushDeferredJump);
   trainViewRef.current = trainView;
   isPlayingRef.current = isPlaying;
   pendingAdvancesRef.current = pendingAdvances;
   peekPendingAdvanceRef.current = peekPendingAdvance;
   hasJumpPendingRef.current = hasJumpPending;
+  flushDeferredJumpRef.current = flushDeferredJump;
 
   const overlayView = jumpOverlaySteps ? applyAnimationWindow(trainView, jumpOverlaySteps) : null;
   const renderNodes = overlayView && !useCommittedRenderRef.current
@@ -304,6 +307,7 @@ export default function TrainDisplay() {
     if (!bootstrapComplete || reloadGeneration === 0) return;
 
     isAnimatingRef.current = false;
+    clearOrchestratorState();
     pendingCommitRef.current = null;
     useCommittedRenderRef.current = false;
     recenterSuppressedRef.current = false;
@@ -495,17 +499,17 @@ export default function TrainDisplay() {
         await waitForLayout();
         isAnimatingRef.current = false;
         setOrchestratorBusy(false);
-        const shouldResume = !cancelled && flushDeferredJump();
+        setIsSliding(false);
+        setHighlightReady(true);
+        useCommittedRenderRef.current = false;
+        pendingCommitRef.current = null;
+        const shouldResume = flushDeferredJumpRef.current();
         if (!cancelled) {
-          setHighlightReady(true);
-          setIsSliding(false);
           setTimeout(() => {
             recenterSuppressedRef.current = false;
           }, 100);
         } else {
           recenterSuppressedRef.current = false;
-          useCommittedRenderRef.current = false;
-          pendingCommitRef.current = null;
         }
         if (shouldResume) {
           runOrchestratorRef.current?.();
@@ -521,7 +525,7 @@ export default function TrainDisplay() {
       cancelled = true;
       runOrchestratorRef.current = null;
     };
-  }, [hasCabins, bootstrapComplete, commitAdvance, peekPendingAdvance, hasJumpPending, setOrchestratorBusy, flushDeferredJump]);
+  }, [hasCabins, bootstrapComplete, commitAdvance, peekPendingAdvance, hasJumpPending, setOrchestratorBusy]);
 
   useEffect(() => {
     if (!hasCabins || !bootstrapComplete) return;

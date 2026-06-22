@@ -20,3 +20,10 @@ export function takeDeferredJump(
   if (!deferred || deferred.type !== "jump" || !deferred.window) return null;
   return deferred;
 }
+
+/** Drop queued jumps before enqueueing a deferred jump; keep advances. */
+export function pendingWithoutJumps<T extends { kind: "advance" | "jump" }>(
+  pending: T[],
+): T[] {
+  return pending.filter((p) => p.kind !== "jump");
+}
