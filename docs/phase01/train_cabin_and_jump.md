@@ -75,7 +75,7 @@ const isShortJump = forwardSlot !== null || atCenter;
 
 **Do not** use `findRightmostCanonicalTargetIdx >= CENTER_SLOT` — that incorrectly treats left-of-center as short.
 
-**At-center no-op:** when `atCenter && forwardSlot === null`, `stepsToTarget = 0` (no slide).
+**At-center no-op:** when `atCenter && forwardSlot === null`, `stepsToTarget = 0` (no slide). **Controller** also returns without publishing when `targetCabin === currentCabin` and canonical is already at center — no SSE, dwell timer unchanged.
 
 **Root cause (server alone is insufficient):** Even when the server correctly classifies on-tape-left as long, the preserved overlay prefix keeps the target at slot 0/1. `getJumpSlideTargetKey` + `slideToKey` would center that left DOM node and **scroll backward**. Client must use forward-only slide semantics (§2.8).
 
@@ -141,18 +141,28 @@ Before any jump slide starts, [`TrainDisplay.tsx`](../../islands/TrainDisplay.ts
 | Case | Animation |
 |------|-----------|
 | Short jump (canonical forward in overlay, slot > 2) | `slideToKey(getJumpSlideTargetKey(...))` — existing |
-| Long jump **or** `isBackwardSlideTarget` (target at slot ≤ 2 in overlay) | **Forward-only:** `prepareJumpSlideOffset` + `jumpSlideStartTx` then `slideToKey(getForwardJumpSlideAnchorKey(...))` — never seek the left-positioned canonical node |
-| `stepsToTarget === 0` | No slide |
+| Long jump **or** `isBackwardSlideTarget` (target at slot **< 2** in overlay) | **Forward-only:** `prepareJumpSlideOffset` + `jumpSlideStartTx` then `slideToKey(getForwardJumpSlideAnchorKey(...))` — never seek the left-positioned canonical node |
+| `stepsToTarget === 0` | No slide; client fast-path skips overlay mount |
 
 **Invariant:** DOM translate during jump never increases to reveal cabins further **left** of the pre-jump center.
 
 | Helper | Role |
 |--------|------|
 | `findCanonicalTargetSlotInOverlay` | Rightmost canonical target slot in overlay |
-| `isBackwardSlideTarget` | True when slide target would be at or left of center |
+| `isBackwardSlideTarget` | True when slide target would be **strictly left** of center (slot < 2) |
 | `getForwardJumpSlideAnchorKey` | Forward DOM anchor for long / backward-target slides |
 | `overlayDomKeys` | All `s{seq}` keys for overlay mount gate |
 | `jumpSlideStartTx` / `prepareJumpSlideOffset` | Forward pitch offset before anchor slide ([`center_track.ts`](../../lib/train/center_track.ts)) |
+
+### 2.9 Client: jump guards (concurrency)
+
+| Guard | Behavior |
+|-------|----------|
+| Orchestrator busy | Incoming `jump` SSE is **deferred** (latest wins) until current advance/jump animation finishes — never `clearPending()` mid-flight |
+| `stepsToTarget === 0` | Skip overlay preload and slide compensation; `commitAdvance` only |
+| Jump button | Disabled while `isSliding` on display controls |
+
+`advance` events continue to enqueue during animation and drain in order after the current animation completes.
 
 ---
 
@@ -470,3 +480,4 @@ flowchart TD
 - [x] Mirror to `ground-up-wall-sdd/aidlc-docs/train_cabin_and_jump.md`; link from `audit.md`
 - [x] No-backward rule: explicit short classification (`findForwardCanonicalPostInTape` + `isCanonicalAtCenter`); J-N5
 - [x] Client overlay-ready gate (§2.7) and forward-only slide (§2.8)
+- [x] Same-cabin no-op, backward detection fix, deferred jump while animating (§2.9)
