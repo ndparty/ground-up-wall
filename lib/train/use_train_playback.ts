@@ -9,6 +9,7 @@ import type {
 } from "../interfaces/realtime_service.ts";
 import type { Submission, User } from "../types.ts";
 import { mapCommandToOverrideState, type OverrideState } from "./display_override.ts";
+import { rebuildDeferredJumpAnimation } from "./client_jump_deps.ts";
 import { shouldApplyPlaybackStateWindow } from "./playback_state_sync.ts";
 import {
   deferJumpCommand,
@@ -167,13 +168,17 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
     deferredJumpRef.current = null;
     pendingRef.current = pendingWithoutJumps(pendingRef.current);
     setPendingAdvances(pendingRef.current.length);
-    if (!command.window) return false;
+    if (!command.window || command.cabinNumber === undefined) return false;
+    const { animationWindow, stepsToTarget } = rebuildDeferredJumpAnimation(
+      trainViewRef.current,
+      command.cabinNumber,
+    );
     enqueueAdvance({
       window: command.window,
       currentCabin: command.currentCabin ?? 0,
       kind: "jump",
-      slideSteps: command.stepsToTarget,
-      animationWindow: command.animationWindow,
+      slideSteps: stepsToTarget,
+      animationWindow,
       fromCabin: getCurrentCabin(trainViewRef.current),
     });
     return true;
@@ -320,7 +325,13 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
       const playback = parseSseData<ServerPlaybackState>(event);
       if (!playback) return;
       setIsPlaying(playback.isPlaying);
-      if (!shouldApplyPlaybackStateWindow(pendingRef.current.length)) return;
+      if (
+        !shouldApplyPlaybackStateWindow(
+          pendingRef.current.length,
+          orchestratorBusyRef.current,
+          deferredJumpRef.current !== null,
+        )
+      ) return;
       clearPending();
       setTrainViewState((prev) =>
         applyServerWindow(prev, playback.window ?? [], playback.currentCabin)

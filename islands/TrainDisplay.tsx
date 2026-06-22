@@ -398,6 +398,10 @@ export default function TrainDisplay() {
             const slideSteps = peek.slideSteps ?? 0;
             if (slideSteps === 0) {
               commitAdvance();
+              if (flushDeferredJumpRef.current()) {
+                await waitForLayout();
+                continue;
+              }
               await waitForLayout();
               break;
             }
@@ -454,6 +458,10 @@ export default function TrainDisplay() {
               );
             }
             commitAdvance();
+            if (flushDeferredJumpRef.current()) {
+              await waitForLayout();
+              continue;
+            }
             await waitForLayout();
             break;
           }

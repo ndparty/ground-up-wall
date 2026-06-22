@@ -159,12 +159,14 @@ Before any jump slide starts, [`TrainDisplay.tsx`](../../islands/TrainDisplay.ts
 | Guard | Behavior |
 |-------|----------|
 | Orchestrator busy | Incoming `jump` SSE is **deferred** (latest wins) until current advance/jump animation finishes — never `clearPending()` mid-flight |
-| Deferred flush | Replaces queued jumps only (`pendingWithoutJumps`); **keeps** advances; orchestrator effect uses stable `useCallback` refs (never unstable deps) |
+| Deferred flush | Replaces queued jumps only (`pendingWithoutJumps`); **keeps** advances; rebuilds `animationWindow` / `stepsToTarget` from **client** tape (server `window` stays authoritative) |
+| Playback sync guard | `train_playback_state` must not apply while orchestrator busy, deferred jump pending, or advances queued |
 | `stepsToTarget === 0` | Skip overlay preload and slide compensation; `commitAdvance` only |
 | Jump button | Disabled while `isSliding` on display controls |
 | UI teardown | `finally` always restores `isSliding` / highlight even when effect cleanup cancels in-flight work |
+| Drain sequencing | After jump `commitAdvance`, flush deferred and `continue` same drain loop (no `pending=0` gap) |
 
-`advance` events continue to enqueue during animation and drain in order after the current animation completes.
+`advance` events continue to enqueue during animation and drain in order after the current animation completes. In-flight jumps always finish before a deferred jump animates.
 
 ---
 
