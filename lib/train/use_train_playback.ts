@@ -11,6 +11,11 @@ import type { Submission, User } from "../types.ts";
 import { mapCommandToOverrideState, type OverrideState } from "./display_override.ts";
 import { shouldApplyPlaybackStateWindow } from "./playback_state_sync.ts";
 import {
+  deferJumpCommand,
+  shouldDeferJumpSse,
+  takeDeferredJump,
+} from "./jump_orchestrator_guard.ts";
+import {
   addApproved,
   applyServerWindow,
   getCanonicalCount,
@@ -74,6 +79,8 @@ export interface UseTrainPlaybackResult {
   connectionStatus: ConnectionStatus;
   overrideState: OverrideState;
   reloadGeneration: number;
+  setOrchestratorBusy: (busy: boolean) => void;
+  flushDeferredJump: () => boolean;
 }
 
 async function publishTrainCommand(command: TrainCommand): Promise<boolean> {
@@ -99,6 +106,8 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
   const isPlayingRef = useRef(isPlaying);
   const pendingRef = useRef<PendingAdvance[]>([]);
   const trainViewRef = useRef(trainView);
+  const orchestratorBusyRef = useRef(false);
+  const deferredJumpRef = useRef<TrainCommand | null>(null);
   isPlayingRef.current = isPlaying;
   trainViewRef.current = trainView;
 
@@ -140,6 +149,19 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
   const hasJumpPending = useCallback((): boolean => {
     return pendingRef.current.some((p) => p.kind === "jump");
   }, []);
+
+  const setOrchestratorBusy = useCallback((busy: boolean): void => {
+    orchestratorBusyRef.current = busy;
+  }, []);
+
+  function flushDeferredJump(): boolean {
+    const command = takeDeferredJump(deferredJumpRef.current);
+    if (!command) return false;
+    deferredJumpRef.current = null;
+    clearPending();
+    enqueueJumpSteps(command);
+    return true;
+  }
 
   const syncOverrideFromServer = useCallback(async () => {
     try {
@@ -270,6 +292,10 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
         return;
       }
       if (command.type === "jump" && command.window && command.cabinNumber !== undefined) {
+        if (shouldDeferJumpSse(orchestratorBusyRef.current)) {
+          deferredJumpRef.current = deferJumpCommand(deferredJumpRef.current, command);
+          return;
+        }
         clearPending();
         enqueueJumpSteps(command);
       }
@@ -350,6 +376,8 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
     connectionStatus,
     overrideState,
     reloadGeneration,
+    setOrchestratorBusy,
+    flushDeferredJump,
   };
 }
 
