@@ -39,10 +39,12 @@ export class RateLimiter {
 }
 
 /**
- * Best-effort client identity for rate limiting: first X-Forwarded-For hop when
- * behind a proxy, else the socket remote address, else a constant fallback.
+ * Best-effort client identity for rate limiting: Cloudflare client IP when proxied,
+ * else first X-Forwarded-For hop, else socket remote address.
  */
 export function clientKey(req: Request, info?: { remoteAddr?: Deno.Addr }): string {
+  const cfConnecting = req.headers.get("cf-connecting-ip")?.trim();
+  if (cfConnecting) return cfConnecting;
   const forwarded = req.headers.get("x-forwarded-for");
   if (forwarded) {
     const first = forwarded.split(",")[0]?.trim();

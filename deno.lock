@@ -9,6 +9,7 @@
     "jsr:@felix/bcrypt@^1.0.8": "1.0.8",
     "jsr:@fresh/build-id@1": "1.0.1",
     "jsr:@fresh/core@*": "2.3.3",
+    "jsr:@fresh/core@2.3.3": "2.3.3",
     "jsr:@fresh/core@^2.3.3": "2.3.3",
     "jsr:@std/assert@1": "1.0.19",
     "jsr:@std/bytes@^1.0.5": "1.0.6",

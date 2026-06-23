@@ -47,7 +47,7 @@ For a step-by-step demo walkthrough, see **[DEMO.md](DEMO.md)**.
    export DEMO_DISPLAY_PASSWORD="demo123"
    ```
 
-   > **Security:** If passwords are not set, the seed script uses local fallbacks (`admin123`, `demo123`) and prints them to the console. The seed script **refuses** fallbacks when `DENO_DEPLOYMENT_ID` is set (deployed environments).
+   > **Security:** If passwords are not set, the seed script uses local fallbacks (`admin123`, `demo123`) and prints them to the console. The seed script **refuses** fallbacks when `DEPLOYED=1` (or `DENO_DEPLOYMENT_ID` is set) in deployed environments. See [docs/phase02/oracle_vps_deploy.md](docs/phase02/oracle_vps_deploy.md) for VPS production setup.
 
 5. **Run migrations:**
 
@@ -169,7 +169,8 @@ Uploaded images are served at `/submissions/`, `/placeholders/`, and `/overrides
 ## Phase roadmap
 
 - **Phase 1 (current):** Local MVP — Deno Fresh + Postgres + filesystem storage
-- **Phase 2:** Cloud deployment (Deno Deploy + Supabase)
+- **Production (Oracle VPS):** [docs/phase02/oracle_vps_deploy.md](docs/phase02/oracle_vps_deploy.md)
+- **Phase 2 (deferred):** Cloud deployment (Deno Deploy + Supabase)
 - **Phase 3:** Instagram integration
 
 See [docs/phase01/epic_plan-phase01.md](docs/phase01/epic_plan-phase01.md) for the full work-item breakdown.
