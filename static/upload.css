@@ -3,6 +3,11 @@
   max-width: 320px;
 }
 
+.upload-photo-selected {
+  margin: 0.25rem 0 0;
+  opacity: 0.85;
+}
+
 .upload-cabin-preview .train-cabin-wrap {
   color: var(--sg-white, #ffffff);
   width: 100%;

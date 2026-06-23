@@ -1,11 +1,11 @@
 import ChangePasswordForm from "../islands/ChangePasswordForm.tsx";
+import { loginPageRedirect } from "../lib/auth/login_redirect.ts";
 import { define } from "../utils.ts";
 
 export const handlers = define.handlers({
   GET(ctx) {
-    const user = ctx.state.user;
-    if (!user) {
-      return Response.redirect(new URL("/login", ctx.req.url), 302);
+    if (!ctx.state.user) {
+      return loginPageRedirect(ctx.req);
     }
     return {};
   },

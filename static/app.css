@@ -808,7 +808,3 @@ textarea:focus-visible {
 .panel__actions--spaced {
   margin-top: 1rem;
 }
-
-.train-cabin__message--dynamic {
-  font-size: var(--message-font-size, inherit);
-}

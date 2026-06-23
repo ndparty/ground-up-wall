@@ -1,13 +1,17 @@
 import DisplayOverrideControls from "../islands/DisplayOverrideControls.tsx";
 import ModerationQueue from "../islands/ModerationQueue.tsx";
 import ModeratorTrainPanel from "../islands/ModeratorTrainPanel.tsx";
+import { loginPageRedirect, roleHomeRedirect } from "../lib/auth/login_redirect.ts";
 import { define } from "../utils.ts";
 
 export const handlers = define.handlers({
   GET(ctx) {
     const user = ctx.state.user;
-    if (!user || (user.role !== "moderator" && user.role !== "admin")) {
-      return Response.redirect(new URL("/login", ctx.req.url), 302);
+    if (!user) {
+      return loginPageRedirect(ctx.req);
+    }
+    if (user.role !== "moderator" && user.role !== "admin") {
+      return roleHomeRedirect(ctx.req, user.role);
     }
     return {};
   },

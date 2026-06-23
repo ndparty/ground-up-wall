@@ -28,13 +28,8 @@ export default function ModerateApprovedGallery() {
 
   const sseHandlersRef = useRef<Record<string, (event: MessageEvent) => void>>({});
   sseHandlersRef.current = {
-    submission_approved: (event) => {
-      try {
-        const submission = JSON.parse(event.data) as Submission;
-        setApproved((prev) => [submission, ...prev.filter((s) => s.id !== submission.id)]);
-      } catch {
-        // ignore malformed events
-      }
+    submission_approved: () => {
+      void loadApproved();
     },
     submission_edited: (event) => {
       try {

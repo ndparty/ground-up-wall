@@ -551,7 +551,7 @@ Deno.test("restoreFromSnapshot rejects when window references deleted cabin", ()
 });
 
 Deno.test("resetToFreshState clears queue and rebuilds tape at cabin 1", () => {
-  const { controller, published, fireScheduled } = createTestController();
+  const { controller, published } = createTestController();
   controller.initialize(10, ids(10));
   controller.enqueuePreview("c10");
   controller.handleUserCommand({ type: "jump", cabinNumber: 5 });

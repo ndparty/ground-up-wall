@@ -159,12 +159,16 @@ Before any jump slide starts, [`TrainDisplay.tsx`](../../islands/TrainDisplay.ts
 | Guard | Behavior |
 |-------|----------|
 | Orchestrator busy | Incoming `jump` SSE is **deferred** (latest wins) until current advance/jump animation finishes — never `clearPending()` mid-flight |
-| Deferred flush | Replaces queued jumps only (`pendingWithoutJumps`); **keeps** advances; rebuilds `animationWindow` / `stepsToTarget` from **client** tape (server `window` stays authoritative) |
+| Deferred flush | Replaces queued jumps only (`pendingWithoutJumps`); **keeps** advances; rebuilds `animationWindow` / `stepsToTarget` from **post-commit** client tape (`commitAdvance` sync-updates `trainViewRef` before rebuild); server `window` stays authoritative |
+| Commit order | Jump/advance end: `commitAdvance` → `waitForLayout` (track compensation) → `flushDeferredJump` — never flush before layout |
+| Drain loop | Entry and `while` driven by `peekPendingAdvance()` (sync `pendingRef`), not render-synced `pendingAdvances` count |
 | Playback sync guard | `train_playback_state` must not apply while orchestrator busy, deferred jump pending, or advances queued |
+| Reconnect sync | `syncPlaybackFromServer` skipped while orchestrator busy or queue non-empty |
+| Pause | `pause` / `pauseTrain` skip `clearPending` while orchestrator busy; animation finishes, deferred preserved until `finally` flush |
 | `stepsToTarget === 0` | Skip overlay preload and slide compensation; `commitAdvance` only |
 | Jump button | Disabled while `isSliding` on display controls |
-| UI teardown | `finally` always restores `isSliding` / highlight even when effect cleanup cancels in-flight work |
-| Drain sequencing | After jump `commitAdvance`, flush deferred and `continue` same drain loop (no `pending=0` gap) |
+| UI teardown | `finally`: flush deferred while busy, clear overlay only when idle; restore `isSliding` / highlight |
+| Drain sequencing | After jump `commitAdvance` + layout, flush deferred and `continue` same drain loop (no `pending=0` gap) |
 
 `advance` events continue to enqueue during animation and drain in order after the current animation completes. In-flight jumps always finish before a deferred jump animates.
 

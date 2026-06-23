@@ -306,7 +306,7 @@ export default function ModerationQueue() {
       const submission = parseSubmission(event);
       if (!submission) return;
       setPending((prev) => prev.filter((s) => s.id !== submission.id));
-      setApproved((prev) => [submission, ...prev.filter((s) => s.id !== submission.id)]);
+      void loadQueues();
     },
     submission_rejected: (event) => {
       try {

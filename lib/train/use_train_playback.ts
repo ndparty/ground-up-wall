@@ -10,6 +10,7 @@ import type {
 import type { Submission, User } from "../types.ts";
 import { mapCommandToOverrideState, type OverrideState } from "./display_override.ts";
 import { rebuildDeferredJumpAnimation } from "./client_jump_deps.ts";
+import { preserveDestinationsFromPreJumpTape } from "./tape_helpers.ts";
 import { shouldApplyPlaybackStateWindow } from "./playback_state_sync.ts";
 import {
   deferJumpCommand,
@@ -17,6 +18,7 @@ import {
   shouldDeferJumpSse,
   takeDeferredJump,
 } from "./jump_orchestrator_guard.ts";
+import { applyCommitAdvance, type PendingAdvance } from "./pending_advance.ts";
 import {
   addApproved,
   applyServerWindow,
@@ -37,16 +39,13 @@ interface ServerPlaybackState {
   window?: TrainStep[];
 }
 
-interface PendingAdvance {
-  window: TrainStep[];
-  currentCabin: number;
-  kind: "advance" | "jump";
-  slideSteps?: number;
-  animationWindow?: TrainStep[];
-  fromCabin?: number;
-}
-
 export type { PendingAdvance };
+export { applyCommitAdvance } from "./pending_advance.ts";
+
+export interface CommitAdvanceResult {
+  view: TrainViewState;
+  centerKey: string | null;
+}
 
 function parseSseData<T>(event: MessageEvent): T | null {
   try {
@@ -68,8 +67,9 @@ export interface UseTrainPlaybackResult {
   currentCabin: number;
   trainLength: number;
   pendingAdvances: number;
-  commitAdvance: () => string | null;
+  commitAdvance: () => CommitAdvanceResult | null;
   peekPendingAdvance: () => PendingAdvance | null;
+  getPendingCount: () => number;
   hasJumpPending: () => boolean;
   pauseTrain: () => Promise<boolean>;
   resumeTrain: () => Promise<boolean>;
@@ -136,17 +136,23 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
     });
   }
 
-  const commitAdvance = useCallback((): string | null => {
+  const commitAdvance = useCallback((): CommitAdvanceResult | null => {
     const next = pendingRef.current[0];
     pendingRef.current = pendingRef.current.slice(1);
     setPendingAdvances(pendingRef.current.length);
     if (!next) return null;
-    setTrainViewState((prev) => applyServerWindow(prev, next.window, next.currentCabin));
-    return centerKeyFromWindow(next.window);
+    const updated = applyCommitAdvance(trainViewRef.current, next);
+    trainViewRef.current = updated;
+    setTrainViewState(updated);
+    return { view: updated, centerKey: centerKeyFromWindow(next.window) };
   }, []);
 
   const peekPendingAdvance = useCallback((): PendingAdvance | null => {
     return pendingRef.current[0] ?? null;
+  }, []);
+
+  const getPendingCount = useCallback((): number => {
+    return pendingRef.current.length;
   }, []);
 
   const hasJumpPending = useCallback((): boolean => {
@@ -173,6 +179,7 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
       trainViewRef.current,
       command.cabinNumber,
     );
+    preserveDestinationsFromPreJumpTape(animationWindow, command.window);
     enqueueAdvance({
       window: command.window,
       currentCabin: command.currentCabin ?? 0,
@@ -196,6 +203,7 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
   }, []);
 
   const syncPlaybackFromServer = useCallback(async () => {
+    if (orchestratorBusyRef.current || pendingRef.current.length > 0) return;
     try {
       const res = await fetchWithRetry("/api/display/submissions");
       if (!res.ok) return;
@@ -296,7 +304,10 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
 
       if (command.type === "pause") {
         setIsPlaying(false);
-        clearPending();
+        if (!orchestratorBusyRef.current) {
+          clearPending();
+          deferredJumpRef.current = null;
+        }
         return;
       }
       if (command.type === "play") {
@@ -365,7 +376,10 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
   async function pauseTrain(): Promise<boolean> {
     const wasPlaying = isPlaying;
     setIsPlaying(false);
-    clearPending();
+    if (!orchestratorBusyRef.current) {
+      clearPending();
+      deferredJumpRef.current = null;
+    }
     const ok = await publishTrainCommand({ type: "pause" });
     if (!ok) setIsPlaying(wasPlaying);
     return ok;
@@ -392,6 +406,7 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
     pendingAdvances,
     commitAdvance,
     peekPendingAdvance,
+    getPendingCount,
     hasJumpPending,
     pauseTrain,
     resumeTrain,

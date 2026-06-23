@@ -233,6 +233,7 @@ export default function UploadForm({
   function handlePhotoChange(e: Event) {
     const input = e.currentTarget as HTMLInputElement;
     const file = input.files?.[0];
+    // Cancel / re-open with no selection: keep photo state and preview intact.
     if (!file) return;
 
     previewRepairAttemptedRef.current = false;
@@ -250,6 +251,7 @@ export default function UploadForm({
     setError("");
     clearFieldError("photo");
     void updateCroppedPreview(file);
+    input.value = "";
   }
 
   async function updateCroppedPreview(file: File) {
@@ -378,7 +380,7 @@ export default function UploadForm({
     ? {
       id: "preview",
       image_url: preview,
-      message: message || "Your message will appear here",
+      message: message,
       submitter_name: submitterName.trim() || "Your name",
       social_handle: socialHandle.trim() || undefined,
       status: "approved",
@@ -402,14 +404,21 @@ export default function UploadForm({
           </ul>
         </section>
 
-        <label data-field="photo" class="form-label">
-          Photo
-          <input
-            type="file"
-            accept={UPLOAD_ACCEPT_ATTR}
-            onChange={handlePhotoChange}
-            class="form-input--file"
-          />
+        <div data-field="photo" class="form-stack">
+          <label class="form-label">
+            Photo
+            <input
+              type="file"
+              accept={UPLOAD_ACCEPT_ATTR}
+              onChange={handlePhotoChange}
+              class="form-input--file"
+            />
+          </label>
+          {photo && (
+            <p class="upload-photo-selected text-small">
+              Selected: {photo.name}
+            </p>
+          )}
           {fieldErrors.photo && <span class="upload-field-error">{fieldErrors.photo}</span>}
           {previewLoading && <span class="upload-preview-loading">Loading preview…</span>}
           {previewSubmission && !previewLoading && (
@@ -424,7 +433,7 @@ export default function UploadForm({
               />
             </div>
           )}
-        </label>
+        </div>
 
         <label data-field="message" class="form-label">
           Message

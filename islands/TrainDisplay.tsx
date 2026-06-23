@@ -95,7 +95,6 @@ export default function TrainDisplay() {
   const isPlayingRef = useRef(isPlaying);
   const runOrchestratorRef = useRef<(() => void) | null>(null);
   const prevOverrideViewRef = useRef<"train" | "blank" | "placeholder">("train");
-  const pendingAdvancesRef = useRef(pendingAdvances);
   const peekPendingAdvanceRef = useRef(peekPendingAdvance);
   const hasJumpPendingRef = useRef(hasJumpPending);
   const pendingCommitRef = useRef<PendingCommit | null>(null);
@@ -105,7 +104,6 @@ export default function TrainDisplay() {
   const flushDeferredJumpRef = useRef(flushDeferredJump);
   trainViewRef.current = trainView;
   isPlayingRef.current = isPlaying;
-  pendingAdvancesRef.current = pendingAdvances;
   peekPendingAdvanceRef.current = peekPendingAdvance;
   hasJumpPendingRef.current = hasJumpPending;
   flushDeferredJumpRef.current = flushDeferredJump;
@@ -269,7 +267,7 @@ export default function TrainDisplay() {
   useLayoutEffect(() => {
     if (!hasCabins || !bootstrapComplete || overrideView !== "train") return;
     if (isAnimatingRef.current) return;
-    if (pendingAdvancesRef.current > 0) return;
+    if (peekPendingAdvanceRef.current() !== null) return;
     if (recenterSuppressedRef.current) return;
     tryInstantRecenterOn(centerKey);
   }, [hasCabins, bootstrapComplete, centerKey, overrideView]);
@@ -372,9 +370,16 @@ export default function TrainDisplay() {
       return !cancelled;
     }
 
+    async function commitLayoutAndFlushDeferred(): Promise<boolean> {
+      const result = commitAdvance();
+      if (result) trainViewRef.current = result.view;
+      await waitForLayout();
+      return flushDeferredJumpRef.current();
+    }
+
     async function drainQueue() {
       if (isAnimatingRef.current) return;
-      if (pendingAdvancesRef.current <= 0) return;
+      if (!peekPendingAdvanceRef.current()) return;
       if (!isPlayingRef.current && !hasJumpPendingRef.current()) return;
 
       isAnimatingRef.current = true;
@@ -385,11 +390,10 @@ export default function TrainDisplay() {
       recenterSuppressedRef.current = true;
 
       try {
-        while (pendingAdvancesRef.current > 0 && !cancelled) {
-          if (!isPlayingRef.current && !hasJumpPendingRef.current()) break;
-
+        while (!cancelled) {
           const peek = peekPendingAdvanceRef.current();
           if (!peek) break;
+          if (!isPlayingRef.current && !hasJumpPendingRef.current()) break;
 
           const view = trainViewRef.current;
           const track = trackRef.current;
@@ -397,12 +401,7 @@ export default function TrainDisplay() {
           if (peek.kind === "jump") {
             const slideSteps = peek.slideSteps ?? 0;
             if (slideSteps === 0) {
-              commitAdvance();
-              if (flushDeferredJumpRef.current()) {
-                await waitForLayout();
-                continue;
-              }
-              await waitForLayout();
+              if (await commitLayoutAndFlushDeferred()) continue;
               break;
             }
 
@@ -439,8 +438,9 @@ export default function TrainDisplay() {
               if (!ok) {
                 clearJumpOverlay();
                 pendingCommitRef.current = null;
-                const centerKeyAfter = commitAdvance();
-                await recenterAfterCommit(centerKeyAfter);
+                const result = commitAdvance();
+                if (result) trainViewRef.current = result.view;
+                await recenterAfterCommit(result?.centerKey ?? null);
                 break;
               }
             }
@@ -457,12 +457,7 @@ export default function TrainDisplay() {
                 true,
               );
             }
-            commitAdvance();
-            if (flushDeferredJumpRef.current()) {
-              await waitForLayout();
-              continue;
-            }
-            await waitForLayout();
+            if (await commitLayoutAndFlushDeferred()) continue;
             break;
           }
 
@@ -482,8 +477,9 @@ export default function TrainDisplay() {
             if (track) clearTrackTransition(track);
             if (!ok) {
               pendingCommitRef.current = null;
-              const centerKeyAfter = commitAdvance();
-              await recenterAfterCommit(centerKeyAfter);
+              const result = commitAdvance();
+              if (result) trainViewRef.current = result.view;
+              await recenterAfterCommit(result?.centerKey ?? null);
               continue;
             }
           }
@@ -497,12 +493,15 @@ export default function TrainDisplay() {
             peek.currentCabin,
             slidTargetKey,
           );
-          commitAdvance();
-          await waitForLayout();
+          if (await commitLayoutAndFlushDeferred()) continue;
         }
       } finally {
+        const shouldResume = flushDeferredJumpRef.current();
+        const stillPending = peekPendingAdvanceRef.current() !== null;
         jumpHighlightKeyRef.current = null;
-        clearJumpOverlay();
+        if (!shouldResume && !stillPending) {
+          clearJumpOverlay();
+        }
         await waitForLayout();
         await waitForLayout();
         isAnimatingRef.current = false;
@@ -511,7 +510,6 @@ export default function TrainDisplay() {
         setHighlightReady(true);
         useCommittedRenderRef.current = false;
         pendingCommitRef.current = null;
-        const shouldResume = flushDeferredJumpRef.current();
         if (!cancelled) {
           setTimeout(() => {
             recenterSuppressedRef.current = false;

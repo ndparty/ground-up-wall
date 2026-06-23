@@ -1,3 +1,3 @@
-import { requireRole } from "../../lib/middleware/auth_guard.ts";
+import { requireRolePage } from "../../lib/middleware/auth_guard.ts";
 
-export const handler = [requireRole("admin")];
+export const handler = [requireRolePage("admin")];

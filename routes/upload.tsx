@@ -14,6 +14,7 @@ export const handlers = define.handlers({
 export default define.page<typeof handlers>(function UploadPage({ data }) {
   return (
     <div class="page page--upload">
+      <link rel="stylesheet" href="/train.css" />
       <h2 class="heading-brand--center">Share your moment!</h2>
       <UploadForm
         messagePromptText={data.messagePromptText}

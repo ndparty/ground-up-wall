@@ -1,5 +1,5 @@
 import { assertEquals } from "@std/assert";
-import { accessDecision } from "./access_gate.ts";
+import { accessDecision, OFFLINE_HTML, UPLOADS_CLOSED_HTML } from "./access_gate.ts";
 
 const ON = { killswitch: true, uploadsEnabled: true };
 const UPLOADS_OFF = { killswitch: false, uploadsEnabled: false };
@@ -40,5 +40,12 @@ Deno.test("everything allowed when both toggles are healthy", () => {
     const path of ["/display", "/upload", "/moderate", "/api/submissions", "/api/display/events"]
   ) {
     assertEquals(accessDecision(path, ALL_OK), "allow");
+  }
+});
+
+Deno.test("blocked gate pages link gate.css without inline style", () => {
+  for (const html of [OFFLINE_HTML, UPLOADS_CLOSED_HTML]) {
+    assertEquals(html.includes('/gate.css"'), true);
+    assertEquals(html.includes("<style>"), false);
   }
 });

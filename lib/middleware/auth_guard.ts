@@ -3,6 +3,7 @@ import type { AuthUser } from "../services/auth_service.ts";
 import type { User } from "../types.ts";
 import { getSessionToken } from "../cookies.ts";
 import type { AppState } from "../di.ts";
+import { loginPageRedirect, roleHomeRedirect } from "../auth/login_redirect.ts";
 
 export interface AuthState {
   user: AuthUser | null;
@@ -27,6 +28,20 @@ export function requireRole(...roles: User["role"][]): Middleware<AuthState> {
       return jsonAuthError(403, "Forbidden");
     }
     ctx.state.user = user;
+    return await ctx.next();
+  };
+}
+
+/** HTML page routes: redirect to /login or role home instead of JSON errors. */
+export function requireRolePage(...roles: User["role"][]): Middleware<AuthState> {
+  return async (ctx: Context<AuthState>) => {
+    const user = ctx.state.user;
+    if (!user) {
+      return loginPageRedirect(ctx.req);
+    }
+    if (!roles.includes(user.role)) {
+      return roleHomeRedirect(ctx.req, user.role);
+    }
     return await ctx.next();
   };
 }
