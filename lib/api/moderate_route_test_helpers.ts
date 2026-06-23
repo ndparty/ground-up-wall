@@ -56,5 +56,7 @@ export function authedRequest(
 ): Request {
   const headers = new Headers(init.headers);
   headers.set("Cookie", `session=${encodeURIComponent(token)}`);
+  const parsed = new URL(url);
+  headers.set("Origin", parsed.origin);
   return new Request(url, { ...init, headers });
 }

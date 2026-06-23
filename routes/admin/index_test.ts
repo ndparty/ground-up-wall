@@ -9,12 +9,24 @@ import {
 import { cleanupTestData } from "../../lib/test_helpers.ts";
 
 Deno.test({
-  name: "testAdminRouteBlocksModerator",
+  name: "testAdminRouteRedirectsUnauthenticatedToLogin",
+  async fn() {
+    const handler = await createTestHandler();
+    const res = await handler(new Request("http://localhost/admin"), serveInfo);
+    assertEquals(res.status, 302);
+    assertEquals(res.headers.get("location"), "http://localhost/login");
+    await cleanupTestData();
+  },
+});
+
+Deno.test({
+  name: "testAdminRouteRedirectsModeratorToModerate",
   async fn() {
     const handler = await createTestHandler();
     const { token } = await loginAsModerator(handler);
     const res = await handler(authedRequest("http://localhost/admin", token), serveInfo);
-    assertEquals(res.status, 403);
+    assertEquals(res.status, 302);
+    assertEquals(res.headers.get("location"), "http://localhost/moderate");
     await cleanupTestData();
   },
 });

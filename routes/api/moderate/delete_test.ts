@@ -11,6 +11,7 @@ import {
   serveInfo,
 } from "../../../lib/api/moderate_route_test_helpers.ts";
 import { cleanupTestData, createTestRepository } from "../../../lib/test_helpers.ts";
+import { testJpegBlob } from "../../../lib/image/test_jpeg.ts";
 
 Deno.test({
   name: "testDeleteApprovedSubmission",
@@ -29,7 +30,7 @@ Deno.test({
       new AutoModeratorServiceImpl(),
     );
     const submission = await service.submitPublicSubmission({
-      image: new Blob([new Uint8Array([1, 2, 3])], { type: "image/jpeg" }),
+      image: testJpegBlob(),
       message: "Delete me",
       submitter_name: "Tester",
     });

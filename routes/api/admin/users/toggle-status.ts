@@ -1,4 +1,5 @@
 import { isManagedRole } from "../../../../lib/admin/user_route_helpers.ts";
+import { toPublicError } from "../../../../lib/api/public_error.ts";
 import { define } from "../../../../utils.ts";
 
 export const handlers = define.handlers({
@@ -33,8 +34,7 @@ export const handlers = define.handlers({
       }
       return ctx.json({ ok: true });
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Update failed";
-      return ctx.json({ error: message }, { status: 400 });
+      return ctx.json({ error: toPublicError(err, "Update failed") }, { status: 400 });
     }
   },
 });

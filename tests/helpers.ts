@@ -17,6 +17,7 @@ import { AutoModeratorServiceImpl } from "../lib/services/auto_moderator_service
 import { PhotoWallService } from "../lib/services/photo_wall_service.ts";
 import type { Submission, SubmissionInput } from "../lib/types.ts";
 import type { PostgresRepository } from "../lib/repositories/postgres_repository.ts";
+import { testJpegBlob, testJpegFile } from "../lib/image/test_jpeg.ts";
 import { cleanupTestData, createTestRepository } from "../lib/test_helpers.ts";
 
 export {
@@ -155,7 +156,7 @@ export async function createTestSubmission(
     new AutoModeratorServiceImpl(),
   );
   const submission = await service.submitPublicSubmission({
-    image: new Blob([new Uint8Array([1, 2, 3])], { type: "image/jpeg" }),
+    image: testJpegBlob(),
     message: "Happy National Day",
     submitter_name: "Participant",
     ...overrides,
@@ -177,7 +178,7 @@ export function makePhotoForm(entries: Record<string, string | Blob | File>): Fo
 }
 
 export function testPhoto(): File {
-  return new File([new Uint8Array([1, 2, 3])], "photo.jpg", { type: "image/jpeg" });
+  return testJpegFile();
 }
 
 export async function submitViaApi(

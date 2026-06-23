@@ -69,6 +69,7 @@ export class AuthService {
     this.throttle.recordSuccess(throttleKey);
     const token = crypto.randomUUID();
     const authUser = toAuthUser(user);
+    this.invalidateSessionsForUser(user.id, token);
     this.sessions.set(token, {
       user: authUser,
       expires: new Date(Date.now() + SESSION_MAX_AGE_MS),
@@ -106,6 +107,10 @@ export class AuthService {
       this.sessions.delete(token);
       return null;
     }
+    if (session.user.role !== dbUser.role) {
+      this.sessions.delete(token);
+      return null;
+    }
     const authUser = toAuthUser(dbUser);
     session.user = authUser;
     this.sessions.set(token, session);
@@ -114,6 +119,10 @@ export class AuthService {
 
   invalidateSessionsForUser(userId: string, exceptToken?: string): void {
     this.sessions.deleteByUserId(userId, exceptToken);
+  }
+
+  clearSessionCache(): void {
+    this.sessions.clearCache?.();
   }
 
   isAuthenticated(token: string | null | undefined): boolean {

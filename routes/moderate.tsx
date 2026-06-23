@@ -1,13 +1,17 @@
 import DisplayOverrideControls from "../islands/DisplayOverrideControls.tsx";
 import ModerationQueue from "../islands/ModerationQueue.tsx";
 import ModeratorTrainPanel from "../islands/ModeratorTrainPanel.tsx";
+import { loginPageRedirect, roleHomeRedirect } from "../lib/auth/login_redirect.ts";
 import { define } from "../utils.ts";
 
 export const handlers = define.handlers({
   GET(ctx) {
     const user = ctx.state.user;
-    if (!user || (user.role !== "moderator" && user.role !== "admin")) {
-      return Response.redirect(new URL("/login", ctx.req.url), 302);
+    if (!user) {
+      return loginPageRedirect(ctx.req);
+    }
+    if (user.role !== "moderator" && user.role !== "admin") {
+      return roleHomeRedirect(ctx.req, user.role);
     }
     return {};
   },
@@ -15,8 +19,8 @@ export const handlers = define.handlers({
 
 export default define.page(function ModeratePage() {
   return (
-    <div style="padding: 2rem 1.5rem; max-width: 900px; margin: 0 auto;">
-      <h2 style="color: #ef3340;">Moderation</h2>
+    <div class="page page--moderate">
+      <h2 class="heading-brand">Moderation</h2>
       <DisplayOverrideControls />
       <ModeratorTrainPanel />
       <ModerationQueue />

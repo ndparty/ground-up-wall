@@ -6,17 +6,12 @@ import {
   CENTER_SLOT,
   LEFT_RENDER,
   RIGHT_RENDER,
-  VIEWPORT_K,
   WINDOW_LENGTH,
 } from "./train_view_constants.ts";
-import { computeJumpStepCount, forwardDistance } from "./train_view.ts";
 import {
-  findForwardCanonicalPostInTape,
-  forwardSlotSteps,
-  hasEphemeralOnPathToSlot,
-  hasForwardEphemeralPostInTape,
-  linearizeShiftSequence,
-  mergeRightBufferSteps,
+  buildAppendOnlyJump,
+  isCanonicalAtCenter,
+  preserveDestinationsFromPreJumpTape,
 } from "./tape_helpers.ts";
 
 export interface TrainPlaybackState {
@@ -80,7 +75,7 @@ export class TrainPlaybackController {
   private state: Omit<TrainPlaybackState, "window"> = {
     isPlaying: true,
     currentCabin: 1,
-    dwellSeconds: 15,
+    dwellSeconds: 10,
     lastTransitionAt: Date.now(),
     cabinCount: 0,
   };
@@ -210,6 +205,26 @@ export class TrainPlaybackController {
     this.scheduleNextTick();
   }
 
+  /** Rebuild tape from scratch (cleared queue, fresh seq ids) — used by reload/panic. */
+  resetToFreshState(startCabin = 1): void {
+    this.queue = [];
+    this.emitCount = 0;
+    this.seqCounter = 0;
+
+    if (this.cabinIds.length === 0) {
+      this.tape = [];
+      this.genIndex = 0;
+      this.state.currentCabin = 1;
+      this.cancelScheduleFn();
+      return;
+    }
+
+    this.state.currentCabin = this.clampCabin(startCabin);
+    this.rebuildTape(this.state.currentCabin - 1);
+    this.state.lastTransitionAt = this.now();
+    this.scheduleNextTick();
+  }
+
   private clampCabin(cabin: number): number {
     if (this.cabinIds.length === 0) return 1;
     return Math.max(1, Math.min(cabin, this.cabinIds.length));
@@ -241,7 +256,11 @@ export class TrainPlaybackController {
 
   private syncCurrentCabinFromCenter(): void {
     const center = this.tape[CENTER_SLOT];
-    if (center?.kind === "post" && center.submissionId) {
+    if (
+      center?.kind === "post" &&
+      center.submissionId &&
+      !center.ephemeral
+    ) {
       const pos = this.cabinIds.indexOf(center.submissionId);
       if (pos >= 0) this.state.currentCabin = pos + 1;
     }
@@ -283,64 +302,43 @@ export class TrainPlaybackController {
     }
   }
 
-  /**
-   * Shift the tape forward one slot. When `sequentialOnly`, skip ephemeral queue
-   * and QR interval (used during jump force-generate).
-   */
-  private shiftTapeOnce(sequentialOnly: boolean): void {
+  /** Emit the next right-edge step (queue, QR interval, or sequential). Does not mutate tape. */
+  private emitNextStep(): TrainStep {
+    if (this.cabinIds.length === 0) {
+      throw new Error("emitNextStep called with no cabins");
+    }
+
+    this.emitCount += 1;
+    if (
+      this.qrInterval > 0 && this.emitCount % this.qrInterval === 0 &&
+      !this.queue.some((q) => q.kind === "qr")
+    ) {
+      this.queue.push({ kind: "qr" });
+    }
+
+    const queued = this.queue.shift();
+    if (queued) {
+      return queued.kind === "qr" ? this.qrStep() : {
+        seq: this.nextSeq(),
+        kind: "post",
+        submissionId: queued.submissionId,
+        destination: pickRandomStation(),
+        ephemeral: true,
+      };
+    }
+
+    this.genIndex = this.wrap(this.genIndex + 1);
+    return this.postStep(this.genIndex);
+  }
+
+  /** Shift the live tape forward one slot. */
+  private shiftTapeOnce(): void {
     if (this.cabinIds.length === 0) return;
 
-    if (!sequentialOnly) {
-      this.emitCount += 1;
-      if (
-        this.qrInterval > 0 && this.emitCount % this.qrInterval === 0 &&
-        !this.queue.some((q) => q.kind === "qr")
-      ) {
-        this.queue.push({ kind: "qr" });
-      }
-    }
-
-    let step: TrainStep;
-    if (sequentialOnly) {
-      this.genIndex = this.wrap(this.genIndex + 1);
-      step = this.postStep(this.genIndex);
-    } else {
-      const queued = this.queue.shift();
-      if (queued) {
-        step = queued.kind === "qr" ? this.qrStep() : {
-          seq: this.nextSeq(),
-          kind: "post",
-          submissionId: queued.submissionId,
-          destination: pickRandomStation(),
-          ephemeral: true,
-        };
-      } else {
-        this.genIndex = this.wrap(this.genIndex + 1);
-        step = this.postStep(this.genIndex);
-      }
-    }
-
+    const step = this.emitNextStep();
     this.tape.push(step);
     if (this.tape.length > WINDOW_LENGTH) this.tape.shift();
     this.syncCurrentCabinFromCenter();
-  }
-
-  /** Simulate forward steps; returns a window snapshot after each shift. */
-  private simulateForwardSteps(count: number, sequentialOnly: boolean): TrainStep[][] {
-    const windows: TrainStep[][] = [];
-    for (let i = 0; i < count; i++) {
-      this.shiftTapeOnce(sequentialOnly);
-      windows.push([...this.tape]);
-    }
-    return windows;
-  }
-
-  private targetAtCanonicalCenter(targetCabin: number, targetId: string): boolean {
-    if (this.state.currentCabin !== targetCabin) return false;
-    const center = this.tape[CENTER_SLOT];
-    return center?.kind === "post" &&
-      center.submissionId === targetId &&
-      !center.ephemeral;
   }
 
   private pause(): void {
@@ -360,50 +358,39 @@ export class TrainPlaybackController {
     if (this.cabinIds.length === 0) return;
 
     const targetCabin = this.clampCabin(cabinNumber);
-    const targetIdx = targetCabin - 1;
-    const targetId = this.cabinIds[targetIdx]!;
-    const fromCabin = this.state.currentCabin;
-    const len = this.cabinIds.length;
     const startTape = [...this.tape];
+    const fromCabin = this.state.currentCabin;
+    const targetId = this.cabinIds[targetCabin - 1]!;
 
-    const savedQueue = [...this.queue];
-    this.queue = [];
-
-    let stepsToTarget = 0;
-    let animationWindow = startTape;
-    const canonicalSlot = findForwardCanonicalPostInTape(this.tape, targetId);
-
-    if (this.targetAtCanonicalCenter(targetCabin, targetId)) {
-      stepsToTarget = 0;
-    } else if (
-      canonicalSlot !== null &&
-      !hasEphemeralOnPathToSlot(this.tape, canonicalSlot)
-    ) {
-      stepsToTarget = forwardSlotSteps(this.tape, canonicalSlot);
-      const snapshots = this.simulateForwardSteps(stepsToTarget, true);
-      animationWindow = linearizeShiftSequence(startTape, snapshots);
-    } else {
-      const fromIdx = fromCabin - 1;
-      const ringSteps = forwardDistance(fromIdx, targetIdx, len);
-      stepsToTarget = computeJumpStepCount(fromCabin, targetCabin, len);
-      const previewOnlyForward = hasForwardEphemeralPostInTape(this.tape, targetId);
-      const ephemeralsOnPath = canonicalSlot !== null &&
-        hasEphemeralOnPathToSlot(this.tape, canonicalSlot);
-      if (
-        ringSteps > 2 * VIEWPORT_K || previewOnlyForward || canonicalSlot === null ||
-        ephemeralsOnPath
-      ) {
-        this.rebuildTape(targetIdx);
-        animationWindow = mergeRightBufferSteps(startTape, this.tape);
-      } else if (ringSteps > 0) {
-        const snapshots = this.simulateForwardSteps(ringSteps, true);
-        animationWindow = linearizeShiftSequence(startTape, snapshots);
-      }
+    if (targetCabin === fromCabin && isCanonicalAtCenter(startTape, targetId)) {
+      this.publish({
+        type: "jump",
+        cabinNumber: targetCabin,
+        currentCabin: targetCabin,
+        window: [...this.tape],
+        animationWindow: [...startTape],
+        stepsToTarget: 0,
+      });
+      return;
     }
 
-    this.queue = savedQueue;
+    const { animationWindow, committedTape, stepsToTarget } = buildAppendOnlyJump(
+      startTape,
+      fromCabin,
+      targetCabin,
+      this.cabinIds,
+      {
+        emitNextStep: () => this.emitNextStep(),
+        createCanonicalPost: (cabin) => this.postStep(cabin - 1),
+      },
+    );
 
+    preserveDestinationsFromPreJumpTape(animationWindow, startTape);
+    preserveDestinationsFromPreJumpTape(committedTape, startTape);
+
+    this.tape = committedTape;
     this.state.currentCabin = targetCabin;
+    this.genIndex = this.wrap(targetCabin - 1 + RIGHT_RENDER);
     this.state.lastTransitionAt = this.now();
 
     this.publish({
@@ -421,7 +408,7 @@ export class TrainPlaybackController {
   private advance(): void {
     if (this.cabinIds.length === 0) return;
 
-    this.shiftTapeOnce(false);
+    this.shiftTapeOnce();
     this.state.lastTransitionAt = this.now();
     this.publish({
       type: "advance",

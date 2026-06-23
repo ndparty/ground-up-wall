@@ -19,7 +19,7 @@ export default function AdminDisplayOverride() {
   }, []);
 
   async function sendCommand(
-    type: "blank" | "placeholder" | "resume",
+    type: "blank" | "placeholder" | "resume" | "reload" | "panic",
     confirmMessage?: string,
     image?: File,
   ) {
@@ -45,12 +45,12 @@ export default function AdminDisplayOverride() {
     : "Placeholder";
 
   return (
-    <section style="padding: 1rem; border: 1px solid #ddd; border-radius: 8px;">
+    <section class="panel">
       <p>
         Current state: <strong>{statusLabel}</strong>
       </p>
-      {state.imageUrl && <p style="font-size: 0.85rem;">Image: {state.imageUrl}</p>}
-      <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem;">
+      {state.imageUrl && <p class="text-small">Image: {state.imageUrl}</p>}
+      <div class="panel__actions panel__actions--spaced">
         <button type="button" onClick={() => sendCommand("blank")}>
           Blank screen
         </button>
@@ -60,7 +60,24 @@ export default function AdminDisplayOverride() {
         <button type="button" onClick={() => sendCommand("resume")}>
           Resume display
         </button>
-        <label style="display: inline-flex; align-items: center; gap: 0.5rem;">
+        <button
+          type="button"
+          onClick={() =>
+            sendCommand(
+              "reload",
+              "Rebuild the display from the server? The train will restart at the first cabin.",
+            )}
+        >
+          Reload display
+        </button>
+        <button
+          type="button"
+          onClick={() => sendCommand("panic")}
+          class="btn btn--danger-dark"
+        >
+          Panic
+        </button>
+        <label class="inline-check">
           Placeholder image
           <input
             type="file"
@@ -72,7 +89,7 @@ export default function AdminDisplayOverride() {
           />
         </label>
       </div>
-      {message && <p style="margin-top: 0.75rem;">{message}</p>}
+      {message && <p class="panel__message">{message}</p>}
     </section>
   );
 }

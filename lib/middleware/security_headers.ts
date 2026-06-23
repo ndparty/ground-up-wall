@@ -6,27 +6,30 @@ export function isDeployedEnvironment(): boolean {
   return Boolean(Deno.env.get("DENO_DEPLOYMENT_ID"));
 }
 
-// The app relies heavily on inline `style=` attributes and Fresh island hydration,
-// so style/script allow 'unsafe-inline'. img allows data:/blob: for upload previews.
-// Tightening script-src with nonces is a future hardening step (NFR-23).
-const CONTENT_SECURITY_POLICY = [
-  "default-src 'self'",
-  "base-uri 'self'",
-  "object-src 'none'",
-  "frame-ancestors 'none'",
-  "img-src 'self' data: blob:",
-  "style-src 'self' 'unsafe-inline'",
-  "script-src 'self' 'unsafe-inline'",
-  "connect-src 'self'",
-].join("; ");
+function buildContentSecurityPolicy(nonce: string): string {
+  return [
+    "default-src 'self'",
+    "base-uri 'self'",
+    "object-src 'none'",
+    "frame-ancestors 'none'",
+    "img-src 'self' data: blob:",
+    `style-src 'self' 'nonce-${nonce}'`,
+    // Fresh island hydration still injects inline scripts; nonce wiring is a follow-up.
+    "script-src 'self' 'unsafe-inline'",
+    "worker-src 'self' blob:",
+    "connect-src 'self'",
+  ].join("; ");
+}
 
 /** NFR-23: apply baseline security response headers to every response. */
 export const securityHeadersMiddleware: Middleware<State> = async (ctx) => {
+  const nonce = crypto.randomUUID().replace(/-/g, "");
+  ctx.state.cspNonce = nonce;
   const res = await ctx.next();
   try {
     const h = res.headers;
     if (!h.has("content-security-policy")) {
-      h.set("content-security-policy", CONTENT_SECURITY_POLICY);
+      h.set("content-security-policy", buildContentSecurityPolicy(nonce));
     }
     h.set("x-content-type-options", "nosniff");
     h.set("x-frame-options", "DENY");

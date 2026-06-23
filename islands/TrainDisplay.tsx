@@ -6,38 +6,38 @@ import {
   compensateTrackForSlotDelta,
   computeTrackTranslateX,
   ensureTrackCanAnimate,
+  jumpSlideStartTx,
   measureSlotPitchPx,
+  prepareJumpSlideOffset,
   slideTo,
   waitForLayout,
   waitForTrackTransition,
 } from "../lib/train/center_track.ts";
 import {
   applyAnimationWindow,
-  computeJumpAnimationPath,
   getCenterKey,
   getCenterKeyFromSteps,
+  getForwardJumpSlideAnchorKey,
+  getJumpSlideTargetKey,
   getRenderWindow,
   getSlideSlotDistance,
   getSlideTargetKey,
   hasCabins as viewHasCabins,
-  isJumpTargetInCurrentWindow,
+  isBackwardSlideTarget,
   type RenderCabin,
+  overlayDomKeys,
   renderWindowToSteps,
-  shouldCollapseJump,
   type TrainViewState,
 } from "../lib/train/train_view.ts";
 import {
-  cabinsAroundTargetWithBuffer,
-  cabinsForJumpPreload,
-  cabinsForShortJumpPreload,
-  imageUrlsForJumpPreload,
+  imageUrlsFromWindow,
   preloadCabinImages,
 } from "../lib/train/preload_cabin_images.ts";
 import { jumpSlideDurationMs, slideDurationMs } from "../lib/train/slide_duration.ts";
 import { shouldShowTrainControls } from "../lib/train/playback.ts";
 import { useTrainPlayback } from "../lib/train/use_train_playback.ts";
-import { LEFT_RENDER, PRELOAD_AHEAD, VIEWPORT_K } from "../lib/train/train_view_constants.ts";
-import { mergeRightBufferSteps } from "../lib/train/tape_helpers.ts";
+import { LEFT_RENDER, VIEWPORT_K } from "../lib/train/train_view_constants.ts";
+import { animationWindowPreservesLivePrefix, mergeRightBufferSteps } from "../lib/train/tape_helpers.ts";
 import type { TrainStep } from "../interfaces/realtime_service.ts";
 import { resolveOverrideView } from "../lib/train/display_override.ts";
 import ConnectionBanner from "./ConnectionBanner.tsx";
@@ -73,6 +73,10 @@ export default function TrainDisplay() {
     retryBootstrap,
     connectionStatus,
     overrideState,
+    reloadGeneration,
+    setOrchestratorBusy,
+    flushDeferredJump,
+    clearOrchestratorState,
   } = useTrainPlayback();
 
   const [showFullscreenPrompt, setShowFullscreenPrompt] = useState(false);
@@ -91,18 +95,18 @@ export default function TrainDisplay() {
   const isPlayingRef = useRef(isPlaying);
   const runOrchestratorRef = useRef<(() => void) | null>(null);
   const prevOverrideViewRef = useRef<"train" | "blank" | "placeholder">("train");
-  const pendingAdvancesRef = useRef(pendingAdvances);
   const peekPendingAdvanceRef = useRef(peekPendingAdvance);
   const hasJumpPendingRef = useRef(hasJumpPending);
   const pendingCommitRef = useRef<PendingCommit | null>(null);
   const useCommittedRenderRef = useRef(false);
   const jumpHighlightKeyRef = useRef<string | null>(null);
   const recenterSuppressedRef = useRef(false);
+  const flushDeferredJumpRef = useRef(flushDeferredJump);
   trainViewRef.current = trainView;
   isPlayingRef.current = isPlaying;
-  pendingAdvancesRef.current = pendingAdvances;
   peekPendingAdvanceRef.current = peekPendingAdvance;
   hasJumpPendingRef.current = hasJumpPending;
+  flushDeferredJumpRef.current = flushDeferredJump;
 
   const overlayView = jumpOverlaySteps ? applyAnimationWindow(trainView, jumpOverlaySteps) : null;
   const renderNodes = overlayView && !useCommittedRenderRef.current
@@ -177,6 +181,13 @@ export default function TrainDisplay() {
     }
   }
 
+  async function waitForAllCabinRefs(keys: string[], maxFrames = 60): Promise<void> {
+    for (let i = 0; i < maxFrames; i++) {
+      if (keys.every((key) => cabinRefs.current.get(key))) return;
+      await waitForLayout();
+    }
+  }
+
   function clearJumpOverlay(): void {
     setJumpOverlaySteps(null);
   }
@@ -208,15 +219,23 @@ export default function TrainDisplay() {
         centerNow(stage, track, active);
         requestAnimationFrame(() => clearTrackTransition(track));
       } else {
-        const newWindow = trainViewRef.current.window;
-        const delta = centerSlotDelta(
-          pending.slideDomWindow,
-          newWindow,
-          pending.slidTargetKey,
-        );
-        const slotPitch = measureSlotPitchPx(track);
-        if (delta !== 0 && slotPitch > 0) {
-          compensateTrackForSlotDelta(track, delta, slotPitch);
+        const committedKey = getCenterKeyFromSteps(pending.nextWindow);
+        const fallback = committedKey ? cabinRefs.current.get(committedKey) : null;
+        if (stage && fallback) {
+          track.style.transition = "none";
+          centerNow(stage, track, fallback);
+          requestAnimationFrame(() => clearTrackTransition(track));
+        } else {
+          const newWindow = trainViewRef.current.window;
+          const delta = centerSlotDelta(
+            pending.slideDomWindow,
+            newWindow,
+            pending.slidTargetKey,
+          );
+          const slotPitch = measureSlotPitchPx(track);
+          if (delta !== 0 && slotPitch > 0) {
+            compensateTrackForSlotDelta(track, delta, slotPitch);
+          }
         }
       }
     } else {
@@ -248,7 +267,7 @@ export default function TrainDisplay() {
   useLayoutEffect(() => {
     if (!hasCabins || !bootstrapComplete || overrideView !== "train") return;
     if (isAnimatingRef.current) return;
-    if (pendingAdvancesRef.current > 0) return;
+    if (peekPendingAdvanceRef.current() !== null) return;
     if (recenterSuppressedRef.current) return;
     tryInstantRecenterOn(centerKey);
   }, [hasCabins, bootstrapComplete, centerKey, overrideView]);
@@ -281,95 +300,152 @@ export default function TrainDisplay() {
     };
   }, [overrideView, bootstrapComplete, hasCabins, syncPlaybackFromServer]);
 
+  /** Soft reload from server: clear animation state and snap to fresh window when train is visible. */
+  useEffect(() => {
+    if (!bootstrapComplete || reloadGeneration === 0) return;
+
+    isAnimatingRef.current = false;
+    clearOrchestratorState();
+    pendingCommitRef.current = null;
+    useCommittedRenderRef.current = false;
+    recenterSuppressedRef.current = false;
+    jumpHighlightKeyRef.current = null;
+    setJumpOverlaySteps(null);
+    setIsSliding(false);
+    setHighlightReady(true);
+
+    if (overrideView !== "train" || !hasCabins) return;
+
+    let cancelled = false;
+    setInstantSnap(true);
+
+    void (async () => {
+      await syncPlaybackFromServer();
+      if (cancelled) return;
+      await waitForLayout();
+      if (cancelled) return;
+
+      instantRecenterOn(getCenterKey(trainViewRef.current));
+      setTimeout(() => {
+        if (!cancelled) setInstantSnap(false);
+      }, 50);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadGeneration, bootstrapComplete, overrideView, hasCabins, syncPlaybackFromServer]);
+
   useEffect(() => {
     if (!hasCabins || !bootstrapComplete) return;
 
     let cancelled = false;
 
-    async function slideToKey(targetKey: string, durationMs: number): Promise<boolean> {
+    async function slideToKey(
+      targetKey: string,
+      durationMs: number,
+      options?: { forwardJump?: boolean; slideSteps?: number },
+    ): Promise<boolean> {
       const stage = stageRef.current;
       const track = trackRef.current;
       const el = cabinRefs.current.get(targetKey);
       if (!stage || !track || !el) return false;
 
       ensureTrackCanAnimate(track);
-      const targetTx = computeTrackTranslateX(stage, track, el);
-      slideTo(track, targetTx, durationMs);
+      const finalTx = computeTrackTranslateX(stage, track, el);
+
+      if (options?.forwardJump && options.slideSteps && options.slideSteps > 0) {
+        const pitch = measureSlotPitchPx(track);
+        if (pitch > 0) {
+          prepareJumpSlideOffset(
+            track,
+            jumpSlideStartTx(finalTx, options.slideSteps, pitch),
+          );
+          await waitForLayout();
+        }
+      }
+
+      slideTo(track, finalTx, durationMs);
       await waitForTrackTransition(track, durationMs + 150);
       return !cancelled;
     }
 
+    async function commitLayoutAndFlushDeferred(): Promise<boolean> {
+      const result = commitAdvance();
+      if (result) trainViewRef.current = result.view;
+      await waitForLayout();
+      return flushDeferredJumpRef.current();
+    }
+
     async function drainQueue() {
       if (isAnimatingRef.current) return;
-      if (pendingAdvancesRef.current <= 0) return;
+      if (!peekPendingAdvanceRef.current()) return;
       if (!isPlayingRef.current && !hasJumpPendingRef.current()) return;
 
       isAnimatingRef.current = true;
+      setOrchestratorBusy(true);
       setIsSliding(true);
       setHighlightReady(false);
       setInstantSnap(false);
       recenterSuppressedRef.current = true;
 
       try {
-        while (pendingAdvancesRef.current > 0 && !cancelled) {
-          if (!isPlayingRef.current && !hasJumpPendingRef.current()) break;
-
+        while (!cancelled) {
           const peek = peekPendingAdvanceRef.current();
           if (!peek) break;
+          if (!isPlayingRef.current && !hasJumpPendingRef.current()) break;
 
           const view = trainViewRef.current;
           const track = trackRef.current;
 
           if (peek.kind === "jump") {
-            const viewBefore = view;
-            const fromCabin = peek.fromCabin ?? view.currentCabin;
-            const toCabin = peek.currentCabin;
-            const len = view.canonical.length;
-            const animationWindow = peek.animationWindow ?? peek.window;
-            const jumpCenterKey = getCenterKeyFromSteps(peek.window);
             const slideSteps = peek.slideSteps ?? 0;
-            const inChain = isJumpTargetInCurrentWindow(viewBefore, peek.window);
-            const collapsed = shouldCollapseJump(fromCabin - 1, toCabin - 1, len);
+            if (slideSteps === 0) {
+              if (await commitLayoutAndFlushDeferred()) continue;
+              break;
+            }
+
+            const viewBefore = view;
+            const animationWindow = peek.animationWindow ?? peek.window;
 
             const currentSteps = renderWindowToSteps(viewBefore.window);
-            const overlay = inChain
-              ? mergeRightBufferSteps(currentSteps, animationWindow)
-              : mergeRightBufferSteps(currentSteps, animationWindow ?? peek.window);
+            const rawAnimation = animationWindow ?? peek.window;
+            const overlay = animationWindowPreservesLivePrefix(currentSteps, rawAnimation)
+              ? rawAnimation
+              : mergeRightBufferSteps(currentSteps, rawAnimation);
 
-            const preloadPath = inChain
-              ? cabinsForJumpPreload(
-                computeJumpAnimationPath(fromCabin, toCabin, len),
-                toCabin,
-                len,
-              )
-              : collapsed
-              ? cabinsAroundTargetWithBuffer(toCabin, len, VIEWPORT_K, PRELOAD_AHEAD)
-              : cabinsForShortJumpPreload(fromCabin, toCabin, len);
+            const backward = isBackwardSlideTarget(overlay, peek.window);
+            const jumpSlideTargetKey = backward
+              ? getForwardJumpSlideAnchorKey(overlay, slideSteps)
+              : getJumpSlideTargetKey(overlay, peek.window);
 
-            if (jumpCenterKey) jumpHighlightKeyRef.current = jumpCenterKey;
-
-            await preloadCabinImages(imageUrlsForJumpPreload(preloadPath, overlay, view.canonical));
-            if (cancelled) return;
+            if (jumpSlideTargetKey) jumpHighlightKeyRef.current = jumpSlideTargetKey;
 
             setJumpOverlaySteps(overlay);
             await waitForLayout();
-            await waitForLayout();
-            if (jumpCenterKey) await waitForCabinRef(jumpCenterKey, 60);
+            await waitForAllCabinRefs(overlayDomKeys(overlay));
+            await preloadCabinImages(imageUrlsFromWindow(overlay, view.canonical));
+            if (cancelled) return;
 
-            if (slideSteps > 0 && jumpCenterKey) {
-              const ok = await slideToKey(jumpCenterKey, jumpSlideDurationMs(slideSteps));
+            if (slideSteps > 0 && jumpSlideTargetKey) {
+              const ok = await slideToKey(
+                jumpSlideTargetKey,
+                jumpSlideDurationMs(slideSteps),
+                backward ? { forwardJump: true, slideSteps } : undefined,
+              );
               if (cancelled) return;
               if (track) clearTrackTransition(track);
               if (!ok) {
                 clearJumpOverlay();
                 pendingCommitRef.current = null;
-                const centerKeyAfter = commitAdvance();
-                await recenterAfterCommit(centerKeyAfter);
+                const result = commitAdvance();
+                if (result) trainViewRef.current = result.view;
+                await recenterAfterCommit(result?.centerKey ?? null);
                 break;
               }
             }
 
-            if (jumpCenterKey) {
+            if (jumpSlideTargetKey) {
               const slideDomWindow = applyAnimationWindow(viewBefore, overlay).window;
               useCommittedRenderRef.current = true;
               queueCommitCompensation(
@@ -377,12 +453,11 @@ export default function TrainDisplay() {
                 slideDomWindow,
                 peek.window,
                 peek.currentCabin,
-                jumpCenterKey,
+                jumpSlideTargetKey,
                 true,
               );
             }
-            commitAdvance();
-            await waitForLayout();
+            if (await commitLayoutAndFlushDeferred()) continue;
             break;
           }
 
@@ -402,8 +477,9 @@ export default function TrainDisplay() {
             if (track) clearTrackTransition(track);
             if (!ok) {
               pendingCommitRef.current = null;
-              const centerKeyAfter = commitAdvance();
-              await recenterAfterCommit(centerKeyAfter);
+              const result = commitAdvance();
+              if (result) trainViewRef.current = result.view;
+              await recenterAfterCommit(result?.centerKey ?? null);
               continue;
             }
           }
@@ -417,25 +493,32 @@ export default function TrainDisplay() {
             peek.currentCabin,
             slidTargetKey,
           );
-          commitAdvance();
-          await waitForLayout();
+          if (await commitLayoutAndFlushDeferred()) continue;
         }
       } finally {
+        const shouldResume = flushDeferredJumpRef.current();
+        const stillPending = peekPendingAdvanceRef.current() !== null;
         jumpHighlightKeyRef.current = null;
-        clearJumpOverlay();
+        if (!shouldResume && !stillPending) {
+          clearJumpOverlay();
+        }
         await waitForLayout();
         await waitForLayout();
+        isAnimatingRef.current = false;
+        setOrchestratorBusy(false);
+        setIsSliding(false);
+        setHighlightReady(true);
+        useCommittedRenderRef.current = false;
+        pendingCommitRef.current = null;
         if (!cancelled) {
-          setHighlightReady(true);
-          setIsSliding(false);
-          isAnimatingRef.current = false;
           setTimeout(() => {
             recenterSuppressedRef.current = false;
           }, 100);
         } else {
           recenterSuppressedRef.current = false;
-          useCommittedRenderRef.current = false;
-          pendingCommitRef.current = null;
+        }
+        if (shouldResume) {
+          runOrchestratorRef.current?.();
         }
       }
     }
@@ -448,7 +531,7 @@ export default function TrainDisplay() {
       cancelled = true;
       runOrchestratorRef.current = null;
     };
-  }, [hasCabins, bootstrapComplete, commitAdvance, peekPendingAdvance, hasJumpPending]);
+  }, [hasCabins, bootstrapComplete, commitAdvance, peekPendingAdvance, hasJumpPending, setOrchestratorBusy]);
 
   useEffect(() => {
     if (!hasCabins || !bootstrapComplete) return;
@@ -475,13 +558,13 @@ export default function TrainDisplay() {
       <ConnectionBanner status={connectionStatus} />
 
       {bootstrapError && (
-        <div style="position: fixed; inset: 0; z-index: 9998; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.75); color: white; text-align: center; padding: 2rem;">
+        <div class="bootstrap-error-overlay">
           <div>
-            <p style="font-size: 1.25rem; margin: 0 0 1rem;">{bootstrapError}</p>
+            <p class="bootstrap-error-overlay__message">{bootstrapError}</p>
             <button
               type="button"
               onClick={retryBootstrap}
-              style="padding: 0.75rem 1.5rem; background: #ef3340; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 1rem;"
+              class="btn btn--cta"
             >
               Retry
             </button>
@@ -606,6 +689,7 @@ export default function TrainDisplay() {
           onJump={(n) => void jumpTrain(n)}
           trainLength={trainLength}
           currentCabin={currentCabin}
+          jumpDisabled={isSliding}
         />
       )}
     </div>

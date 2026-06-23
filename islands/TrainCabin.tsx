@@ -1,13 +1,14 @@
 import { forwardRef } from "preact/compat";
+import { useLayoutEffect, useRef } from "preact/hooks";
 import type { Submission } from "../lib/types.ts";
-import { qrCodeSvg } from "../lib/qr/qr_code.ts";
+import { qrCodeDataUrl } from "../lib/qr/qr_code.ts";
 import {
   QR_CABIN_DESTINATION,
   QR_CABIN_MESSAGE,
   QR_CABIN_NAME,
 } from "../lib/defaults/app_defaults.ts";
 import { pickDecorativeLineBadge } from "../lib/copy/station_sign.ts";
-import { useFitText } from "../lib/hooks/use_fit_text.ts";
+import { useFitText, fitTextClass, fitTextDataRem } from "../lib/hooks/use_fit_text.ts";
 
 /** Production roof sign style — change after preview at /roof-badge-preview.html */
 export const CABIN_SIGN_VARIANT = "b" as "a" | "b" | "c" | "simple";
@@ -88,8 +89,15 @@ const TrainCabin = forwardRef<HTMLElement, TrainCabinProps>(function TrainCabin(
 ) {
   const roofLabel = kind === "qr" ? QR_CABIN_DESTINATION : (destination ?? "—");
   const messageText = kind === "qr" ? QR_CABIN_MESSAGE : (submission?.message ?? "");
-  const { wrapRef, textRef, fontSizeRem } = useFitText(messageText, kind === "post");
+  const { wrapRef, textRef, sizeRem, refit } = useFitText(messageText, kind === "post");
   const signVariant = kind === "qr" ? "simple" : CABIN_SIGN_VARIANT;
+  const wasActiveRef = useRef(isActive);
+
+  useLayoutEffect(() => {
+    if (kind !== "post") return;
+    if (isActive && !wasActiveRef.current) refit();
+    wasActiveRef.current = isActive;
+  }, [isActive, kind, refit]);
 
   return (
     <div
@@ -107,10 +115,14 @@ const TrainCabin = forwardRef<HTMLElement, TrainCabinProps>(function TrainCabin(
           {kind === "qr"
             ? (
               <div class="train-cabin__qr">
-                <div
-                  class="train-cabin__qr-code"
-                  dangerouslySetInnerHTML={{ __html: qrUrl ? qrCodeSvg(qrUrl) : "" }}
-                />
+                {qrUrl && (
+                  <img
+                    class="train-cabin__qr-code"
+                    src={qrCodeDataUrl(qrUrl)}
+                    alt="Upload QR code"
+                    decoding="async"
+                  />
+                )}
               </div>
             )
             : (
@@ -121,6 +133,7 @@ const TrainCabin = forwardRef<HTMLElement, TrainCabinProps>(function TrainCabin(
                     src={submission.image_url}
                     alt={`Photo by ${submission.submitter_name}`}
                     decoding="async"
+                    onLoad={refit}
                     onError={onPhotoError}
                   />
                 )}
@@ -140,8 +153,8 @@ const TrainCabin = forwardRef<HTMLElement, TrainCabinProps>(function TrainCabin(
                 <div class="train-cabin__message-wrap" ref={wrapRef}>
                   <p
                     ref={textRef}
-                    class="train-cabin__message"
-                    style={{ fontSize: `${fontSizeRem}rem` }}
+                    class={`train-cabin__message ${fitTextClass(sizeRem)}`}
+                    data-fit-rem={fitTextDataRem(sizeRem)}
                   >
                     {submission?.message}
                   </p>

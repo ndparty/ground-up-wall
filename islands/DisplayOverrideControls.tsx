@@ -5,7 +5,7 @@ export default function DisplayOverrideControls() {
   const [loading, setLoading] = useState(false);
 
   async function sendCommand(
-    type: "blank" | "placeholder" | "resume",
+    type: "blank" | "placeholder" | "resume" | "reload" | "panic",
     confirmMessage?: string,
     image?: File,
   ) {
@@ -27,7 +27,11 @@ export default function DisplayOverrideControls() {
           ? "Display blanked"
           : type === "placeholder"
           ? "Placeholder shown"
-          : "Display resumed",
+          : type === "resume"
+          ? "Display resumed"
+          : type === "reload"
+          ? "Display reloaded"
+          : "Panic activated — displays blanked and reset",
       );
     } catch {
       setMessage("Command failed");
@@ -37,14 +41,14 @@ export default function DisplayOverrideControls() {
   }
 
   return (
-    <section style="margin-bottom: 2rem; padding: 1rem; border: 1px solid #ddd; border-radius: 8px; background: #fafafa;">
-      <h3 style="margin: 0 0 0.75rem; color: #ef3340;">Display override</h3>
-      <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+    <section class="panel--muted">
+      <h3 class="panel__title">Display override</h3>
+      <div class="panel__actions">
         <button
           type="button"
           disabled={loading}
           onClick={() => sendCommand("blank")}
-          style="padding: 0.5rem 1rem; background: #333; color: white; border: none; border-radius: 4px; cursor: pointer;"
+          class="btn btn--nav"
         >
           Blank screen
         </button>
@@ -52,7 +56,7 @@ export default function DisplayOverrideControls() {
           type="button"
           disabled={loading}
           onClick={() => sendCommand("placeholder")}
-          style="padding: 0.5rem 1rem; background: #ef3340; color: white; border: none; border-radius: 4px; cursor: pointer;"
+          class="btn btn--danger"
         >
           Show placeholder
         </button>
@@ -60,11 +64,31 @@ export default function DisplayOverrideControls() {
           type="button"
           disabled={loading}
           onClick={() => sendCommand("resume")}
-          style="padding: 0.5rem 1rem; background: #1a1a2e; color: white; border: none; border-radius: 4px; cursor: pointer;"
+          class="btn btn--navy"
         >
           Resume display
         </button>
-        <label style="display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.9rem;">
+        <button
+          type="button"
+          disabled={loading}
+          onClick={() =>
+            sendCommand(
+              "reload",
+              "Rebuild the display from the server? The train will restart at the first cabin.",
+            )}
+          class="btn btn--secondary"
+        >
+          Reload display
+        </button>
+        <button
+          type="button"
+          disabled={loading}
+          onClick={() => sendCommand("panic")}
+          class="btn btn--danger-dark"
+        >
+          Panic
+        </button>
+        <label class="inline-check">
           Custom placeholder image
           <input
             type="file"
@@ -77,7 +101,7 @@ export default function DisplayOverrideControls() {
           />
         </label>
       </div>
-      {message && <p style="margin: 0.75rem 0 0; font-size: 0.9rem; color: #333;">{message}</p>}
+      {message && <p class="panel__message">{message}</p>}
     </section>
   );
 }

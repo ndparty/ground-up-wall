@@ -44,8 +44,8 @@ export const handlers = define.handlers({
 
 export default define.page<typeof handlers>(function LoginPage({ data }) {
   return (
-    <div style="max-width: 400px; margin: 3rem auto; padding: 0 1rem;">
-      <h2 style="color: #ef3340;">Sign in</h2>
+    <div class="page page--narrow">
+      <h2 class="heading-brand">Sign in</h2>
       <LoginForm initialError={data.error} />
     </div>
   );

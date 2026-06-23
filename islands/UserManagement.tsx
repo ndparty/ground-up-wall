@@ -107,10 +107,10 @@ export default function UserManagement() {
       <form
         method="post"
         onSubmit={createAccount}
-        style="margin-bottom: 1.5rem; padding: 1rem; border: 1px solid #ddd; border-radius: 8px;"
+        class="panel--form"
       >
         <h3>Create account</h3>
-        <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: end;">
+        <div class="form-row">
           <input
             placeholder="Username"
             aria-label="New account username"
@@ -136,19 +136,19 @@ export default function UserManagement() {
           </select>
           <button
             type="submit"
-            style="background: #ef3340; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px;"
+            class="btn btn--primary"
           >
             Create
           </button>
         </div>
       </form>
 
-      {message && <p style="color: #333;">{message}</p>}
+      {message && <p class="panel__message">{message}</p>}
 
-      <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+      <table class="data-table">
         <thead>
-          <tr style="background: #f5f5f5; text-align: left;">
-            <th style="padding: 0.5rem;">Username</th>
+          <tr class="data-table__head">
+            <th class="data-table__cell">Username</th>
             <th>Role</th>
             <th>Status</th>
             <th>Created</th>
@@ -157,20 +157,20 @@ export default function UserManagement() {
         </thead>
         <tbody>
           {users.map((user) => (
-            <tr key={user.id} style="border-bottom: 1px solid #eee;">
-              <td style="padding: 0.5rem;">{user.username}</td>
+            <tr key={user.id} class="data-table__row">
+              <td class="data-table__cell">{user.username}</td>
               <td>{user.role === "moderator" ? "Photo Moderator" : "Display Wall"}</td>
-              <td style={{ color: user.disabled ? "#c62828" : "#2e7d32" }}>
+              <td class={user.disabled ? "text-status-disabled" : "text-status-active"}>
                 {user.disabled ? "Disabled" : "Active"}
               </td>
               <td>{new Date(user.created_at).toLocaleString()}</td>
-              <td style="padding: 0.5rem;">
+              <td class="data-table__cell">
                 <button type="button" onClick={() => toggleStatus(user)}>Toggle</button>{" "}
                 <button type="button" onClick={() => setResetUserId(user.id)}>Reset pwd</button>
                 {" "}
                 <button type="button" onClick={() => deleteUser(user)}>Delete</button>
                 {resetUserId === user.id && (
-                  <div style="margin-top: 0.5rem;">
+                  <div class="reset-panel">
                     <input
                       type="password"
                       placeholder="New password"

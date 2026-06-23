@@ -17,6 +17,7 @@ import {
   type TrainPlaybackState,
 } from "../train/train_playback_controller.ts";
 import { SEEDED_DEFAULT_WORD_LIST } from "./auto_moderator_service_impl.ts";
+import { safeError } from "../log_safe.ts";
 import { isMessageValid, type MessageLengthConfig } from "../validation/message_length.ts";
 import type {
   AuditEntry,
@@ -85,7 +86,7 @@ export class PhotoWallService {
       JSON.stringify(snapshot),
       "system",
     ).catch((error) => {
-      console.error("Failed to persist train playback state:", error);
+      console.error("Failed to persist train playback state:", safeError(error));
     });
   }
 
@@ -220,8 +221,18 @@ export class PhotoWallService {
     moderatorId: string,
     reason?: string,
   ): Promise<Submission> {
+    const existing = await this.repository.getSubmissionById(id);
+    if (!existing || existing.status !== "pending") {
+      throw new Error("Submission is not pending");
+    }
+
     const submission = await this.repository.updateSubmissionStatusIfPending(id, "rejected");
     if (!submission) throw new Error("Submission is not pending");
+
+    if (existing.image_url) {
+      const path = existing.image_url.replace(/^\//, "");
+      await this.storage.deleteImage(path);
+    }
 
     await this.audit.logAction({
       moderator_id: moderatorId,
@@ -260,6 +271,10 @@ export class PhotoWallService {
 
     await this.realtime.publish("submission:deleted", { id });
     await this.syncPlaybackCabinCount();
+    const approved = await this.getApprovedSubmissions();
+    if (approved.length === 0) {
+      this.publishPlaybackState();
+    }
   }
 
   subscribeToApproved(callback: (submission: Submission) => void): UnsubscribeFn {
@@ -532,6 +547,18 @@ export class PhotoWallService {
     return await this.audit.getLog(filters);
   }
 
+  async getAuditLogPage(
+    filters: AuditFilter,
+    limit: number,
+    offset: number,
+  ): Promise<{ entries: AuditEntry[]; total: number }> {
+    const [entries, total] = await Promise.all([
+      this.repository.getAuditLog({ ...filters, limit, offset }),
+      this.repository.countAuditLog(filters),
+    ]);
+    return { entries, total };
+  }
+
   async listDisplayWallUsers(): Promise<DisplayWallUser[]> {
     return await this.repository.listDisplayWallUsers();
   }
@@ -679,6 +706,61 @@ export class PhotoWallService {
     this.publishPlaybackState();
   }
 
+  /** Rebuild server tape from current approved list at cabin 1 (shared by reload/panic). */
+  private async resetDisplayPlaybackFresh(): Promise<void> {
+    await this.ensurePlaybackInitialized();
+    const approved = await this.getApprovedSubmissions();
+    this.playback.setCabinIds(approved.map((s) => s.id));
+    this.playback.resetToFreshState(1);
+  }
+
+  async reloadDisplay(userId: string): Promise<void> {
+    await this.resetDisplayPlaybackFresh();
+
+    await this.audit.logAction({
+      moderator_id: userId,
+      action_type: "reload_display",
+      target_type: "display_override",
+      target_id: "display_override_state",
+    });
+
+    await this.realtime.publish("display:reload", {});
+    this.publishPlaybackState();
+  }
+
+  async panicDisplay(userId: string): Promise<void> {
+    await this.realtime.publish("display_override:command", { type: "blank" });
+    if (this.playbackInitialized) {
+      this.playback.pauseForOverride();
+    }
+
+    const existing = await this.repository.getDisplayOverrideState();
+    const alreadyBlank = existing?.type === "blank";
+
+    if (!alreadyBlank) {
+      const state: DisplayOverrideState = {
+        type: "blank",
+        commanded_by: userId,
+        commanded_at: new Date().toISOString(),
+      };
+      await this.repository.setDisplayOverrideState(state);
+    }
+
+    await this.audit.logAction({
+      moderator_id: userId,
+      action_type: "panic_display",
+      target_type: "display_override",
+      target_id: "display_override_state",
+      new_value: alreadyBlank ? "already_blank" : "blank_and_reload",
+    });
+
+    await this.resetDisplayPlaybackFresh();
+    this.playback.pauseForOverride();
+
+    await this.realtime.publish("display:reload", {});
+    this.publishPlaybackState();
+  }
+
   private async getMessageLengthConfig(): Promise<MessageLengthConfig> {
     const configs = await this.repository.getAllSystemConfigs();
     const byKey = new Map(configs.map((c) => [c.key, c.value]));
@@ -697,6 +779,10 @@ export class PhotoWallService {
     callback: (command: DisplayOverrideCommand) => void,
   ): UnsubscribeFn {
     return this.realtime.onDisplayOverride(callback);
+  }
+
+  subscribeToDisplayReload(callback: () => void): UnsubscribeFn {
+    return this.realtime.subscribe("display:reload", () => callback());
   }
 
   subscribeToSystemConfig(callback: (config: SystemConfig) => void): UnsubscribeFn {

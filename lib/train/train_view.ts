@@ -1,4 +1,4 @@
-import { CENTER_SLOT, LEFT_RENDER, VIEWPORT_K } from "./train_view_constants.ts";
+import { CENTER_SLOT, LEFT_RENDER, RIGHT_RENDER, VIEWPORT_K } from "./train_view_constants.ts";
 import type { Submission } from "../types.ts";
 import type { TrainStep } from "../interfaces/realtime_service.ts";
 
@@ -117,6 +117,8 @@ export interface RenderCabin {
   kind: "post" | "qr";
   /** Destination-board label (MRT/LRT station or QR copy). */
   destination?: string;
+  /** Preview/QR instances that are not part of the canonical sequence. */
+  ephemeral?: boolean;
   /** Resolved snapshot for post cabins (kept even if later deleted, until off-screen). */
   submission?: Submission;
 }
@@ -140,18 +142,57 @@ function byId(canonical: Submission[]): Map<string, Submission> {
   return new Map(canonical.map((s) => [s.id, s]));
 }
 
+function postDestinationKey(submissionId: string, ephemeral?: boolean): string {
+  return `${submissionId}:${ephemeral ? "e" : "c"}`;
+}
+
+function findPriorDestination(
+  priorByKey: Map<string, RenderCabin>,
+  step: TrainStep,
+): string | undefined {
+  const byKey = priorByKey.get(`s${step.seq}`)?.destination;
+  if (byKey) return byKey;
+  if (step.kind === "qr") {
+    for (const cabin of priorByKey.values()) {
+      if (cabin.kind === "qr" && cabin.destination) return cabin.destination;
+    }
+    return undefined;
+  }
+  if (step.kind === "post" && step.submissionId) {
+    const identity = postDestinationKey(step.submissionId, step.ephemeral);
+    for (const cabin of priorByKey.values()) {
+      if (cabin.kind !== "post" || !cabin.submission?.id) continue;
+      if (postDestinationKey(cabin.submission.id, cabin.ephemeral) !== identity) continue;
+      if (cabin.destination) return cabin.destination;
+    }
+  }
+  return undefined;
+}
+
 function resolveStep(
   step: TrainStep,
   lookup: Map<string, Submission>,
   priorByKey: Map<string, RenderCabin>,
 ): RenderCabin {
   const key = `s${step.seq}`;
+  const priorDestination = findPriorDestination(priorByKey, step);
   if (step.kind === "qr") {
-    return { key, kind: "qr", destination: step.destination };
+    return {
+      key,
+      kind: "qr",
+      destination: priorDestination ?? step.destination,
+      ephemeral: true,
+    };
   }
   const submission = (step.submissionId ? lookup.get(step.submissionId) : undefined) ??
     priorByKey.get(key)?.submission;
-  return { key, kind: "post", submission, destination: step.destination };
+  return {
+    key,
+    kind: "post",
+    submission,
+    ephemeral: step.ephemeral,
+    destination: priorDestination ?? step.destination,
+  };
 }
 
 function resolveWindow(
@@ -223,13 +264,103 @@ export function getCenterKeyFromSteps(window: TrainStep[]): string | null {
   return center ? `s${center.seq}` : null;
 }
 
+/** DOM key in overlay to slide toward for a jump (seq may differ from committed window). */
+export function getJumpSlideTargetKey(
+  overlay: TrainStep[],
+  committedWindow: TrainStep[],
+): string | null {
+  const centerStep = committedWindow[CENTER_SLOT];
+  if (!centerStep) return getCenterKeyFromSteps(committedWindow);
+
+  if (centerStep.kind === "post" && centerStep.submissionId) {
+    for (let i = overlay.length - 1; i >= 0; i--) {
+      const step = overlay[i];
+      if (
+        step?.kind === "post" &&
+        step.submissionId === centerStep.submissionId &&
+        !step.ephemeral
+      ) {
+        return `s${step.seq}`;
+      }
+    }
+  }
+
+  return getCenterKeyFromSteps(committedWindow);
+}
+
+/** Rightmost canonical target slot index in overlay, or null. */
+export function findCanonicalTargetSlotInOverlay(
+  overlay: TrainStep[],
+  submissionId: string,
+): number | null {
+  let found: number | null = null;
+  for (let i = 0; i < overlay.length; i++) {
+    const step = overlay[i];
+    if (
+      step?.kind === "post" &&
+      step.submissionId === submissionId &&
+      !step.ephemeral
+    ) {
+      found = i;
+    }
+  }
+  return found;
+}
+
+/** True when slideToKey toward getJumpSlideTargetKey would move backward (target left of center). */
+export function isBackwardSlideTarget(
+  overlay: TrainStep[],
+  committedWindow: TrainStep[],
+): boolean {
+  const centerStep = committedWindow[CENTER_SLOT];
+  if (
+    !centerStep ||
+    centerStep.kind !== "post" ||
+    !centerStep.submissionId ||
+    centerStep.ephemeral
+  ) {
+    return false;
+  }
+  const slot = findCanonicalTargetSlotInOverlay(overlay, centerStep.submissionId);
+  if (slot === null) return false;
+  return slot < CENTER_SLOT;
+}
+
+/** Forward DOM anchor for long / backward-target jumps — never a left-of-center canonical. */
+export function getForwardJumpSlideAnchorKey(
+  overlay: TrainStep[],
+  slideSteps: number,
+): string | null {
+  if (overlay.length === 0) return null;
+  const offset = Math.min(Math.max(slideSteps, 1), RIGHT_RENDER);
+  let idx = Math.min(CENTER_SLOT + offset, overlay.length - 1);
+  if (idx <= CENTER_SLOT && overlay.length > CENTER_SLOT + 1) {
+    idx = overlay.length - 1;
+  }
+  const step = overlay[idx];
+  return step ? `s${step.seq}` : null;
+}
+
+/** DOM keys for every step in an animation overlay. */
+export function overlayDomKeys(overlay: TrainStep[]): string[] {
+  return overlay.map((step) => `s${step.seq}`);
+}
+
 /** True when the jump target center cabin is already rendered in the current window. */
 export function isJumpTargetInCurrentWindow(
   current: TrainViewState,
   nextWindow: TrainStep[],
 ): boolean {
-  const key = getCenterKeyFromSteps(nextWindow);
-  return !!key && current.window.some((c) => c.key === key);
+  const centerStep = nextWindow[CENTER_SLOT];
+  if (
+    !centerStep ||
+    centerStep.kind !== "post" ||
+    !centerStep.submissionId ||
+    centerStep.ephemeral
+  ) {
+    return false;
+  }
+  return current.window.some((c) => c.submission?.id === centerStep.submissionId);
 }
 
 /** The cabin that will become center after one forward step (slide target). */
@@ -278,6 +409,9 @@ export function removeSubmissionFromView(
   submissionId: string,
 ): TrainViewState {
   const canonical = state.canonical.filter((s) => s.id !== submissionId);
+  if (canonical.length === 0) {
+    return { ...state, canonical, window: [], currentCabin: 0 };
+  }
   return {
     ...state,
     canonical,

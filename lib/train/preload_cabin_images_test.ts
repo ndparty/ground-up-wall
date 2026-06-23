@@ -91,8 +91,8 @@ Deno.test("cabinsAroundTargetWithBuffer covers target window with preload tail",
   assertEquals(cabinsAroundTargetWithBuffer(9, 10, 2, 2), [7, 8, 9, 10, 1, 2, 3]);
 });
 
-Deno.test("cabinsForShortJumpPreload is sequential center to target plus K after", () => {
-  assertEquals(cabinsForShortJumpPreload(1, 4, 10, 2), [1, 2, 3, 4, 5, 6]);
+Deno.test("cabinsForShortJumpPreload is sequential center to target plus RIGHT_RENDER after", () => {
+  assertEquals(cabinsForShortJumpPreload(1, 4, 10), [1, 2, 3, 4, 5, 6, 7, 8]);
 });
 
 Deno.test("imageUrlsForJumpPreload includes ephemeral overlay submission", () => {

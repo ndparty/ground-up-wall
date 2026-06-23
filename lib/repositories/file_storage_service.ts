@@ -1,10 +1,12 @@
 import { dirname, join } from "@std/path";
 import type { StorageService } from "../interfaces/storage_service.ts";
+import { assertStoragePathSafe } from "../middleware/serve_storage.ts";
 
 export class FileStorageService implements StorageService {
   constructor(private basePath: string = "./uploads") {}
 
   async uploadImage(file: Blob, path: string): Promise<string> {
+    assertStoragePathSafe(path);
     const fullPath = join(this.basePath, path);
     const dir = dirname(fullPath);
     await Deno.mkdir(dir, { recursive: true });
@@ -18,6 +20,7 @@ export class FileStorageService implements StorageService {
   }
 
   async deleteImage(imagePath: string): Promise<void> {
+    assertStoragePathSafe(imagePath);
     const fullPath = join(this.basePath, imagePath);
     try {
       await Deno.remove(fullPath);

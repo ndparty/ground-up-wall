@@ -1,12 +1,12 @@
 import { type TrainChain, transitionToNext } from "./chain.ts";
 
 export function clampDwellSeconds(value: number): number {
-  if (!Number.isFinite(value)) return 15;
+  if (!Number.isFinite(value)) return 10;
   return Math.max(3, Math.min(60, Math.round(value)));
 }
 
 export function parseDwellTime(configValue: string | undefined | null): number {
-  if (!configValue) return 15;
+  if (!configValue) return 10;
   const parsed = Number.parseInt(configValue, 10);
   return clampDwellSeconds(parsed);
 }

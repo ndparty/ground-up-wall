@@ -35,7 +35,7 @@ export interface SystemDefaultRow {
 export function buildSystemDefaults(): SystemDefaultRow[] {
   const wordList = seededWordListJson();
   return [
-    { key: "train_dwell_time", value: "15", default_value: "15" },
+    { key: "train_dwell_time", value: "10", default_value: "10" },
     {
       key: "message_prompt_text",
       value: DEFAULT_MESSAGE_PROMPT,

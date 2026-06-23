@@ -27,11 +27,12 @@ Deno.test({
 });
 
 Deno.test({
-  name: "US-07 unauthenticated user blocked",
+  name: "US-07 unauthenticated user redirects to login",
   async fn() {
     const handler = await createTestHandler();
     const res = await handler(new Request("http://localhost/display"), serveInfo);
-    assertEquals(res.status, 403);
+    assertEquals(res.status, 302);
+    assertEquals(res.headers.get("location"), "http://localhost/login");
     await teardownTestDb();
   },
 });

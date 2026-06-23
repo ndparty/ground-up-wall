@@ -69,25 +69,25 @@ export default function ApprovedWallList({
   }
 
   if (approved.length === 0) {
-    return <p style="color: #666;">No approved submissions</p>;
+    return <p class="text-muted">No approved submissions</p>;
   }
 
   return (
     <div>
-      <div style="margin-bottom: 1rem; display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center;">
-        <label style="display: flex; flex-direction: column; gap: 0.25rem; flex: 1; min-width: 200px;">
-          <span style="font-size: 0.85rem; color: #666;">Search approved</span>
+      <div class="approved-toolbar">
+        <label class="form-stack-label">
+          <span class="text-small">Search approved</span>
           <input
             type="search"
             value={search}
             placeholder="Message, name, handle, or id…"
             aria-label="Search approved submissions"
             onInput={(e) => handleSearchChange((e.target as HTMLInputElement).value)}
-            style="padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px;"
+            class="form-input--bordered"
           />
         </label>
-        <label style="display: flex; flex-direction: column; gap: 0.25rem;">
-          <span style="font-size: 0.85rem; color: #666;">Per page</span>
+        <label class="form-stack-label form-stack-label--compact">
+          <span class="text-small">Per page</span>
           <select
             value={pageSize}
             aria-label="Entries per page"
@@ -97,7 +97,7 @@ export default function ApprovedWallList({
                 raw === "all" ? "all" : Number(raw) as PageSizeOption,
               );
             }}
-            style="padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px; background: white;"
+            class="form-input--bordered"
           >
             {PAGE_SIZE_OPTIONS.map((option) => (
               <option key={option} value={option}>
@@ -106,13 +106,13 @@ export default function ApprovedWallList({
             ))}
           </select>
         </label>
-        <p style="margin: 0; font-size: 0.85rem; color: #666; align-self: flex-end; padding-bottom: 0.5rem;">
+        <p class="approved-toolbar__count">
           {filtered.length} result{filtered.length === 1 ? "" : "s"}
           {search.trim() ? ` (of ${approved.length})` : ""}
         </p>
       </div>
 
-      {pageItems.length === 0 ? <p style="color: #666;">No matches</p> : pageItems.map((sub) => {
+      {pageItems.length === 0 ? <p class="text-muted">No matches</p> : pageItems.map((sub) => {
         const cabin = cabinNumberFor(sub, approved);
         return (
           <SubmissionCard
@@ -129,23 +129,23 @@ export default function ApprovedWallList({
       })}
 
       {pageSize !== "all" && totalPages > 1 && (
-        <div style="display: flex; gap: 0.5rem; align-items: center; margin-top: 1rem;">
+        <div class="pagination-bar--list">
           <button
             type="button"
             disabled={safePage <= 1}
             onClick={() => setPage((p) => Math.max(1, p - 1))}
-            style="padding: 0.4rem 0.8rem; border: 1px solid #ccc; border-radius: 4px; background: white; cursor: pointer;"
+            class="btn btn--ghost"
           >
             Previous
           </button>
-          <span style="font-size: 0.9rem; color: #666;">
+          <span class="text-xs">
             Page {safePage} of {totalPages}
           </span>
           <button
             type="button"
             disabled={safePage >= totalPages}
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            style="padding: 0.4rem 0.8rem; border: 1px solid #ccc; border-radius: 4px; background: white; cursor: pointer;"
+            class="btn btn--ghost"
           >
             Next
           </button>

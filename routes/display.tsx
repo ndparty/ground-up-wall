@@ -1,19 +1,19 @@
 import TrainDisplay from "../islands/TrainDisplay.tsx";
+import { loginPageRedirect, roleHomeRedirect } from "../lib/auth/login_redirect.ts";
 import { define } from "../utils.ts";
 
-const ACCESS_DENIED_MESSAGE = "Access not allowed. Please refer to the organiser's screen instead.";
+function canAccessDisplay(role: string): boolean {
+  return role === "display_wall" || role === "moderator" || role === "admin";
+}
 
 export const handlers = define.handlers({
   GET(ctx) {
     const user = ctx.state.user;
-    if (
-      !user ||
-      (user.role !== "display_wall" && user.role !== "moderator" && user.role !== "admin")
-    ) {
-      return new Response(ACCESS_DENIED_MESSAGE, {
-        status: 403,
-        headers: { "Content-Type": "text/plain; charset=utf-8" },
-      });
+    if (!user) {
+      return loginPageRedirect(ctx.req);
+    }
+    if (!canAccessDisplay(user.role)) {
+      return roleHomeRedirect(ctx.req, user.role);
     }
     return {};
   },

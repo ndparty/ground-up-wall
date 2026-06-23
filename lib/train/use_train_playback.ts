@@ -9,7 +9,16 @@ import type {
 } from "../interfaces/realtime_service.ts";
 import type { Submission, User } from "../types.ts";
 import { mapCommandToOverrideState, type OverrideState } from "./display_override.ts";
+import { rebuildDeferredJumpAnimation } from "./client_jump_deps.ts";
+import { preserveDestinationsFromPreJumpTape } from "./tape_helpers.ts";
 import { shouldApplyPlaybackStateWindow } from "./playback_state_sync.ts";
+import {
+  deferJumpCommand,
+  pendingWithoutJumps,
+  shouldDeferJumpSse,
+  takeDeferredJump,
+} from "./jump_orchestrator_guard.ts";
+import { applyCommitAdvance, type PendingAdvance } from "./pending_advance.ts";
 import {
   addApproved,
   applyServerWindow,
@@ -30,16 +39,13 @@ interface ServerPlaybackState {
   window?: TrainStep[];
 }
 
-interface PendingAdvance {
-  window: TrainStep[];
-  currentCabin: number;
-  kind: "advance" | "jump";
-  slideSteps?: number;
-  animationWindow?: TrainStep[];
-  fromCabin?: number;
-}
-
 export type { PendingAdvance };
+export { applyCommitAdvance } from "./pending_advance.ts";
+
+export interface CommitAdvanceResult {
+  view: TrainViewState;
+  centerKey: string | null;
+}
 
 function parseSseData<T>(event: MessageEvent): T | null {
   try {
@@ -61,8 +67,9 @@ export interface UseTrainPlaybackResult {
   currentCabin: number;
   trainLength: number;
   pendingAdvances: number;
-  commitAdvance: () => string | null;
+  commitAdvance: () => CommitAdvanceResult | null;
   peekPendingAdvance: () => PendingAdvance | null;
+  getPendingCount: () => number;
   hasJumpPending: () => boolean;
   pauseTrain: () => Promise<boolean>;
   resumeTrain: () => Promise<boolean>;
@@ -73,6 +80,10 @@ export interface UseTrainPlaybackResult {
   retryBootstrap: () => void;
   connectionStatus: ConnectionStatus;
   overrideState: OverrideState;
+  reloadGeneration: number;
+  setOrchestratorBusy: (busy: boolean) => void;
+  flushDeferredJump: () => boolean;
+  clearOrchestratorState: () => void;
 }
 
 async function publishTrainCommand(command: TrainCommand): Promise<boolean> {
@@ -93,10 +104,13 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
   const [bootstrapAttempt, setBootstrapAttempt] = useState(0);
   const [pendingAdvances, setPendingAdvances] = useState(0);
   const [overrideState, setOverrideState] = useState<OverrideState>({ type: "normal" });
+  const [reloadGeneration, setReloadGeneration] = useState(0);
 
   const isPlayingRef = useRef(isPlaying);
   const pendingRef = useRef<PendingAdvance[]>([]);
   const trainViewRef = useRef(trainView);
+  const orchestratorBusyRef = useRef(false);
+  const deferredJumpRef = useRef<TrainCommand | null>(null);
   isPlayingRef.current = isPlaying;
   trainViewRef.current = trainView;
 
@@ -122,21 +136,59 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
     });
   }
 
-  const commitAdvance = useCallback((): string | null => {
+  const commitAdvance = useCallback((): CommitAdvanceResult | null => {
     const next = pendingRef.current[0];
     pendingRef.current = pendingRef.current.slice(1);
     setPendingAdvances(pendingRef.current.length);
     if (!next) return null;
-    setTrainViewState((prev) => applyServerWindow(prev, next.window, next.currentCabin));
-    return centerKeyFromWindow(next.window);
+    const updated = applyCommitAdvance(trainViewRef.current, next);
+    trainViewRef.current = updated;
+    setTrainViewState(updated);
+    return { view: updated, centerKey: centerKeyFromWindow(next.window) };
   }, []);
 
   const peekPendingAdvance = useCallback((): PendingAdvance | null => {
     return pendingRef.current[0] ?? null;
   }, []);
 
+  const getPendingCount = useCallback((): number => {
+    return pendingRef.current.length;
+  }, []);
+
   const hasJumpPending = useCallback((): boolean => {
     return pendingRef.current.some((p) => p.kind === "jump");
+  }, []);
+
+  const setOrchestratorBusy = useCallback((busy: boolean): void => {
+    orchestratorBusyRef.current = busy;
+  }, []);
+
+  const clearOrchestratorState = useCallback((): void => {
+    orchestratorBusyRef.current = false;
+    deferredJumpRef.current = null;
+  }, []);
+
+  const flushDeferredJump = useCallback((): boolean => {
+    const command = takeDeferredJump(deferredJumpRef.current);
+    if (!command) return false;
+    deferredJumpRef.current = null;
+    pendingRef.current = pendingWithoutJumps(pendingRef.current);
+    setPendingAdvances(pendingRef.current.length);
+    if (!command.window || command.cabinNumber === undefined) return false;
+    const { animationWindow, stepsToTarget } = rebuildDeferredJumpAnimation(
+      trainViewRef.current,
+      command.cabinNumber,
+    );
+    preserveDestinationsFromPreJumpTape(animationWindow, command.window);
+    enqueueAdvance({
+      window: command.window,
+      currentCabin: command.currentCabin ?? 0,
+      kind: "jump",
+      slideSteps: stepsToTarget,
+      animationWindow,
+      fromCabin: getCurrentCabin(trainViewRef.current),
+    });
+    return true;
   }, []);
 
   const syncOverrideFromServer = useCallback(async () => {
@@ -151,6 +203,7 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
   }, []);
 
   const syncPlaybackFromServer = useCallback(async () => {
+    if (orchestratorBusyRef.current || pendingRef.current.length > 0) return;
     try {
       const res = await fetchWithRetry("/api/display/submissions");
       if (!res.ok) return;
@@ -251,7 +304,10 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
 
       if (command.type === "pause") {
         setIsPlaying(false);
-        clearPending();
+        if (!orchestratorBusyRef.current) {
+          clearPending();
+          deferredJumpRef.current = null;
+        }
         return;
       }
       if (command.type === "play") {
@@ -268,6 +324,10 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
         return;
       }
       if (command.type === "jump" && command.window && command.cabinNumber !== undefined) {
+        if (shouldDeferJumpSse(orchestratorBusyRef.current)) {
+          deferredJumpRef.current = deferJumpCommand(deferredJumpRef.current, command);
+          return;
+        }
         clearPending();
         enqueueJumpSteps(command);
       }
@@ -276,7 +336,13 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
       const playback = parseSseData<ServerPlaybackState>(event);
       if (!playback) return;
       setIsPlaying(playback.isPlaying);
-      if (!shouldApplyPlaybackStateWindow(pendingRef.current.length)) return;
+      if (
+        !shouldApplyPlaybackStateWindow(
+          pendingRef.current.length,
+          orchestratorBusyRef.current,
+          deferredJumpRef.current !== null,
+        )
+      ) return;
       clearPending();
       setTrainViewState((prev) =>
         applyServerWindow(prev, playback.window ?? [], playback.currentCabin)
@@ -287,6 +353,11 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
       if (command) {
         setOverrideState(mapCommandToOverrideState(command.type, command.imageUrl));
       }
+    },
+    display_reload: () => {
+      clearPending();
+      void syncPlaybackFromServer();
+      setReloadGeneration((n) => n + 1);
     },
   };
 
@@ -305,7 +376,10 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
   async function pauseTrain(): Promise<boolean> {
     const wasPlaying = isPlaying;
     setIsPlaying(false);
-    clearPending();
+    if (!orchestratorBusyRef.current) {
+      clearPending();
+      deferredJumpRef.current = null;
+    }
     const ok = await publishTrainCommand({ type: "pause" });
     if (!ok) setIsPlaying(wasPlaying);
     return ok;
@@ -332,6 +406,7 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
     pendingAdvances,
     commitAdvance,
     peekPendingAdvance,
+    getPendingCount,
     hasJumpPending,
     pauseTrain,
     resumeTrain,
@@ -342,6 +417,10 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
     retryBootstrap,
     connectionStatus,
     overrideState,
+    reloadGeneration,
+    setOrchestratorBusy,
+    flushDeferredJump,
+    clearOrchestratorState,
   };
 }
 

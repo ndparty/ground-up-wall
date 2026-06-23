@@ -28,13 +28,8 @@ export default function ModerateApprovedGallery() {
 
   const sseHandlersRef = useRef<Record<string, (event: MessageEvent) => void>>({});
   sseHandlersRef.current = {
-    submission_approved: (event) => {
-      try {
-        const submission = JSON.parse(event.data) as Submission;
-        setApproved((prev) => [submission, ...prev.filter((s) => s.id !== submission.id)]);
-      } catch {
-        // ignore malformed events
-      }
+    submission_approved: () => {
+      void loadApproved();
     },
     submission_edited: (event) => {
       try {
@@ -83,9 +78,9 @@ export default function ModerateApprovedGallery() {
   return (
     <>
       <ConnectionBanner status={connectionStatus} />
-      {error && <p style="color: #c62828;">{error}</p>}
+      {error && <p class="text-error--block">{error}</p>}
       {!loaded
-        ? <p style="text-align: center; color: #666;">Loading approved…</p>
+        ? <p class="text-loading">Loading approved…</p>
         : (
           <ApprovedWallList
             approved={approved}

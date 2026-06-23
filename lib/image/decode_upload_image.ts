@@ -27,7 +27,7 @@ export async function decodeUploadImage(file: File): Promise<File | Blob> {
 
   // Chrome often hangs on createImageBitmap for HEIC; convert directly.
   try {
-    const { heicTo } = await import("heic-to");
+    const { heicTo } = await import("heic-to/csp");
     return await heicTo({
       blob: file,
       type: "image/jpeg",

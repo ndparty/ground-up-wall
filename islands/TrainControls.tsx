@@ -9,6 +9,7 @@ export interface TrainControlsProps {
   onJump: (cabinNumber: number) => void;
   trainLength: number;
   currentCabin: number;
+  jumpDisabled?: boolean;
   variant?: "display" | "moderate";
 }
 
@@ -19,6 +20,7 @@ export default function TrainControls({
   onJump,
   trainLength,
   currentCabin,
+  jumpDisabled = false,
   variant = "display",
 }: TrainControlsProps) {
   const [jumpInput, setJumpInput] = useState("");
@@ -86,7 +88,12 @@ export default function TrainControls({
             }}
           />
         </label>
-        <button type="button" class="train-controls__btn" onClick={handleJump}>
+        <button
+          type="button"
+          class="train-controls__btn"
+          disabled={jumpDisabled}
+          onClick={handleJump}
+        >
           Jump
         </button>
       </div>

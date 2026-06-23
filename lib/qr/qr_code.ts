@@ -40,3 +40,10 @@ export function qrCodeSvg(text: string, options: QrSvgOptions = {}): string {
     `aria-label="Upload QR code"><rect width="${size}" height="${size}" rx="2" fill="${light}"/>` +
     `<g fill="${dark}">${rects.join("")}</g></svg>`;
 }
+
+/** SVG QR code as a data URL suitable for `<img src>` (avoids inline HTML injection). */
+export function qrCodeDataUrl(text: string, options: QrSvgOptions = {}): string {
+  const svg = qrCodeSvg(text, options);
+  const encoded = btoa(unescape(encodeURIComponent(svg)));
+  return `data:image/svg+xml;base64,${encoded}`;
+}

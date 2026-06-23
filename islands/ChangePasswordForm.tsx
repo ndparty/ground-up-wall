@@ -38,39 +38,39 @@ export default function ChangePasswordForm() {
 
   return (
     <form method="post" action="/change-password" onSubmit={handleSubmit}>
-      <label style="display: block; margin-bottom: 1rem;">
+      <label class="form-label">
         Current password
         <input
           name="currentPassword"
           type="password"
           required
-          style="display: block; width: 100%; margin-top: 0.25rem; padding: 0.5rem;"
+          class="form-input"
         />
       </label>
-      <label style="display: block; margin-bottom: 1rem;">
+      <label class="form-label">
         New password
         <input
           name="newPassword"
           type="password"
           required
-          style="display: block; width: 100%; margin-top: 0.25rem; padding: 0.5rem;"
+          class="form-input"
         />
       </label>
-      <label style="display: block; margin-bottom: 1rem;">
+      <label class="form-label">
         Confirm new password
         <input
           name="confirmPassword"
           type="password"
           required
-          style="display: block; width: 100%; margin-top: 0.25rem; padding: 0.5rem;"
+          class="form-input"
         />
       </label>
-      {error && <p style="color: #ef3340;">{error}</p>}
-      {success && <p style="color: #2e7d32;">Password updated successfully.</p>}
+      {error && <p class="text-error">{error}</p>}
+      {success && <p class="text-success">Password updated successfully.</p>}
       <button
         type="submit"
         disabled={loading}
-        style="background: #ef3340; color: white; border: none; padding: 0.5rem 1.5rem; cursor: pointer;"
+        class="btn btn--primary"
       >
         {loading ? "Updating…" : "Update password"}
       </button>

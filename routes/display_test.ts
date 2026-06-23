@@ -9,15 +9,13 @@ import {
 } from "../lib/api/display_route_test_helpers.ts";
 import { cleanupTestData } from "../lib/test_helpers.ts";
 
-const ACCESS_DENIED = "Access not allowed. Please refer to the organiser's screen instead.";
-
 Deno.test({
-  name: "testUnauthenticatedGets403",
+  name: "testUnauthenticatedRedirectsToLogin",
   async fn() {
     const handler = await createTestHandler();
     const res = await handler(new Request("http://localhost/display"), serveInfo);
-    assertEquals(res.status, 403);
-    assertEquals(await res.text(), ACCESS_DENIED);
+    assertEquals(res.status, 302);
+    assertEquals(res.headers.get("location"), "http://localhost/login");
     await cleanupTestData();
   },
 });

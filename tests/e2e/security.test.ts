@@ -88,8 +88,8 @@ Deno.test({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           currentPassword: "pass123",
-          newPassword: "newpass456",
-          confirmPassword: "newpass456",
+          newPassword: "newpass456789",
+          confirmPassword: "newpass456789",
         }),
       }),
       serveInfo,

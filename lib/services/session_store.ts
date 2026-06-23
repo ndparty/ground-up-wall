@@ -1,4 +1,5 @@
 import { dirname } from "@std/path/dirname";
+import { safeError } from "../log_safe.ts";
 import type { Repository } from "../interfaces/repository.ts";
 import type { AuthUser } from "./auth_service.ts";
 
@@ -14,6 +15,7 @@ export interface SessionStore {
   deleteByUserId(userId: string, exceptToken?: string): void;
   load(): void;
   ready?(): Promise<void>;
+  clearCache?(): void;
 }
 
 export class MemorySessionStore implements SessionStore {
@@ -41,6 +43,10 @@ export class MemorySessionStore implements SessionStore {
         this.sessions.delete(token);
       }
     }
+  }
+
+  clearCache(): void {
+    this.sessions.clear();
   }
 }
 
@@ -101,6 +107,10 @@ export class FileSessionStore implements SessionStore {
       }
     }
     if (changed) this.persist();
+  }
+
+  clearCache(): void {
+    this.sessions.clear();
   }
 
   private persist(): void {
@@ -181,7 +191,7 @@ export class PostgresSessionStore implements SessionStore {
 
   private queueWrite(fn: () => Promise<void>): void {
     this.writeChain = this.writeChain.then(fn).catch((error) => {
-      console.error("Session persistence error:", error);
+      console.error("Session persistence error:", safeError(error));
     });
   }
 
@@ -195,6 +205,10 @@ export class PostgresSessionStore implements SessionStore {
         expires: row.expiresAt,
       });
     }
+  }
+
+  clearCache(): void {
+    this.cache.clear();
   }
 }
 

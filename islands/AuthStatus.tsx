@@ -30,17 +30,17 @@ export default function AuthStatus() {
   const canDisplay = user.role === "display_wall" || canModerate;
 
   return (
-    <div style="margin-left: auto; display: flex; align-items: center; gap: 1rem; color: white;">
+    <div class="auth-nav">
       <span>Hi, {user.username}</span>
-      {canDisplay && <a href="/display" style="color: white;">Display</a>}
-      {canModerate && <a href="/moderate" style="color: white;">Moderate</a>}
-      {canModerate && <a href="/moderate/approved" style="color: white;">Gallery</a>}
-      {isAdmin && <a href="/admin" style="color: white;">Admin</a>}
-      <a href="/change-password" style="color: white;">Change password</a>
+      {canDisplay && <a href="/display" class="auth-nav__link">Display</a>}
+      {canModerate && <a href="/moderate" class="auth-nav__link">Moderate</a>}
+      {canModerate && <a href="/moderate/approved" class="auth-nav__link">Gallery</a>}
+      {isAdmin && <a href="/admin" class="auth-nav__link">Admin</a>}
+      <a href="/change-password" class="auth-nav__link">Change password</a>
       <button
         type="button"
         onClick={handleLogout}
-        style="background: rgba(255,255,255,0.2); border: 1px solid white; color: white; padding: 0.25rem 0.75rem; border-radius: 4px; cursor: pointer;"
+        class="auth-nav__logout"
       >
         Logout
       </button>

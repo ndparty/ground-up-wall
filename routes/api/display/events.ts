@@ -1,18 +1,20 @@
 import { define } from "../../../utils.ts";
 import { createSseResponse } from "../../../lib/sse/create_event_stream.ts";
+import { safeError } from "../../../lib/log_safe.ts";
+import { acquireConnection, releaseConnection } from "../../../lib/sse/connection_limit.ts";
 
-function canViewDisplay(role: string | undefined): boolean {
-  return role === "display_wall" || role === "moderator" || role === "admin";
-}
+const MAX_SSE_CONNECTIONS = 50;
 
 export const handlers = define.handlers({
   GET(ctx) {
     const user = ctx.state.user;
-    if (!user || !canViewDisplay(user.role)) {
-      return new Response("Forbidden", { status: 403 });
+    const connKey = `display:${user?.id ?? "anon"}`;
+    if (!acquireConnection(connKey, MAX_SSE_CONNECTIONS)) {
+      return new Response("Too many connections", { status: 503 });
     }
 
     return createSseResponse((send, registerCleanup) => {
+      registerCleanup(() => releaseConnection(connKey));
       const photoWall = ctx.state.services.photoWall;
 
       registerCleanup(
@@ -46,6 +48,11 @@ export const handlers = define.handlers({
         }),
       );
       registerCleanup(
+        photoWall.subscribeToDisplayReload(() => {
+          send.send("display_reload", {});
+        }),
+      );
+      registerCleanup(
         photoWall.subscribeToSystemConfig((config) => {
           send.send("system_config_changed", config);
         }),
@@ -64,7 +71,7 @@ export const handlers = define.handlers({
           });
         })
         .catch((err) => {
-          console.error("display/events: ensurePlaybackInitialized failed", err);
+          console.error("display/events: ensurePlaybackInitialized failed", safeError(err));
         });
     });
   },

@@ -65,6 +65,7 @@ export interface Repository {
   // Audit log operations
   createAuditEntry(entry: AuditEntryData): Promise<AuditEntry>;
   getAuditLog(filters: AuditFilter): Promise<AuditEntry[]>;
+  countAuditLog(filters: AuditFilter): Promise<number>;
 
   // Display Wall operations
   createDisplayWallUser(data: CreateUserData): Promise<User>;

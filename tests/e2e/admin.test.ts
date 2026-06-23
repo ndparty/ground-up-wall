@@ -21,7 +21,7 @@ Deno.test({
       authedRequest("http://localhost/api/admin/users/create", token, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password: "secret123", role: "moderator" }),
+        body: JSON.stringify({ username, password: "secret123456", role: "moderator" }),
       }),
       serveInfo,
     );
@@ -36,7 +36,7 @@ Deno.test({
     const handler = await createTestHandler();
     const { token } = await loginAsAdmin(handler);
     const username = `dup_${crypto.randomUUID().slice(0, 8)}`;
-    const body = JSON.stringify({ username, password: "secret123", role: "moderator" });
+    const body = JSON.stringify({ username, password: "secret123456", role: "moderator" });
     await handler(
       authedRequest("http://localhost/api/admin/users/create", token, {
         method: "POST",
@@ -67,7 +67,7 @@ Deno.test({
       authedRequest("http://localhost/api/admin/users/create", token, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: "", password: "secret123", role: "moderator" }),
+        body: JSON.stringify({ username: "", password: "secret123456", role: "moderator" }),
       }),
       serveInfo,
     );
@@ -110,7 +110,7 @@ Deno.test({
       authedRequest("http://localhost/api/admin/users/reset-password", token, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: mod.id, role: "moderator", newPassword: "newpass99" }),
+        body: JSON.stringify({ userId: mod.id, role: "moderator", newPassword: "newpass123456" }),
       }),
       serveInfo,
     );
@@ -227,7 +227,7 @@ Deno.test({
       authedRequest("http://localhost/api/admin/users/create", token, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password: "secret123", role: "display_wall" }),
+        body: JSON.stringify({ username, password: "secret123456", role: "display_wall" }),
       }),
       serveInfo,
     );
@@ -272,7 +272,9 @@ Deno.test({
       serveInfo,
     );
     assertEquals(res.status, 200);
-    assertEquals(Array.isArray(await res.json()), true);
+    const body = await res.json() as { entries: unknown[]; total: number };
+    assertEquals(Array.isArray(body.entries), true);
+    assertEquals(typeof body.total, "number");
     await teardownTestDb();
   },
 });

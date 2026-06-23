@@ -1,3 +1,4 @@
+import { toPublicError } from "../../../lib/api/public_error.ts";
 import { define } from "../../../utils.ts";
 
 export const handlers = define.handlers({
@@ -9,18 +10,26 @@ export const handlers = define.handlers({
     const admin = ctx.state.user!;
     const form = await ctx.req.formData();
     const type = form.get("type");
-    if (type !== "blank" && type !== "placeholder" && type !== "resume") {
+    if (
+      type !== "blank" && type !== "placeholder" && type !== "resume" &&
+      type !== "reload" && type !== "panic"
+    ) {
       return ctx.json({ error: "Invalid override type" }, { status: 400 });
     }
     const imageFile = form.get("image");
     const image = imageFile instanceof File && imageFile.size > 0 ? imageFile : undefined;
 
     try {
-      await ctx.state.services.photoWall.commandDisplayOverride(type, admin.id, image);
+      if (type === "reload") {
+        await ctx.state.services.photoWall.reloadDisplay(admin.id);
+      } else if (type === "panic") {
+        await ctx.state.services.photoWall.panicDisplay(admin.id);
+      } else {
+        await ctx.state.services.photoWall.commandDisplayOverride(type, admin.id, image);
+      }
       return ctx.json({ ok: true });
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Override failed";
-      return ctx.json({ error: message }, { status: 400 });
+      return ctx.json({ error: toPublicError(err, "Override failed") }, { status: 400 });
     }
   },
 });

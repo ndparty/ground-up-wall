@@ -1,3 +1,5 @@
+import { toPublicError } from "../../../../lib/api/public_error.ts";
+import { validatePassword } from "../../../../lib/security/password_policy.ts";
 import { define } from "../../../../utils.ts";
 
 export const handlers = define.handlers({
@@ -15,19 +17,19 @@ export const handlers = define.handlers({
     if (role !== "moderator" && role !== "display_wall") {
       return ctx.json({ error: "Invalid role" }, { status: 400 });
     }
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      return ctx.json({ error: passwordError }, { status: 400 });
+    }
 
     const existing = await ctx.state.services.repository.authenticateUser(username.trim());
     if (existing) {
-      return ctx.json({ error: "Username already exists" }, { status: 409 });
+      return ctx.json({ error: "Could not create user" }, { status: 409 });
     }
 
     try {
       if (role === "moderator") {
-        await ctx.state.services.photoWall.createModerator(
-          username.trim(),
-          password,
-          admin.id,
-        );
+        await ctx.state.services.photoWall.createModerator(username.trim(), password, admin.id);
       } else {
         await ctx.state.services.photoWall.createDisplayWallUser(
           username.trim(),
@@ -37,11 +39,11 @@ export const handlers = define.handlers({
       }
       return ctx.json({ ok: true }, { status: 201 });
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Create failed";
+      const message = err instanceof Error ? err.message : "";
       if (message.includes("unique") || message.includes("duplicate")) {
-        return ctx.json({ error: "Username already exists" }, { status: 409 });
+        return ctx.json({ error: "Could not create user" }, { status: 409 });
       }
-      return ctx.json({ error: message }, { status: 400 });
+      return ctx.json({ error: toPublicError(err, "Create failed") }, { status: 400 });
     }
   },
 });

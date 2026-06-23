@@ -34,11 +34,13 @@ export function accessDecision(path: string, flags: AccessFlags): AccessDecision
   return "allow";
 }
 
-const OFFLINE_HTML =
-  `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Offline</title><style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#1a1a2e;color:#fff;font-family:system-ui,sans-serif;text-align:center;padding:2rem}h1{color:#ef3340;margin:0 0 .5rem}p{opacity:.85;margin:0}</style></head><body><div><h1>This event is currently offline</h1><p>Please check back later.</p></div></body></html>`;
+const GATE_CSS_LINK = `<link rel="stylesheet" href="/gate.css">`;
 
-const UPLOADS_CLOSED_HTML =
-  `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Uploads closed</title><style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#1a1a2e;color:#fff;font-family:system-ui,sans-serif;text-align:center;padding:2rem}h1{color:#ef3340;margin:0 0 .5rem}p{opacity:.85;margin:0}</style></head><body><div><h1>Uploads are closed</h1><p>Thanks for joining in — photo submissions are no longer being accepted.</p></div></body></html>`;
+export const OFFLINE_HTML =
+  `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Offline</title>${GATE_CSS_LINK}</head><body><div><h1>This event is currently offline</h1><p>Please check back later.</p></div></body></html>`;
+
+export const UPLOADS_CLOSED_HTML =
+  `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Uploads closed</title>${GATE_CSS_LINK}</head><body><div><h1>Uploads are closed</h1><p>Thanks for joining in — photo submissions are no longer being accepted.</p></div></body></html>`;
 
 function blockedResponse(path: string, decision: Exclude<AccessDecision, "allow">): Response {
   const isApi = path.startsWith("/api/");

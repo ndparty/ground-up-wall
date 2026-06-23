@@ -2,7 +2,7 @@ import type { TrainStep } from "../interfaces/realtime_service.ts";
 import type { Submission } from "../types.ts";
 import type { TrainCabinNode } from "./chain.ts";
 import { forwardPathIndices } from "./train_view.ts";
-import { PRELOAD_AHEAD, VIEWPORT_K } from "./train_view_constants.ts";
+import { PRELOAD_AHEAD, RIGHT_RENDER, VIEWPORT_K } from "./train_view_constants.ts";
 
 /** Resolve image URLs for canonical cabin numbers on the ring (deduped, path order). */
 export function imageUrlsForCanonicalPath(path: number[], canonical: Submission[]): string[] {
@@ -51,12 +51,12 @@ export function cabinsAroundTargetWithBuffer(
   return ordered;
 }
 
-/** Path cabins plus K ring slots after the jump target (jump render window tail). */
+/** Path cabins plus RIGHT_RENDER ring slots after the jump target (visible K + preload). */
 export function cabinsForJumpPreload(
   path: number[],
   targetCabin: number,
   length: number,
-  k = VIEWPORT_K,
+  forwardSlots = RIGHT_RENDER,
 ): number[] {
   if (length === 0) return [...path];
   const ordered: number[] = [];
@@ -68,22 +68,22 @@ export function cabinsForJumpPreload(
   };
   for (const cabin of path) add(cabin);
   const targetIdx = targetCabin - 1;
-  for (let i = 1; i <= k; i++) {
+  for (let i = 1; i <= forwardSlots; i++) {
     add(((targetIdx + i) % length) + 1);
   }
   return ordered;
 }
 
-/** Short out-of-chain jump: sequential center→target plus K ring slots after target. */
+/** Short out-of-chain jump: sequential center→target plus RIGHT_RENDER slots after target. */
 export function cabinsForShortJumpPreload(
   fromCabin: number,
   toCabin: number,
   length: number,
-  k = VIEWPORT_K,
+  forwardSlots = RIGHT_RENDER,
 ): number[] {
   if (length === 0) return [];
   const path = forwardPathIndices(fromCabin - 1, toCabin - 1, length).map((idx) => idx + 1);
-  return cabinsForJumpPreload(path, toCabin, length, k);
+  return cabinsForJumpPreload(path, toCabin, length, forwardSlots);
 }
 
 /** Canonical path plus overlay step URLs (deduped; covers ephemerals in the preload chain). */

@@ -1,0 +1,115 @@
+/* CSP-safe fit-text steps for train cabin messages (used by use_fit_text.ts). */
+
+.train-cabin__message-wrap .message-fit-probe {
+  position: absolute;
+  inset: 0;
+  visibility: hidden;
+  overflow: hidden;
+  pointer-events: none;
+  margin: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.train-cabin__body .train-cabin__message.fit-text-300 { font-size: 3.00rem !important; }
+.train-cabin__body .train-cabin__message[data-fit-rem="300"] { font-size: 3.00rem !important; }
+.train-cabin__body .train-cabin__message.fit-text-295 { font-size: 2.95rem !important; }
+.train-cabin__body .train-cabin__message[data-fit-rem="295"] { font-size: 2.95rem !important; }
+.train-cabin__body .train-cabin__message.fit-text-290 { font-size: 2.90rem !important; }
+.train-cabin__body .train-cabin__message[data-fit-rem="290"] { font-size: 2.90rem !important; }
+.train-cabin__body .train-cabin__message.fit-text-285 { font-size: 2.85rem !important; }
+.train-cabin__body .train-cabin__message[data-fit-rem="285"] { font-size: 2.85rem !important; }
+.train-cabin__body .train-cabin__message.fit-text-280 { font-size: 2.80rem !important; }
+.train-cabin__body .train-cabin__message[data-fit-rem="280"] { font-size: 2.80rem !important; }
+.train-cabin__body .train-cabin__message.fit-text-275 { font-size: 2.75rem !important; }
+.train-cabin__body .train-cabin__message[data-fit-rem="275"] { font-size: 2.75rem !important; }
+.train-cabin__body .train-cabin__message.fit-text-270 { font-size: 2.70rem !important; }
+.train-cabin__body .train-cabin__message[data-fit-rem="270"] { font-size: 2.70rem !important; }
+.train-cabin__body .train-cabin__message.fit-text-265 { font-size: 2.65rem !important; }
+.train-cabin__body .train-cabin__message[data-fit-rem="265"] { font-size: 2.65rem !important; }
+.train-cabin__body .train-cabin__message.fit-text-260 { font-size: 2.60rem !important; }
+.train-cabin__body .train-cabin__message[data-fit-rem="260"] { font-size: 2.60rem !important; }
+.train-cabin__body .train-cabin__message.fit-text-255 { font-size: 2.55rem !important; }
+.train-cabin__body .train-cabin__message[data-fit-rem="255"] { font-size: 2.55rem !important; }
+.train-cabin__body .train-cabin__message.fit-text-250 { font-size: 2.50rem !important; }
+.train-cabin__body .train-cabin__message[data-fit-rem="250"] { font-size: 2.50rem !important; }
+.train-cabin__body .train-cabin__message.fit-text-245 { font-size: 2.45rem !important; }
+.train-cabin__body .train-cabin__message[data-fit-rem="245"] { font-size: 2.45rem !important; }
+.train-cabin__body .train-cabin__message.fit-text-240 { font-size: 2.40rem !important; }
+.train-cabin__body .train-cabin__message[data-fit-rem="240"] { font-size: 2.40rem !important; }
+.train-cabin__body .train-cabin__message.fit-text-235 { font-size: 2.35rem !important; }
+.train-cabin__body .train-cabin__message[data-fit-rem="235"] { font-size: 2.35rem !important; }
+.train-cabin__body .train-cabin__message.fit-text-230 { font-size: 2.30rem !important; }
+.train-cabin__body .train-cabin__message[data-fit-rem="230"] { font-size: 2.30rem !important; }
+.train-cabin__body .train-cabin__message.fit-text-225 { font-size: 2.25rem !important; }
+.train-cabin__body .train-cabin__message[data-fit-rem="225"] { font-size: 2.25rem !important; }
+.train-cabin__body .train-cabin__message.fit-text-220 { font-size: 2.20rem !important; }
+.train-cabin__body .train-cabin__message[data-fit-rem="220"] { font-size: 2.20rem !important; }
+.train-cabin__body .train-cabin__message.fit-text-215 { font-size: 2.15rem !important; }
+.train-cabin__body .train-cabin__message[data-fit-rem="215"] { font-size: 2.15rem !important; }
+.train-cabin__body .train-cabin__message.fit-text-210 { font-size: 2.10rem !important; }
+.train-cabin__body .train-cabin__message[data-fit-rem="210"] { font-size: 2.10rem !important; }
+.train-cabin__body .train-cabin__message.fit-text-205 { font-size: 2.05rem !important; }
+.train-cabin__body .train-cabin__message[data-fit-rem="205"] { font-size: 2.05rem !important; }
+.train-cabin__body .train-cabin__message.fit-text-200 { font-size: 2.00rem !important; }
+.train-cabin__body .train-cabin__message[data-fit-rem="200"] { font-size: 2.00rem !important; }
+.train-cabin__body .train-cabin__message.fit-text-195 { font-size: 1.95rem !important; }
+.train-cabin__body .train-cabin__message[data-fit-rem="195"] { font-size: 1.95rem !important; }
+.train-cabin__body .train-cabin__message.fit-text-190 { font-size: 1.90rem !important; }
+.train-cabin__body .train-cabin__message[data-fit-rem="190"] { font-size: 1.90rem !important; }
+.train-cabin__body .train-cabin__message.fit-text-185 { font-size: 1.85rem !important; }
+.train-cabin__body .train-cabin__message[data-fit-rem="185"] { font-size: 1.85rem !important; }
+.train-cabin__body .train-cabin__message.fit-text-180 { font-size: 1.80rem !important; }
+.train-cabin__body .train-cabin__message[data-fit-rem="180"] { font-size: 1.80rem !important; }
+.train-cabin__body .train-cabin__message.fit-text-175 { font-size: 1.75rem !important; }
+.train-cabin__body .train-cabin__message[data-fit-rem="175"] { font-size: 1.75rem !important; }
+.train-cabin__body .train-cabin__message.fit-text-170 { font-size: 1.70rem !important; }
+.train-cabin__body .train-cabin__message[data-fit-rem="170"] { font-size: 1.70rem !important; }
+.train-cabin__body .train-cabin__message.fit-text-165 { font-size: 1.65rem !important; }
+.train-cabin__body .train-cabin__message[data-fit-rem="165"] { font-size: 1.65rem !important; }
+.train-cabin__body .train-cabin__message.fit-text-160 { font-size: 1.60rem !important; }
+.train-cabin__body .train-cabin__message[data-fit-rem="160"] { font-size: 1.60rem !important; }
+.train-cabin__body .train-cabin__message.fit-text-155 { font-size: 1.55rem !important; }
+.train-cabin__body .train-cabin__message[data-fit-rem="155"] { font-size: 1.55rem !important; }
+.train-cabin__body .train-cabin__message.fit-text-150 { font-size: 1.50rem !important; }
+.train-cabin__body .train-cabin__message[data-fit-rem="150"] { font-size: 1.50rem !important; }
+.train-cabin__body .train-cabin__message.fit-text-145 { font-size: 1.45rem !important; }
+.train-cabin__body .train-cabin__message[data-fit-rem="145"] { font-size: 1.45rem !important; }
+.train-cabin__body .train-cabin__message.fit-text-140 { font-size: 1.40rem !important; }
+.train-cabin__body .train-cabin__message[data-fit-rem="140"] { font-size: 1.40rem !important; }
+.train-cabin__body .train-cabin__message.fit-text-135 { font-size: 1.35rem !important; }
+.train-cabin__body .train-cabin__message[data-fit-rem="135"] { font-size: 1.35rem !important; }
+.train-cabin__body .train-cabin__message.fit-text-130 { font-size: 1.30rem !important; }
+.train-cabin__body .train-cabin__message[data-fit-rem="130"] { font-size: 1.30rem !important; }
+.train-cabin__body .train-cabin__message.fit-text-125 { font-size: 1.25rem !important; }
+.train-cabin__body .train-cabin__message[data-fit-rem="125"] { font-size: 1.25rem !important; }
+.train-cabin__body .train-cabin__message.fit-text-120 { font-size: 1.20rem !important; }
+.train-cabin__body .train-cabin__message[data-fit-rem="120"] { font-size: 1.20rem !important; }
+.train-cabin__body .train-cabin__message.fit-text-115 { font-size: 1.15rem !important; }
+.train-cabin__body .train-cabin__message[data-fit-rem="115"] { font-size: 1.15rem !important; }
+.train-cabin__body .train-cabin__message.fit-text-110 { font-size: 1.10rem !important; }
+.train-cabin__body .train-cabin__message[data-fit-rem="110"] { font-size: 1.10rem !important; }
+.train-cabin__body .train-cabin__message.fit-text-105 { font-size: 1.05rem !important; }
+.train-cabin__body .train-cabin__message[data-fit-rem="105"] { font-size: 1.05rem !important; }
+.train-cabin__body .train-cabin__message.fit-text-100 { font-size: 1.00rem !important; }
+.train-cabin__body .train-cabin__message[data-fit-rem="100"] { font-size: 1.00rem !important; }
+.train-cabin__body .train-cabin__message.fit-text-95 { font-size: 0.95rem !important; }
+.train-cabin__body .train-cabin__message[data-fit-rem="95"] { font-size: 0.95rem !important; }
+.train-cabin__body .train-cabin__message.fit-text-90 { font-size: 0.90rem !important; }
+.train-cabin__body .train-cabin__message[data-fit-rem="90"] { font-size: 0.90rem !important; }
+.train-cabin__body .train-cabin__message.fit-text-85 { font-size: 0.85rem !important; }
+.train-cabin__body .train-cabin__message[data-fit-rem="85"] { font-size: 0.85rem !important; }
+.train-cabin__body .train-cabin__message.fit-text-80 { font-size: 0.80rem !important; }
+.train-cabin__body .train-cabin__message[data-fit-rem="80"] { font-size: 0.80rem !important; }
+.train-cabin__body .train-cabin__message.fit-text-75 { font-size: 0.75rem !important; }
+.train-cabin__body .train-cabin__message[data-fit-rem="75"] { font-size: 0.75rem !important; }
+.train-cabin__body .train-cabin__message.fit-text-70 { font-size: 0.70rem !important; }
+.train-cabin__body .train-cabin__message[data-fit-rem="70"] { font-size: 0.70rem !important; }
+.train-cabin__body .train-cabin__message.fit-text-65 { font-size: 0.65rem !important; }
+.train-cabin__body .train-cabin__message[data-fit-rem="65"] { font-size: 0.65rem !important; }
+.train-cabin__body .train-cabin__message.fit-text-60 { font-size: 0.60rem !important; }
+.train-cabin__body .train-cabin__message[data-fit-rem="60"] { font-size: 0.60rem !important; }
+.train-cabin__body .train-cabin__message.fit-text-55 { font-size: 0.55rem !important; }
+.train-cabin__body .train-cabin__message[data-fit-rem="55"] { font-size: 0.55rem !important; }
+.train-cabin__body .train-cabin__message.fit-text-50 { font-size: 0.50rem !important; }
+.train-cabin__body .train-cabin__message[data-fit-rem="50"] { font-size: 0.50rem !important; }

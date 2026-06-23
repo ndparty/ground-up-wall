@@ -7,6 +7,7 @@ import { AutoModeratorServiceImpl } from "./auto_moderator_service_impl.ts";
 import type { DisplayOverrideCommand } from "../interfaces/realtime_service.ts";
 import { PhotoWallService } from "./photo_wall_service.ts";
 import { cleanupTestData, createTestRepository } from "../test_helpers.ts";
+import { testJpegBlob } from "../image/test_jpeg.ts";
 import type { Submission } from "../types.ts";
 
 async function createTestService(storageDir: string): Promise<{
@@ -35,7 +36,7 @@ Deno.test({
         published = s;
       });
 
-      const blob = new Blob([new Uint8Array([1, 2, 3])], { type: "image/jpeg" });
+      const blob = testJpegBlob();
       const submission = await service.submitSubmission(
         {
           image: blob,
@@ -73,7 +74,7 @@ Deno.test({
       });
 
       const submission = await service.submitSubmission(
-        { image: new Blob([new Uint8Array([1])]), message: "Hi", submitter_name: "A" },
+        { image: testJpegBlob(), message: "Hi", submitter_name: "A" },
         [],
       );
       const result = await service.approveSubmission(submission.id, "mod-1");
@@ -104,7 +105,7 @@ Deno.test({
       });
 
       const submission = await service.submitSubmission(
-        { image: new Blob([new Uint8Array([1])]), message: "Old", submitter_name: "A" },
+        { image: testJpegBlob(), message: "Old", submitter_name: "A" },
         [],
       );
       const result = await service.editSubmission(
@@ -135,7 +136,7 @@ Deno.test({
       const { service, repo } = await createTestService(dir);
 
       const submission = await service.submitSubmission(
-        { image: new Blob([new Uint8Array([1, 2, 3])]), message: "Bye", submitter_name: "A" },
+        { image: testJpegBlob(), message: "Bye", submitter_name: "A" },
         [],
       );
 
@@ -155,6 +156,34 @@ Deno.test({
 
       const logs = await service.getAuditLog({ action_type: "delete" });
       assertEquals(logs.length, 1);
+      await repo.close();
+    } finally {
+      await cleanupTestData();
+      await Deno.remove(dir, { recursive: true });
+    }
+  },
+});
+
+Deno.test({
+  name: "testDeleteLastApprovedPublishesEmptyPlayback",
+  async fn() {
+    const dir = await Deno.makeTempDir();
+    try {
+      await cleanupTestData();
+      const { service, repo } = await createTestService(dir);
+
+      const submission = await service.submitSubmission(
+        { image: testJpegBlob(), message: "Hi", submitter_name: "A" },
+        [],
+      );
+      await service.approveSubmission(submission.id, "mod-1");
+      await service.ensurePlaybackInitialized();
+
+      await service.deleteSubmission(submission.id, "mod-1");
+
+      const playback = service.getTrainPlaybackState();
+      assertEquals(playback.window.length, 0);
+      assertEquals(playback.cabinCount, 0);
       await repo.close();
     } finally {
       await cleanupTestData();
@@ -222,7 +251,7 @@ Deno.test({
       await cleanupTestData();
       const { service, repo } = await createTestService(dir);
 
-      const image = new Blob([new Uint8Array([1, 2, 3])], { type: "image/jpeg" });
+      const image = testJpegBlob();
       await service.uploadDefaultPlaceholder(image, "admin-1");
 
       let configs = await service.getSystemParameters();
@@ -255,7 +284,7 @@ Deno.test({
     try {
       await cleanupTestData();
       const { service, repo } = await createTestService(dir);
-      const blob = new Blob([new Uint8Array([1, 2, 3])], { type: "image/jpeg" });
+      const blob = testJpegBlob();
       const submission = await service.submitPublicSubmission({
         image: blob,
         message: "this is crap content",
@@ -278,7 +307,7 @@ Deno.test({
     try {
       await cleanupTestData();
       const { service, repo } = await createTestService(dir);
-      const blob = new Blob([new Uint8Array([1, 2, 3])], { type: "image/jpeg" });
+      const blob = testJpegBlob();
       const submission = await service.submitPublicSubmission({
         image: blob,
         message: "Happy National Day everyone",
@@ -301,7 +330,7 @@ Deno.test({
       await cleanupTestData();
       const { service, repo } = await createTestService(dir);
       await repo.upsertSystemConfig("auto_moderator_word_list", "[]", "system");
-      const blob = new Blob([new Uint8Array([1, 2, 3])], { type: "image/jpeg" });
+      const blob = testJpegBlob();
       const submission = await service.submitPublicSubmission({
         image: blob,
         message: "still clean",
@@ -330,7 +359,7 @@ Deno.test({
       );
 
       const submission = await service.submitSubmission(
-        { image: new Blob([new Uint8Array([1])]), message: "Clean message", submitter_name: "A" },
+        { image: testJpegBlob(), message: "Clean message", submitter_name: "A" },
         ["crap"],
       );
       assertEquals(submission.is_flagged, false);
@@ -375,7 +404,7 @@ Deno.test({
     try {
       await cleanupTestData();
       const { service, repo, realtime } = await createTestService(dir);
-      const blob = new Blob([new Uint8Array([1, 2, 3])], { type: "image/jpeg" });
+      const blob = testJpegBlob();
       await service.uploadDefaultPlaceholder(blob, "admin-1");
 
       let command: DisplayOverrideCommand | undefined;
@@ -393,6 +422,86 @@ Deno.test({
 
       const resolved = await service.getResolvedDisplayOverrideState();
       assertEquals(resolved?.imageUrl, "/placeholders/default.jpg");
+      await repo.close();
+    } finally {
+      await cleanupTestData();
+      await Deno.remove(dir, { recursive: true });
+    }
+  },
+});
+
+Deno.test({
+  name: "testReloadDisplayResetsPlaybackWithoutChangingOverride",
+  async fn() {
+    const dir = await Deno.makeTempDir();
+    try {
+      await cleanupTestData();
+      const { service, repo, realtime } = await createTestService(dir);
+      let reloadCount = 0;
+      realtime.subscribe("display:reload", () => {
+        reloadCount += 1;
+      });
+
+      const submission = await service.submitSubmission(
+        { image: testJpegBlob(), message: "Hi", submitter_name: "A" },
+        [],
+      );
+      await service.approveSubmission(submission.id, "mod-1");
+      await service.ensurePlaybackInitialized();
+      await service.commandDisplayOverride("blank", "mod-1");
+
+      await service.reloadDisplay("mod-1");
+
+      const override = await service.getDisplayOverrideState();
+      assertEquals(override?.type, "blank");
+      assertEquals(reloadCount, 1);
+      const playback = service.getTrainPlaybackState();
+      assertEquals(playback.currentCabin, 1);
+      const logs = await service.getAuditLog({ action_type: "reload_display" });
+      assertEquals(logs.length, 1);
+      await repo.close();
+    } finally {
+      await cleanupTestData();
+      await Deno.remove(dir, { recursive: true });
+    }
+  },
+});
+
+Deno.test({
+  name: "testPanicDisplayBlanksAndResetsPlayback",
+  async fn() {
+    const dir = await Deno.makeTempDir();
+    try {
+      await cleanupTestData();
+      const { service, repo, realtime } = await createTestService(dir);
+      let reloadCount = 0;
+      let overrideCommand: DisplayOverrideCommand | undefined;
+      realtime.subscribe("display:reload", () => {
+        reloadCount += 1;
+      });
+      realtime.onDisplayOverride((cmd) => {
+        overrideCommand = cmd;
+      });
+
+      const submission = await service.submitSubmission(
+        { image: testJpegBlob(), message: "Hi", submitter_name: "A" },
+        [],
+      );
+      await service.approveSubmission(submission.id, "mod-1");
+      await service.ensurePlaybackInitialized();
+      service.getTrainPlaybackState();
+
+      await service.panicDisplay("mod-1");
+
+      const override = await service.getDisplayOverrideState();
+      assertEquals(override?.type, "blank");
+      assertEquals(overrideCommand?.type, "blank");
+      assertEquals(reloadCount, 1);
+      const playback = service.getTrainPlaybackState();
+      assertEquals(playback.currentCabin, 1);
+      assertEquals(playback.isPlaying, true);
+      const logs = await service.getAuditLog({ action_type: "panic_display" });
+      assertEquals(logs.length, 1);
       await repo.close();
     } finally {
       await cleanupTestData();

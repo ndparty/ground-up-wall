@@ -1,7 +1,7 @@
 import { assertEquals } from "@std/assert";
 import { join } from "@std/path";
 import { FileStorageService } from "../repositories/file_storage_service.ts";
-import { serveStorageFile } from "./serve_storage.ts";
+import { assertStoragePathSafe, serveStorageFile } from "./serve_storage.ts";
 
 Deno.test({
   name: "testServeStorageFileReturnsImage",
@@ -64,5 +64,18 @@ Deno.test({
     } finally {
       await Deno.remove(dir, { recursive: true });
     }
+  },
+});
+
+Deno.test({
+  name: "testAssertStoragePathSafeRejectsTraversal",
+  fn() {
+    let threw = false;
+    try {
+      assertStoragePathSafe("../secret.txt");
+    } catch {
+      threw = true;
+    }
+    assertEquals(threw, true);
   },
 });
