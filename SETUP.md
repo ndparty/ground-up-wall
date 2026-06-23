@@ -168,9 +168,8 @@ Uploaded images are served at `/submissions/`, `/placeholders/`, and `/overrides
 
 ## Phase roadmap
 
-- **Phase 1 (current):** Local MVP — Deno Fresh + Postgres + filesystem storage
-- **Production (Oracle VPS):** [docs/phase02/oracle_vps_deploy.md](docs/phase02/oracle_vps_deploy.md)
-- **Phase 2 (deferred):** Cloud deployment (Deno Deploy + Supabase)
-- **Phase 3:** Instagram integration
+- **Phase 1 (complete):** Local MVP — Deno Fresh + Postgres + filesystem storage
+- **Phase 2 (production):** [docs/phase02/oracle_vps_deploy.md](docs/phase02/oracle_vps_deploy.md) — Oracle VPS (same stack as local; no Deno Deploy / Supabase)
+- **Phase 3 (planned):** Instagram integration — [docs/phase03/instagram_feasibility.md](docs/phase03/instagram_feasibility.md)
 
 See [docs/phase01/epic_plan-phase01.md](docs/phase01/epic_plan-phase01.md) for the full work-item breakdown.

@@ -199,7 +199,13 @@ sudo -u groundupwall deno task db:seed:demos
 
 ## 7. systemd service
 
-Create `/etc/systemd/system/ground-up-wall.service`:
+Copy the unit file from the repo (adjust paths if your install dir differs):
+
+```bash
+sudo cp /opt/ground-up-wall/deploy/ground-up-wall.service /etc/systemd/system/ground-up-wall.service
+```
+
+Or create `/etc/systemd/system/ground-up-wall.service` manually:
 
 ```ini
 [Unit]
@@ -475,4 +481,4 @@ Add a weekly `cron` entry as root.
 
 - Local development: [SETUP.md](../../SETUP.md)
 - Demo walkthrough: [DEMO.md](../../DEMO.md)
-- Phase 2 (Deno Deploy + Supabase): deferred — see plan in SDD repo
+- Phase 03 research: [instagram_feasibility.md](../phase03/instagram_feasibility.md)

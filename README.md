@@ -8,8 +8,11 @@ Built for the Singapore National Day ground-up party.
 ## Status
 
 **Phase 01 (local MVP)** — **complete** (released as **v1.0.1**): upload, moderation, display wall,
-admin panel, and audit logging on localhost. Patch **v1.0.1** adds Requirements Updates 07–09
-(display ops, security hardening, fit-text and login redirects, train jump fixes).
+admin panel, and audit logging on localhost.
+
+**Phase 02 (production)** — **in progress** (tag **v1.0.2** on `phase2` branch): Oracle VPS deploy
+path — `prod.ts`, `DEPLOYED=1` hardening, Caddy + Let's Encrypt + Cloudflare. Ops guide:
+[docs/phase02/oracle_vps_deploy.md](docs/phase02/oracle_vps_deploy.md).
 
 ## Quick start
 
@@ -50,7 +53,7 @@ OS-specific tool install: **[docs/phase01/dev_setup.md](docs/phase01/dev_setup.m
 | UI                  | Preact + Signals                  |
 | Database            | PostgreSQL 17+                    |
 | File storage        | Local filesystem (`STORAGE_PATH`) |
-| Real-time           | In-memory SSE (Phase 2: Supabase) |
+| Real-time           | In-memory SSE (single VPS instance) |
 
 ## Architecture
 
@@ -86,13 +89,17 @@ Windows: `$env:DENO_JOBS="1"; deno task test`
 | [DEMO.md](DEMO.md)                                                     | Start, run, and demonstrate the system   |
 | [SETUP.md](SETUP.md)                                                   | Developer setup and NFR sign-off         |
 | [docs/phase01/epic_plan-phase01.md](docs/phase01/epic_plan-phase01.md) | Phase 01 work items WI-01–WI-07          |
+| [docs/phase02/oracle_vps_deploy.md](docs/phase02/oracle_vps_deploy.md) | Production deploy (Oracle VPS)           |
+| [docs/phase03/instagram_feasibility.md](docs/phase03/instagram_feasibility.md) | Phase 03 Instagram research      |
 | [docs/ai-dlc/](docs/ai-dlc/)                                           | Requirements, user stories, architecture |
 
 ## Phase roadmap
 
-1. **Phase 1** — Local MVP (current)
-2. **Phase 2** — Cloud deployment (Deno Deploy + Supabase)
-3. **Phase 3** — Instagram hashtag integration
+1. **Phase 1** — Local MVP (**complete**, v1.0.1)
+2. **Phase 2** — Production on **Oracle VPS** (Caddy, LE, Cloudflare) — [deploy guide](docs/phase02/oracle_vps_deploy.md)
+3. **Phase 3** — Instagram integration — [feasibility research](docs/phase03/instagram_feasibility.md)
+
+> **Superseded:** The original Phase 2 plan (Deno Deploy + Supabase) was dropped in favour of a single Oracle VPS running the same local stack.
 
 ## Contributing
 

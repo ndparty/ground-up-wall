@@ -6,7 +6,7 @@
 - **Request Type**: New Project (Greenfield)
 - **Scope Estimate**: Multiple Components (upload app, display wall, admin panel, backend)
 - **Complexity Estimate**: Moderate
-- **Tech Stack**: Deno Fresh + Postgres (Phase 1 local; Phase 2 with Deno Deploy + Supabase)
+- **Tech Stack**: Deno Fresh + Postgres (Phase 1 local; **Phase 2 production on Oracle VPS** — same stack)
 
 ---
 
@@ -199,7 +199,7 @@ Display Wall User (TV account — view train display only; admin-created; separa
 | R-02 | Admin panel access method | RESOLVED: Password-based login with username and password (not secret URL) |
 | R-03 | Real-time mechanism | Supabase Realtime (websockets) is available on free tier — preferred approach for live wall updates |
 | R-04 | QR code generation | Static QR code pointing to the app URL — can be generated externally before the event |
-| R-05 | Instagram API feasibility | Instagram's public hashtag API (Basic Display API) has been restricted since 2020. Phase 3 may require Meta's Graph API with Business Verification, App Review, and an Instagram Business/Creator account — timeline uncertain for a single-event app. A fallback (manual CSV import) should be considered. |
+| R-05 | Instagram API feasibility | Instagram hashtag search requires **Instagram Graph API** + **Instagram Public Content Access** (App Review, Business account). `recent_media` only returns posts from the **last 24 hours** — polling required. Username not returned on media. **Fallback:** manual import or outbound-only posting. See [docs/phase03/instagram_feasibility.md](../../../phase03/instagram_feasibility.md). |
 | R-06 | PII and data privacy | Name, photo, and social handle constitute PII. Data is retained indefinitely for social media posting purposes. A data privacy notice with mandatory acknowledgment checkbox (FR-02a) informs participants of this. Singapore PDPA compliance should be reviewed given indefinite retention — consider whether explicit consent (checkbox) satisfies requirements or whether a separate privacy policy document is needed. |
 | R-09 | Display Wall User credential management | Display Wall User accounts are admin-created. The TV device must remain logged in for the event duration. If the browser session expires or the device loses power, the organiser must re-enter Display Wall credentials. Consider whether a "remember me" / extended session option is needed for Display Wall accounts specifically. |
 | R-07 | Display wall refresh resilience | In Phase 1 the server holds playback position and play/pause state and the display restores them on browser refresh (see FR-24a, revised Update 04). A JSON snapshot is also persisted to `system_config.train_playback_state` and restored on process restart when valid (Update 07); otherwise playback resets to cabin 1 in playing state. Single-instance in Phase 1. |
@@ -236,7 +236,22 @@ This project will be delivered in three phases, each producing a testable, worki
 9. All user stories pass their Gherkin acceptance criteria
 10. Contract tests written for Repository, StorageService, and RealtimeService interfaces (reusable in Phase 2)
 
-### Phase 2: Cloud Deployment (Deno Deploy + Supabase)
+### Phase 2: Production deployment (Oracle VPS)
+
+> **Update 08 (2026-06-24):** The original Phase 2 plan (Deno Deploy + Supabase, FR-25, NFR-17) is **superseded**. Production runs on an **Oracle Cloud Always Free VPS** with the same Deno + PostgreSQL + filesystem stack as Phase 1. Deploy guide: [docs/phase02/oracle_vps_deploy.md](../../../phase02/oracle_vps_deploy.md). FR-25/NFR-17 remain unimplemented and are no longer planned.
+
+**Goal**: Run the Phase 1 application on a hardened VPS behind Caddy (Let's Encrypt) and Cloudflare, with tag-based deploys.
+
+**Deliverables**:
+
+- `prod.ts`, `DEPLOYED=1` production hardening, `scripts/deploy.sh`
+- Ops documentation and systemd unit ([deploy/ground-up-wall.service](../../../deploy/ground-up-wall.service))
+
+**Testable deliverable**: Public HTTPS site on organiser domain; same features as Phase 1; `deploy.sh` updates from git tags.
+
+### Phase 2 (original — superseded): Cloud Deployment (Deno Deploy + Supabase)
+
+_Archived for traceability only._
 
 **Goal**: Deploy the Phase 1 application to Deno Deploy with Supabase as the backend, using environment-based configuration to switch between local and production environments seamlessly.
 
@@ -292,6 +307,7 @@ This project will be delivered in three phases, each producing a testable, worki
 
 | Date | Change |
 |------|--------|
+| 2026-06-24 | **Update 08**: Phase 2 production path changed from Deno Deploy + Supabase to **Oracle VPS** (same stack as Phase 1). Added `prod.ts`, deploy docs, Cloudflare/Caddy guidance. FR-25/NFR-17 and Supabase adapters dropped. Phase 3 Instagram feasibility documented in `docs/phase03/instagram_feasibility.md`. |
 | 2026-05-21 | **Update 01**: Applied organiser discussion outcomes (Paul, Sharon, Liwei). Added: configurable prompt text (FR-02 update), data privacy notice (FR-02a), rejection disclaimer (FR-02b), post editing by moderator (FR-09 extension), auto-moderator with visual flagging (FR-09a), disable/delete moderator accounts (FR-13/15 extension), system parameters panel (FR-13a), configurable dwell time (FR-19 update), pause/play/jump controls (FR-24a), display wall visibility toggle (FR-24b), audit log (NFR-22), warm tone DR (DR-04). Updated Open Questions with R-06, R-07, R-08. Updated Phase 1 scope to include all Update 01 items. Updated Architecture Evolution Strategy table. Total Phase 1 scope estimate: ~25–30h implementation effort. Jump refresh resilience deferred as low-priority post-launch enhancement. |
 | 2026-06-01 | **Update 02**: Applied PR #3 review feedback (Liwei, 25 May meeting + follow-up). Modified: configurable message length with character/word unit selection (FR-02), indefinite data retention with mandatory privacy acknowledgment checkbox (FR-02a), posting-guidelines disclaimer with re-submit advice and moderator editing notice (FR-02b), seeded PG-13 default word list (FR-09a), Display Wall User auth model replacing visibility toggle (FR-24b revision + 4-role persona model), display override controls for blank/placeholder from mod/admin panel (FR-24c new), Display Wall account management (FR-13/FR-13a extension), warm-tone example copy updated for social media retention (DR-04), expanded NFR-22 audit action types. Added R-09 (Display Wall credential management). Updated Phase 1 scope and exit criteria. |
 | 2026-06-20 | **Update 03**: K-buffer train view, single-slide animation, playback SSE sync, override timer freeze, jump preload. Implementation architecture documented; code-traced verification in `docs/phase01/requirements_verification.update03.md`. |
