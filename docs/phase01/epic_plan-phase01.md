@@ -289,3 +289,9 @@ All dependencies are pinned in `deno.json` and resolved via JSR (Deno's official
 ## Phase 01 completion (2026-06-21)
 
 Phase 01 exit criteria met. Released as **v1.0.0** on `main` (WI-01 through WI-07, Requirements Updates 01–06). Manual organiser verification passed. See [`requirements_verification.update05.md`](requirements_verification.update05.md) and [`../update_logs/requirements.update06.md`](../update_logs/requirements.update06.md).
+
+---
+
+## Phase 01 patch (2026-06-23)
+
+Released as **v1.0.1** on `main` (Requirements Updates 07–09, train cabin/jump fixes). See [`../update_logs/requirements.update07.md`](../update_logs/requirements.update07.md), [`../update_logs/requirements.update08.md`](../update_logs/requirements.update08.md), [`../update_logs/requirements.update09.md`](../update_logs/requirements.update09.md), and [`train_cabin_and_jump.md`](train_cabin_and_jump.md). Verification: Update 07 in [`requirements_verification.update05.md`](requirements_verification.update05.md); Update 09 in [`requirements_verification.update09.md`](requirements_verification.update09.md).
