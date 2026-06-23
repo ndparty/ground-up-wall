@@ -134,6 +134,8 @@ deno task test
 
 Use separate browser windows or profiles so sessions do not overwrite each other.
 
+Protected pages (`/display`, `/moderate`, `/admin`, `/change-password`) redirect to `/login` when you are not signed in. Wrong-role users are sent to their role home (`/display` or `/moderate`).
+
 ### Window 1 — Participant upload (no login)
 
 1. Open **http://localhost:8080/upload**

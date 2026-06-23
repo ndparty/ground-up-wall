@@ -52,7 +52,8 @@ Deno.test({
     const handler = await createTestHandler();
     const { token } = await loginAsModerator(handler);
     const res = await handler(authedRequest("http://localhost/admin", token), serveInfo);
-    assertEquals(res.status, 403);
+    assertEquals(res.status, 302);
+    assertEquals(res.headers.get("location"), "http://localhost/moderate");
     await teardownTestDb();
   },
 });
