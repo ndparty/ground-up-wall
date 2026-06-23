@@ -7,8 +7,9 @@ Built for the Singapore National Day ground-up party.
 
 ## Status
 
-**Phase 01 (local MVP)** — **complete** (released as **v1.0.0**): upload, moderation, display wall,
-admin panel, and audit logging on localhost.
+**Phase 01 (local MVP)** — **complete** (released as **v1.0.1**): upload, moderation, display wall,
+admin panel, and audit logging on localhost. Patch **v1.0.1** adds Requirements Updates 07–09
+(display ops, security hardening, fit-text and login redirects, train jump fixes).
 
 ## Quick start
 
