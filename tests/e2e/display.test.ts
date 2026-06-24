@@ -18,7 +18,7 @@ Deno.test({
   async fn() {
     const handler = await createTestHandler();
     const { token } = await loginAsDisplayWall(handler);
-    const res = await handler(authedRequest("http://localhost/display", token), serveInfo);
+    const res = await handler(authedRequest("http://localhost/concourse", token), serveInfo);
     assertEquals(res.status, 200);
     const html = await res.text();
     assertEquals(html.includes("TrainDisplay") || html.includes("display-wall"), true);
@@ -30,9 +30,9 @@ Deno.test({
   name: "US-07 unauthenticated user redirects to login",
   async fn() {
     const handler = await createTestHandler();
-    const res = await handler(new Request("http://localhost/display"), serveInfo);
+    const res = await handler(new Request("http://localhost/concourse"), serveInfo);
     assertEquals(res.status, 302);
-    assertEquals(res.headers.get("location"), "http://localhost/login");
+    assertEquals(res.headers.get("location"), "http://localhost/masuk");
     await teardownTestDb();
   },
 });
@@ -45,20 +45,20 @@ Deno.test({
     const first = await createTestSubmission({ submitter_name: "First" });
     const second = await createTestSubmission({ submitter_name: "Second" });
     await handler(
-      authedRequest(`http://localhost/api/moderate/approve/${first.id}`, moderator.token, {
+      authedRequest(`http://localhost/api/semak/approve/${first.id}`, moderator.token, {
         method: "POST",
       }),
       serveInfo,
     );
     await handler(
-      authedRequest(`http://localhost/api/moderate/approve/${second.id}`, moderator.token, {
+      authedRequest(`http://localhost/api/semak/approve/${second.id}`, moderator.token, {
         method: "POST",
       }),
       serveInfo,
     );
 
     const res = await handler(
-      authedRequest("http://localhost/api/display/submissions", displayWall.token),
+      authedRequest("http://localhost/api/concourse/submissions", displayWall.token),
       serveInfo,
     );
     const body = await res.json();
@@ -74,7 +74,7 @@ Deno.test({
     const handler = await createTestHandler();
     const { token } = await loginAsDisplayWall(handler);
     const res = await handler(
-      authedRequest("http://localhost/api/display/submissions", token),
+      authedRequest("http://localhost/api/concourse/submissions", token),
       serveInfo,
     );
     const body = await res.json();
@@ -91,14 +91,14 @@ Deno.test({
     const blankForm = new FormData();
     blankForm.append("type", "blank");
     await handler(
-      authedRequest("http://localhost/api/admin/display-override", token, {
+      authedRequest("http://localhost/api/towkay/display-override", token, {
         method: "POST",
         body: blankForm,
       }),
       serveInfo,
     );
     const state = await handler(
-      authedRequest("http://localhost/api/display/override-state", token),
+      authedRequest("http://localhost/api/concourse/override-state", token),
       serveInfo,
     );
     assertEquals((await state.json()).type, "blank");
@@ -115,7 +115,7 @@ Deno.test({
     const uploadForm = new FormData();
     uploadForm.append("image", blob, "default.jpg");
     await handler(
-      authedRequest("http://localhost/api/admin/parameters/upload-placeholder", token, {
+      authedRequest("http://localhost/api/towkay/parameters/upload-placeholder", token, {
         method: "POST",
         body: uploadForm,
       }),
@@ -125,14 +125,14 @@ Deno.test({
     const placeholderForm = new FormData();
     placeholderForm.append("type", "placeholder");
     await handler(
-      authedRequest("http://localhost/api/admin/display-override", token, {
+      authedRequest("http://localhost/api/towkay/display-override", token, {
         method: "POST",
         body: placeholderForm,
       }),
       serveInfo,
     );
     const state = await handler(
-      authedRequest("http://localhost/api/display/override-state", token),
+      authedRequest("http://localhost/api/concourse/override-state", token),
       serveInfo,
     );
     const body = await state.json();
@@ -150,7 +150,7 @@ Deno.test({
     const blankForm = new FormData();
     blankForm.append("type", "blank");
     await handler(
-      authedRequest("http://localhost/api/admin/display-override", token, {
+      authedRequest("http://localhost/api/towkay/display-override", token, {
         method: "POST",
         body: blankForm,
       }),
@@ -159,14 +159,14 @@ Deno.test({
     const resumeForm = new FormData();
     resumeForm.append("type", "resume");
     await handler(
-      authedRequest("http://localhost/api/admin/display-override", token, {
+      authedRequest("http://localhost/api/towkay/display-override", token, {
         method: "POST",
         body: resumeForm,
       }),
       serveInfo,
     );
     const state = await handler(
-      authedRequest("http://localhost/api/display/override-state", token),
+      authedRequest("http://localhost/api/concourse/override-state", token),
       serveInfo,
     );
     assertEquals((await state.json()).type, "normal");
@@ -182,13 +182,13 @@ Deno.test({
     const submission = await createTestSubmission();
     const start = performance.now();
     await handler(
-      authedRequest(`http://localhost/api/moderate/approve/${submission.id}`, moderator.token, {
+      authedRequest(`http://localhost/api/semak/approve/${submission.id}`, moderator.token, {
         method: "POST",
       }),
       serveInfo,
     );
     const res = await handler(
-      authedRequest("http://localhost/api/display/submissions", displayWall.token),
+      authedRequest("http://localhost/api/concourse/submissions", displayWall.token),
       serveInfo,
     );
     const elapsed = performance.now() - start;
@@ -205,7 +205,7 @@ Deno.test({
     const handler = await createTestHandler();
     const { token } = await loginAsModerator(handler);
     const res = await handler(
-      authedRequest("http://localhost/api/display/train-command", token, {
+      authedRequest("http://localhost/api/concourse/train-command", token, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ type: "pause" }),
@@ -223,7 +223,7 @@ Deno.test({
     const handler = await createTestHandler();
     const { token } = await loginAsDisplayWall(handler);
     const res = await handler(
-      authedRequest("http://localhost/api/display/train-command", token, {
+      authedRequest("http://localhost/api/concourse/train-command", token, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ type: "pause" }),
@@ -240,7 +240,7 @@ Deno.test({
   async fn() {
     const handler = await createTestHandler();
     const { token } = await loginAsDisplayWall(handler);
-    const res = await handler(authedRequest("http://localhost/display", token), serveInfo);
+    const res = await handler(authedRequest("http://localhost/concourse", token), serveInfo);
     const html = await res.text();
     assertEquals(html.includes("Jump to cabin"), false);
     await teardownTestDb();
@@ -255,7 +255,7 @@ Deno.test({
     const blankForm = new FormData();
     blankForm.append("type", "blank");
     await handler(
-      authedRequest("http://localhost/api/admin/display-override", token, {
+      authedRequest("http://localhost/api/towkay/display-override", token, {
         method: "POST",
         body: blankForm,
       }),

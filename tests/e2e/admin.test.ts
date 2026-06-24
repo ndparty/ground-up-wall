@@ -18,7 +18,7 @@ Deno.test({
     const { token } = await loginAsAdmin(handler);
     const username = `mod_${crypto.randomUUID().slice(0, 8)}`;
     const res = await handler(
-      authedRequest("http://localhost/api/admin/users/create", token, {
+      authedRequest("http://localhost/api/towkay/users/create", token, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password: "secret123456", role: "moderator" }),
@@ -38,7 +38,7 @@ Deno.test({
     const username = `dup_${crypto.randomUUID().slice(0, 8)}`;
     const body = JSON.stringify({ username, password: "secret123456", role: "moderator" });
     await handler(
-      authedRequest("http://localhost/api/admin/users/create", token, {
+      authedRequest("http://localhost/api/towkay/users/create", token, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body,
@@ -46,7 +46,7 @@ Deno.test({
       serveInfo,
     );
     const res = await handler(
-      authedRequest("http://localhost/api/admin/users/create", token, {
+      authedRequest("http://localhost/api/towkay/users/create", token, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body,
@@ -64,7 +64,7 @@ Deno.test({
     const handler = await createTestHandler();
     const { token } = await loginAsAdmin(handler);
     const res = await handler(
-      authedRequest("http://localhost/api/admin/users/create", token, {
+      authedRequest("http://localhost/api/towkay/users/create", token, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username: "", password: "secret123456", role: "moderator" }),
@@ -82,7 +82,7 @@ Deno.test({
     const handler = await createTestHandler();
     const { token } = await loginAsAdmin(handler);
     const res = await handler(
-      authedRequest("http://localhost/api/admin/users", token),
+      authedRequest("http://localhost/api/towkay/users", token),
       serveInfo,
     );
     assertEquals(res.status, 200);
@@ -107,7 +107,7 @@ Deno.test({
     await repo.close();
 
     const res = await handler(
-      authedRequest("http://localhost/api/admin/users/reset-password", token, {
+      authedRequest("http://localhost/api/towkay/users/reset-password", token, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: mod.id, role: "moderator", newPassword: "newpass123456" }),
@@ -125,7 +125,7 @@ Deno.test({
     const handler = await createTestHandler();
     const { token } = await loginAsAdmin(handler);
     const res = await handler(
-      authedRequest("http://localhost/api/admin/parameters/update", token, {
+      authedRequest("http://localhost/api/towkay/parameters/update", token, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ key: "train_dwell_time", value: "20" }),
@@ -143,7 +143,7 @@ Deno.test({
     const handler = await createTestHandler();
     const { token } = await loginAsAdmin(handler);
     const res = await handler(
-      authedRequest("http://localhost/api/admin/parameters/update", token, {
+      authedRequest("http://localhost/api/towkay/parameters/update", token, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ key: "train_dwell_time", value: "99" }),
@@ -161,7 +161,7 @@ Deno.test({
     const handler = await createTestHandler();
     const { token } = await loginAsAdmin(handler);
     const res = await handler(
-      authedRequest("http://localhost/api/admin/parameters/update", token, {
+      authedRequest("http://localhost/api/towkay/parameters/update", token, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ key: "message_prompt_text", value: "Share your joy!" }),
@@ -179,7 +179,7 @@ Deno.test({
     const handler = await createTestHandler();
     const { token } = await loginAsAdmin(handler);
     const res = await handler(
-      authedRequest("http://localhost/api/admin/parameters/update", token, {
+      authedRequest("http://localhost/api/towkay/parameters/update", token, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ key: "auto_moderator_word_list", value: "bad, word" }),
@@ -197,7 +197,7 @@ Deno.test({
     const handler = await createTestHandler();
     const { token } = await loginAsAdmin(handler);
     await handler(
-      authedRequest("http://localhost/api/admin/parameters/update", token, {
+      authedRequest("http://localhost/api/towkay/parameters/update", token, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ key: "train_dwell_time", value: "25" }),
@@ -205,7 +205,7 @@ Deno.test({
       serveInfo,
     );
     const res = await handler(
-      authedRequest("http://localhost/api/admin/parameters/reset", token, {
+      authedRequest("http://localhost/api/towkay/parameters/reset", token, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ key: "train_dwell_time" }),
@@ -224,7 +224,7 @@ Deno.test({
     const { token } = await loginAsAdmin(handler);
     const username = `dw_${crypto.randomUUID().slice(0, 8)}`;
     const res = await handler(
-      authedRequest("http://localhost/api/admin/users/create", token, {
+      authedRequest("http://localhost/api/towkay/users/create", token, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password: "secret123456", role: "display_wall" }),
@@ -250,7 +250,7 @@ Deno.test({
     });
     await repo.close();
     const res = await handler(
-      authedRequest("http://localhost/api/admin/users/toggle-status", token, {
+      authedRequest("http://localhost/api/towkay/users/toggle-status", token, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: user.id, role: "display_wall", action: "disable" }),
@@ -268,7 +268,7 @@ Deno.test({
     const handler = await createTestHandler();
     const { token } = await loginAsAdmin(handler);
     const res = await handler(
-      authedRequest("http://localhost/api/admin/audit-log", token),
+      authedRequest("http://localhost/api/towkay/audit-log", token),
       serveInfo,
     );
     assertEquals(res.status, 200);
@@ -285,7 +285,7 @@ Deno.test({
     const handler = await createTestHandler();
     const { token } = await loginAsModerator(handler);
     const res = await handler(
-      authedRequest("http://localhost/api/admin/audit-log", token),
+      authedRequest("http://localhost/api/towkay/audit-log", token),
       serveInfo,
     );
     assertEquals(res.status, 403);
@@ -307,7 +307,7 @@ Deno.test({
     });
     await repo.close();
     const res = await handler(
-      authedRequest("http://localhost/api/admin/users/toggle-status", token, {
+      authedRequest("http://localhost/api/towkay/users/toggle-status", token, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: mod.id, role: "moderator", action: "disable" }),
@@ -340,7 +340,7 @@ Deno.test({
     await repo.close();
 
     const res = await handler(
-      authedRequest("http://localhost/api/admin/users/delete", token, {
+      authedRequest("http://localhost/api/towkay/users/delete", token, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: mod.id, role: "moderator", confirmed: true }),

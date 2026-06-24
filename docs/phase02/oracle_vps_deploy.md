@@ -394,6 +394,30 @@ No `DEPLOYED=0` or code changes needed beyond deploying a release that includes 
 
 **Compared to Origin Certificate only on :443:** LE adds one more open port on the host, but with Cloudflare-only firewall rules the practical risk is small — attackers who discover your IP still cannot reach :80 or :443 unless they spoof from CF ranges (not feasible). The main operational difference is **renewal dependency** on the HTTP-01 path through Cloudflare staying healthy.
 
+### 9.6 Cloudflare WAF rate limits (recommended)
+
+Add **Rate limiting rules** in Cloudflare → Security → WAF → Rate limiting rules. Tune thresholds for your event size; start conservative and loosen if staff get blocked.
+
+| Rule name | Match | Threshold (example) | Action |
+|-----------|-------|---------------------|--------|
+| Login burst | URI Path equals `/api/masuk/session` OR URI Path equals `/masuk` | 10 requests / 1 minute per IP | Block |
+| Upload burst | URI Path equals `/api/muatnaik/submit` | 20 requests / 1 minute per IP | Block |
+| PoW challenge | URI Path equals `/api/masuk/challenge` | 30 requests / 1 minute per IP | Block |
+
+**Do not** enumerate obscure staff paths in `robots.txt` — the app serves `Disallow: /` for all crawlers ([`static/robots.txt`](../../static/robots.txt)). Legacy paths (`/login`, `/upload`, etc.) return 404 at the app layer.
+
+**Staff URL cheat sheet** (share with organisers only — not linked from public pages):
+
+| Role | Path |
+|------|------|
+| Participant upload | `/muatnaik` |
+| Staff login | `/masuk` |
+| Moderation | `/semak` |
+| Approved gallery | `/semak/pamer` |
+| Display wall | `/concourse` |
+| Admin | `/towkay` |
+| Change password | `/tukar` |
+
 ---
 
 ## 10. Updates (tag-based deploy)
@@ -452,10 +476,12 @@ Add a weekly `cron` entry as root.
 
 - [ ] Cloudflare **Full (strict)**; Caddy LE cert valid (or Origin Cert if using §8.1)
 - [ ] Origin **80 and 443** restricted to Cloudflare IP ranges (not open to world)
-- [ ] `https://your.domain.example/upload` loads through Cloudflare
+- [ ] `https://your.domain.example/muatnaik` loads through Cloudflare
 - [ ] `https://your.domain.example/api/health` returns `{"ok":true,"db":true}`
 - [ ] Admin login works; change default passwords if still using seed values
-- [ ] Display wall SSE works (`/display` after display login)
+- [ ] Display wall SSE works (`/concourse` after display login)
+- [ ] Legacy paths (`/login`, `/upload`, `/moderate`, `/display`, `/admin`) return 404
+- [ ] Cloudflare WAF rate limits configured (§9.6)
 - [ ] Oracle idle reclamation: light traffic or cron `curl` during the week before the event
 - [ ] `deploy-wall` tested once on staging tag
 

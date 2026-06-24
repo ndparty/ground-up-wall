@@ -18,7 +18,7 @@ export default function ModeratorTrainPanel() {
 
   async function loadPlayback() {
     try {
-      const res = await fetchWithRetry("/api/display/submissions");
+      const res = await fetchWithRetry("/api/concourse/submissions");
       if (!res.ok) return;
       const data = await res.json();
       setPlayback({
@@ -39,7 +39,7 @@ export default function ModeratorTrainPanel() {
     submission_deleted: () => void loadPlayback(),
   };
 
-  useReconnectingEventSource("/api/display/events", sseHandlersRef, {
+  useReconnectingEventSource("/api/concourse/events", sseHandlersRef, {
     onReconnect: () => void loadPlayback(),
   });
 

@@ -13,7 +13,7 @@ export default function ChangePasswordForm() {
     setError("");
     setSuccess(false);
     try {
-      const res = await fetch("/api/auth/change-password", {
+      const res = await fetch("/api/masuk/tukar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -37,7 +37,7 @@ export default function ChangePasswordForm() {
   }
 
   return (
-    <form method="post" action="/change-password" onSubmit={handleSubmit}>
+    <form method="post" action="/tukar" onSubmit={handleSubmit}>
       <label class="form-label">
         Current password
         <input

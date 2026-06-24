@@ -6,7 +6,7 @@ import { solvePow } from "./pow.ts";
  */
 export async function obtainPowToken(): Promise<string | null> {
   try {
-    const res = await fetch("/api/pow/challenge");
+    const res = await fetch("/api/masuk/challenge");
     if (!res.ok) return null;
     const { nonce, difficulty } = await res.json() as { nonce: string; difficulty: number };
     if (!nonce || typeof difficulty !== "number") return null;

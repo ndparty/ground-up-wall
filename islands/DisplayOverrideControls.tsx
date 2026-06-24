@@ -16,7 +16,7 @@ export default function DisplayOverrideControls() {
       const form = new FormData();
       form.append("type", type);
       if (image) form.append("image", image);
-      const res = await fetch("/api/moderate/display-override", { method: "POST", body: form });
+      const res = await fetch("/api/semak/display-override", { method: "POST", body: form });
       const body = await res.json();
       if (!res.ok) {
         setMessage(body.error ?? "Command failed");

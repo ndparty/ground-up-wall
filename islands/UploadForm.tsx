@@ -122,7 +122,7 @@ export default function UploadForm({
   // FR-13a: live-reload prompt/length config when an admin changes it.
   async function loadUploadConfig() {
     try {
-      const res = await fetchWithRetry("/api/upload-config");
+      const res = await fetchWithRetry("/api/muatnaik/config");
       if (!res.ok) return;
       const cfg = await res.json();
       setPromptText(cfg.messagePromptText);
@@ -150,7 +150,7 @@ export default function UploadForm({
   };
 
   const connectionStatus = useReconnectingEventSource(
-    "/api/upload-config/events",
+    "/api/muatnaik/events",
     sseHandlersRef,
     { onReconnect: () => void loadUploadConfig() },
   );
@@ -299,7 +299,7 @@ export default function UploadForm({
     };
 
     const send = (powToken?: string) =>
-      fetch("/api/submissions", {
+      fetch("/api/muatnaik/submit", {
         method: "POST",
         body: buildForm(),
         headers: powToken ? { "x-pow": powToken } : undefined,
@@ -369,7 +369,7 @@ export default function UploadForm({
         <p class="text-subtle mt-lg">
           {POSTING_GUIDELINES_DISCLAIMER}
         </p>
-        <a href="/upload" class="link-brand--block">
+        <a href="/muatnaik" class="link-brand--block">
           Submit another photo
         </a>
       </div>

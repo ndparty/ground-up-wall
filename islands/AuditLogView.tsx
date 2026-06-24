@@ -48,7 +48,7 @@ export default function AuditLogView() {
     if (dateTo) params.set("date_to", dateTo);
     params.set("limit", String(PAGE_SIZE));
     params.set("offset", String(pageOffset));
-    const res = await fetch(`/api/admin/audit-log?${params}`);
+    const res = await fetch(`/api/towkay/audit-log?${params}`);
     if (res.ok) {
       const body = await res.json() as { entries: AuditEntry[]; total: number };
       setEntries(body.entries);

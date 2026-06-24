@@ -7,7 +7,7 @@ export interface TrainModeratorControlsProps {
 }
 
 async function publishTrainCommand(body: unknown): Promise<boolean> {
-  const res = await fetch("/api/display/train-command", {
+  const res = await fetch("/api/concourse/train-command", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),

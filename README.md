@@ -10,7 +10,7 @@ Built for the Singapore National Day ground-up party.
 **Phase 01 (local MVP)** — **complete** (released as **v1.0.1**): upload, moderation, display wall,
 admin panel, and audit logging on localhost.
 
-**Phase 02 (production)** — **in progress** (tag **v1.0.2** on `phase2` branch): Oracle VPS deploy
+**Phase 02 (production)** — **in progress** (tag **v1.0.3** on `phase2` branch): Oracle VPS deploy
 path — `prod.ts`, `DEPLOYED=1` hardening, Caddy + Let's Encrypt + Cloudflare. Ops guide:
 [docs/phase02/oracle_vps_deploy.md](docs/phase02/oracle_vps_deploy.md).
 
@@ -65,10 +65,11 @@ Browser  →  Fresh routes (pages + API)
     Repository · FileStorage · Realtime · Audit
 ```
 
-- **Public:** `/upload` — photo submission (no login)
-- **Moderator:** `/moderate` — approve, reject, edit, display override
-- **Display wall:** `/display` — train animation (display-wall, moderator, or admin login)
-- **Admin:** `/admin` — users, parameters, audit log, display override
+- **Public:** `/muatnaik` — photo submission (no login)
+- **Moderator:** `/semak` — approve, reject, edit, display override; gallery at `/semak/pamer`
+- **Display wall:** `/concourse` — train animation (display-wall, moderator, or admin login)
+- **Admin:** `/towkay` — users, parameters, audit log, display override
+- **Login:** `/masuk` — staff sign-in (legacy paths like `/login`, `/upload`, `/moderate` return 404)
 
 ## Tests
 

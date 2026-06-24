@@ -18,7 +18,7 @@ export default function UserManagement() {
   const [resetPassword, setResetPassword] = useState("");
 
   async function loadUsers() {
-    const res = await fetch("/api/admin/users");
+    const res = await fetch("/api/towkay/users");
     if (!res.ok) {
       setMessage("Failed to load users");
       return;
@@ -33,7 +33,7 @@ export default function UserManagement() {
   async function createAccount(e: Event) {
     e.preventDefault();
     setMessage("");
-    const res = await fetch("/api/admin/users/create", {
+    const res = await fetch("/api/towkay/users/create", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, password, role }),
@@ -53,7 +53,7 @@ export default function UserManagement() {
     if (user.disabled && !globalThis.confirm(`Enable ${user.username}?`)) return;
     if (!user.disabled && !globalThis.confirm(`Disable ${user.username}?`)) return;
     const action = user.disabled ? "enable" : "disable";
-    const res = await fetch("/api/admin/users/toggle-status", {
+    const res = await fetch("/api/towkay/users/toggle-status", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId: user.id, action }),
@@ -69,7 +69,7 @@ export default function UserManagement() {
 
   async function deleteUser(user: ManagedUser) {
     if (!globalThis.confirm(`Delete ${user.username}? This cannot be undone.`)) return;
-    const res = await fetch("/api/admin/users/delete", {
+    const res = await fetch("/api/towkay/users/delete", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId: user.id, confirmed: true }),
@@ -84,7 +84,7 @@ export default function UserManagement() {
   }
 
   async function submitResetPassword(user: ManagedUser) {
-    const res = await fetch("/api/admin/users/reset-password", {
+    const res = await fetch("/api/towkay/users/reset-password", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

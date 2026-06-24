@@ -26,7 +26,7 @@ export default function SystemParameters() {
 
   async function load() {
 
-    const res = await fetch("/api/admin/parameters");
+    const res = await fetch("/api/towkay/parameters");
 
     if (!res.ok) return;
 
@@ -60,7 +60,7 @@ export default function SystemParameters() {
 
     setMessage("");
 
-    const res = await fetch("/api/admin/parameters/update", {
+    const res = await fetch("/api/towkay/parameters/update", {
 
       method: "POST",
 
@@ -90,7 +90,7 @@ export default function SystemParameters() {
 
   async function reset(key: string) {
 
-    const res = await fetch("/api/admin/parameters/reset", {
+    const res = await fetch("/api/towkay/parameters/reset", {
 
       method: "POST",
 
@@ -124,7 +124,7 @@ export default function SystemParameters() {
 
     form.append("image", file);
 
-    const res = await fetch("/api/admin/parameters/upload-placeholder", {
+    const res = await fetch("/api/towkay/parameters/upload-placeholder", {
 
       method: "POST",
 
@@ -152,7 +152,7 @@ export default function SystemParameters() {
 
   async function clearPlaceholder() {
 
-    const res = await fetch("/api/admin/parameters/clear-placeholder", { method: "POST" });
+    const res = await fetch("/api/towkay/parameters/clear-placeholder", { method: "POST" });
 
     const body = await res.json();
 

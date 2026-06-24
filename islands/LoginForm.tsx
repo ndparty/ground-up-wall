@@ -23,7 +23,7 @@ export default function LoginForm({ initialError = "" }: LoginFormProps) {
     try {
       const payload = JSON.stringify({ username, password });
       const send = (powToken?: string) =>
-        fetch("/api/auth/login", {
+        fetch("/api/masuk/session", {
           method: "POST",
           headers: powToken
             ? { "Content-Type": "application/json", "x-pow": powToken }
@@ -50,7 +50,7 @@ export default function LoginForm({ initialError = "" }: LoginFormProps) {
       if (role) {
         globalThis.location.href = loginRedirectPath(role);
       } else {
-        globalThis.location.href = "/upload";
+        globalThis.location.href = "/muatnaik";
       }
     } catch (err) {
       setError(uploadErrorMessage(err));
@@ -60,7 +60,7 @@ export default function LoginForm({ initialError = "" }: LoginFormProps) {
   }
 
   return (
-    <form method="post" action="/login" onSubmit={handleSubmit}>
+    <form method="post" action="/masuk" onSubmit={handleSubmit}>
       <label class="form-label">
         Username
         <input

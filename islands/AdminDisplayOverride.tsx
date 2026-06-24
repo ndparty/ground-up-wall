@@ -10,7 +10,7 @@ export default function AdminDisplayOverride() {
   const [message, setMessage] = useState("");
 
   async function loadState() {
-    const res = await fetch("/api/admin/display-override");
+    const res = await fetch("/api/towkay/display-override");
     if (res.ok) setState(await res.json());
   }
 
@@ -28,7 +28,7 @@ export default function AdminDisplayOverride() {
     const form = new FormData();
     form.append("type", type);
     if (image) form.append("image", image);
-    const res = await fetch("/api/admin/display-override", { method: "POST", body: form });
+    const res = await fetch("/api/towkay/display-override", { method: "POST", body: form });
     const body = await res.json();
     if (!res.ok) {
       setMessage(body.error ?? "Command failed");

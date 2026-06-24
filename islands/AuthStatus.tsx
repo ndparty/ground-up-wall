@@ -6,7 +6,7 @@ export default function AuthStatus() {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    fetch("/api/auth/me")
+    fetch("/api/masuk/me")
       .then((res) => (res.ok ? res.json() : { user: null }))
       .then((data) => setUser(data.user ?? null))
       .catch(() => setUser(null))
@@ -14,9 +14,9 @@ export default function AuthStatus() {
   }, []);
 
   async function handleLogout() {
-    await fetch("/api/auth/logout", { method: "POST" });
+    await fetch("/api/masuk/logout", { method: "POST" });
     setUser(null);
-    globalThis.location.href = "/login";
+    globalThis.location.href = "/masuk";
   }
 
   if (!loaded) return null;
@@ -32,11 +32,11 @@ export default function AuthStatus() {
   return (
     <div class="auth-nav">
       <span>Hi, {user.username}</span>
-      {canDisplay && <a href="/display" class="auth-nav__link">Display</a>}
-      {canModerate && <a href="/moderate" class="auth-nav__link">Moderate</a>}
-      {canModerate && <a href="/moderate/approved" class="auth-nav__link">Gallery</a>}
-      {isAdmin && <a href="/admin" class="auth-nav__link">Admin</a>}
-      <a href="/change-password" class="auth-nav__link">Change password</a>
+      {canDisplay && <a href="/concourse" class="auth-nav__link">Display</a>}
+      {canModerate && <a href="/semak" class="auth-nav__link">Moderate</a>}
+      {canModerate && <a href="/semak/pamer" class="auth-nav__link">Gallery</a>}
+      {isAdmin && <a href="/towkay" class="auth-nav__link">Admin</a>}
+      <a href="/tukar" class="auth-nav__link">Change password</a>
       <button
         type="button"
         onClick={handleLogout}

@@ -112,7 +112,7 @@ Deno.test({
   name: "smoke: US-02a upload page renders form",
   async fn() {
     const handler = await createTestHandler();
-    const res = await handler(new Request("http://localhost/upload"), serveInfo);
+    const res = await handler(new Request("http://localhost/muatnaik"), serveInfo);
     assertEquals(res.status, 200);
     const html = await res.text();
     assertStringIncludes(html, "Share your moment!");
@@ -124,7 +124,7 @@ Deno.test({
   name: "smoke: US-02a upload counter shows remaining characters",
   async fn() {
     const handler = await createTestHandler();
-    const res = await handler(new Request("http://localhost/upload"), serveInfo);
+    const res = await handler(new Request("http://localhost/muatnaik"), serveInfo);
     const html = await res.text();
     assertStringIncludes(html, "50 characters remaining");
     assertEquals(html.includes("NaN"), false);
@@ -142,7 +142,7 @@ Deno.test({
     await repo.upsertSystemConfig("message_length_unit", "words", "test");
     await repo.close();
 
-    const res = await handler(new Request("http://localhost/upload"), serveInfo);
+    const res = await handler(new Request("http://localhost/muatnaik"), serveInfo);
     const html = await res.text();
     assertStringIncludes(html, "3 words remaining");
     assertEquals(html.includes("characters remaining"), false);
@@ -154,7 +154,7 @@ Deno.test({
   name: "smoke: US-02a privacy notice on upload page",
   async fn() {
     const handler = await createTestHandler();
-    const res = await handler(new Request("http://localhost/upload"), serveInfo);
+    const res = await handler(new Request("http://localhost/muatnaik"), serveInfo);
     const html = await res.text();
     assertStringIncludes(html, PRIVACY_NOTICE.slice(0, 40));
     assertStringIncludes(html, "social media");
@@ -166,7 +166,7 @@ Deno.test({
   name: "US-02a posting guidelines disclaimer",
   async fn() {
     const handler = await createTestHandler();
-    const res = await handler(new Request("http://localhost/upload"), serveInfo);
+    const res = await handler(new Request("http://localhost/muatnaik"), serveInfo);
     const html = await res.text();
     assertStringIncludes(html, "moderator approval");
     await teardownTestDb();
@@ -177,7 +177,7 @@ Deno.test({
   name: "US-02a acknowledgment checkbox present",
   async fn() {
     const handler = await createTestHandler();
-    const res = await handler(new Request("http://localhost/upload"), serveInfo);
+    const res = await handler(new Request("http://localhost/muatnaik"), serveInfo);
     const html = await res.text();
     assertStringIncludes(html, "National Day Ground-Up Party");
     assertStringIncludes(html, "NDGUP");

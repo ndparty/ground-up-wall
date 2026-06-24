@@ -51,8 +51,22 @@ The app loads variables from `.env` automatically at startup (via `lib/load_env.
 need to export every variable to your shell unless you want to override `.env` values.
 
 **Local dev tip:** Sessions are persisted to `.dev/sessions.json`, so you stay logged in across
-`deno task dev` restarts when you save files. Log in once as **`admin`** to access `/admin`,
-`/moderate`, and `/display` in separate tabs. `/upload` is public and needs no login.
+`deno task dev` restarts when you save files. Log in once as **`admin`** to access `/towkay`,
+`/semak`, and `/concourse` in separate tabs. `/muatnaik` is public and needs no login.
+
+**Staff URL cheat sheet**
+
+| Role | Page | Path |
+|------|------|------|
+| Participant upload | Muat naik | `/muatnaik` |
+| Staff login | Masuk | `/masuk` |
+| Moderation | Semak | `/semak` |
+| Approved gallery | Pamer | `/semak/pamer` |
+| Display wall | Concourse | `/concourse` |
+| Admin | Towkay | `/towkay` |
+| Change password | Tukar | `/tukar` |
+
+Legacy scanner-obvious paths (`/login`, `/upload`, `/moderate`, `/display`, `/admin`) intentionally return **404**.
 
 ---
 
@@ -71,7 +85,7 @@ idempotent — existing accounts are not recreated.
 
 **Optional:** `deno task db:seed:demos` adds 40 approved submissions with **generated placeholder
 images** (coloured background, sequence number, and submitter initial — not photographs) so
-`/display` shows a full train without manual moderation. Pending demo rows (10 by default) use the
+`/concourse` shows a full train without manual moderation. Pending demo rows (10 by default) use the
 same image generator. If demo rows already exist, the script skips and prints _"Demo submissions
 already seeded. Use --force to replace."_ — run
 `deno run -A scripts/seed_demo_submissions.ts --force` to refresh images and DB rows.
@@ -134,11 +148,11 @@ deno task test
 
 Use separate browser windows or profiles so sessions do not overwrite each other.
 
-Protected pages (`/display`, `/moderate`, `/admin`, `/change-password`) redirect to `/login` when you are not signed in. Wrong-role users are sent to their role home (`/display` or `/moderate`).
+Protected pages (`/concourse`, `/semak`, `/towkay`, `/tukar`) redirect to `/masuk` when you are not signed in. Wrong-role users are sent to their role home (`/concourse` or `/semak`).
 
 ### Window 1 — Participant upload (no login)
 
-1. Open **http://localhost:8080/upload**
+1. Open **http://localhost:8080/muatnaik**
 2. Choose a photo (max 10 MB)
 3. Enter name and message; check the privacy acknowledgment
 4. Submit — you should see a success confirmation
@@ -157,21 +171,21 @@ Compatible (JPEG)** on iPhone and retry.
 
 ### Window 2 — Moderator approval
 
-1. Open **http://localhost:8080/login**
+1. Open **http://localhost:8080/masuk**
 2. Log in as `moderator` / `demo123` (or your configured password)
-3. You are redirected to **/moderate**
+3. You are redirected to **/semak**
 4. Find the pending submission; approve it (new items appear at the **bottom** of the pending list)
 5. Optional: edit message, reject, use display override controls (blank, reload, panic — panic has
-   no confirm), or open **Gallery** (`/moderate/approved`) to browse approved submissions with
+   no confirm), or open **Gallery** (`/semak/pamer`) to browse approved submissions with
    search and pagination
 6. **Display train controls**: jump field auto-tracks the current cabin; editing it pauses auto-sync
    for 30 seconds
 
 ### Window 3 — Display wall
 
-1. Open **http://localhost:8080/login** in a new window
+1. Open **http://localhost:8080/masuk** in a new window
 2. Log in as `display` / `demo123`
-3. You are redirected to **/display**
+3. You are redirected to **/concourse**
 4. If the fullscreen prompt appears, choose **Go fullscreen** or **Not now** (or press F11 later)
 5. The approved photo should appear on the metro train within a few seconds (SSE realtime)
 6. Optional (moderator or admin session): pause/play train, jump to cabin
@@ -179,7 +193,7 @@ Compatible (JPEG)** on iPhone and retry.
 ### Optional — Admin panel
 
 1. Log in as `admin`
-2. Visit **http://localhost:8080/admin**
+2. Visit **http://localhost:8080/towkay**
 3. Try: **Users**, **Parameters** (dwell time, word list), **Audit log**, **Display override**
 
 ---
@@ -190,8 +204,8 @@ Some requirements need human verification on target hardware:
 
 | NFR                        | How to verify                                                                               |
 | -------------------------- | ------------------------------------------------------------------------------------------- |
-| **NFR-03 (60fps)**         | Chrome DevTools → Performance → record 30s on `/display` with 50+ cabins → ≥55fps sustained |
-| **NFR-04 (<30s realtime)** | Approve in `/moderate`; measure time until submission visible on `/display`                 |
+| **NFR-03 (60fps)**         | Chrome DevTools → Performance → record 30s on `/concourse` with 50+ cabins → ≥55fps sustained |
+| **NFR-04 (<30s realtime)** | Approve in `/semak`; measure time until submission visible on `/concourse`                 |
 | **NFR-08 (legibility)**    | DevTools → Computed → cabin name ≥24px, message ≥18px                                       |
 
 Automated audit integrity checks: `deno task test:e2e:smoke --filter audit`
@@ -208,7 +222,7 @@ Automated audit integrity checks: `deno task test:e2e:smoke --filter audit`
 | Postgres connection refused                     | Start PostgreSQL; check `DATABASE_URL` in `.env`                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `database "ground_up_wall_test" does not exist` | Run `createdb ground_up_wall_test` before `deno task test`                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | Tests fail while dev server runs                | Stop the dev server or use a separate test database via `DATABASE_URL_TEST`                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| Login redirect wrong role                       | Display users go to `/display`; moderator/admin go to `/moderate`                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| Login redirect wrong role                       | Display users go to `/concourse`; moderator/admin go to `/semak`                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | Seed refuses to run                             | In deployed environments, set `ADMIN_INITIAL_PASSWORD`, `DEMO_MODERATOR_PASSWORD`, and `DEMO_DISPLAY_PASSWORD`                                                                                                                                                                                                                                                                                                                                                                                                   |
 | Demo train empty after seed                     | Ensure app and seed use the same `DATABASE_URL`; run `deno task db:seed:demos --force` if demos were skipped                                                                                                                                                                                                                                                                                                                                                                                                     |
 | PoW challenge on every upload                   | Default is on after seed; disable in Admin → Parameters or re-seed to migrate old DBs                                                                                                                                                                                                                                                                                                                                                                                                                            |
@@ -227,7 +241,7 @@ Moderator and admin **Display override** panels include:
 | **Panic** | **No confirm** — blanks all displays immediately (SSE first), resets playback, stays blank until Resume |
 | **Resume display** | Returns to normal train |
 
-Panic and reload publish a `display_reload` SSE event; clients re-fetch `/api/display/submissions`
+Panic and reload publish a `display_reload` SSE event; clients re-fetch `/api/concourse/submissions`
 rather than doing a full page reload.
 
 For offline/LAN deployment details, see [SETUP.md — Offline / standalone event operation](SETUP.md#offline--standalone-event-operation).

@@ -1,5 +1,9 @@
 import type { Middleware } from "fresh";
 import type { State } from "../../utils.ts";
+import {
+  isKillswitchExempt,
+  isUploadGatedPath,
+} from "../routes/paths.ts";
 
 export type AccessDecision = "allow" | "offline" | "uploads-closed";
 
@@ -8,29 +12,11 @@ export interface AccessFlags {
   uploadsEnabled: boolean;
 }
 
-/** Paths that remain available even under the event killswitch (login + admin). */
-function isAlwaysAllowed(path: string): boolean {
-  return (
-    path === "/login" ||
-    path === "/logout" ||
-    path === "/change-password" ||
-    path === "/admin" ||
-    path.startsWith("/admin/") ||
-    path.startsWith("/api/auth/") ||
-    path.startsWith("/api/admin/") ||
-    path.startsWith("/api/pow/")
-  );
-}
-
-function isUploadPath(path: string): boolean {
-  return path === "/upload" || path === "/api/submissions";
-}
-
 /** Pure access decision for a request path given the current admin toggles. */
 export function accessDecision(path: string, flags: AccessFlags): AccessDecision {
-  if (isAlwaysAllowed(path)) return "allow";
+  if (isKillswitchExempt(path)) return "allow";
   if (flags.killswitch) return "offline";
-  if (!flags.uploadsEnabled && isUploadPath(path)) return "uploads-closed";
+  if (!flags.uploadsEnabled && isUploadGatedPath(path)) return "uploads-closed";
   return "allow";
 }
 
@@ -65,7 +51,7 @@ function blockedResponse(path: string, decision: Exclude<AccessDecision, "allow"
  */
 export const accessGateMiddleware: Middleware<State> = async (ctx) => {
   const path = new URL(ctx.req.url).pathname;
-  if (isAlwaysAllowed(path)) return await ctx.next();
+  if (isKillswitchExempt(path)) return await ctx.next();
 
   const photoWall = ctx.state.services.photoWall;
   // Sequential (not Promise.all): the repository uses a single connection that is

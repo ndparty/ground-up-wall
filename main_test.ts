@@ -6,7 +6,7 @@ import {
   createTestHandler as createAuthedHandler,
   loginAsDisplayWall,
   serveInfo,
-} from "./lib/api/display_route_test_helpers.ts";
+} from "./lib/api/concourse_route_test_helpers.ts";
 import { app } from "./main.ts";
 
 const serveInfoLocal: Deno.ServeHandlerInfo = {
@@ -27,7 +27,7 @@ Deno.test({
     const handler = await createTestHandler();
     const res = await handler(new Request("http://localhost/"), serveInfoLocal);
     assertEquals(res.status, 302);
-    assertEquals(res.headers.get("location"), "/upload");
+    assertEquals(res.headers.get("location"), "/muatnaik");
   },
 });
 
@@ -62,7 +62,7 @@ Deno.test({
     const html = await res.text();
     assertEquals(html.includes("404"), true);
     assertEquals(html.includes("parade route"), true);
-    assertEquals(res.status === 404 || res.status === 200, true);
+    assertEquals(res.status, 404);
   },
 });
 

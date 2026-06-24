@@ -110,8 +110,8 @@ deno task test
 
 Some non-functional requirements require manual verification on target hardware:
 
-- **NFR-03 (60fps):** Open `/display` in Chrome → DevTools → Performance → record 30s with 50+ cabins → confirm ≥55fps sustained.
-- **NFR-04 (30s real-time):** Approve a submission in `/moderate`; measure time until it appears on `/display` (<30s).
+- **NFR-03 (60fps):** Open `/concourse` in Chrome → DevTools → Performance → record 30s with 50+ cabins → confirm ≥55fps sustained.
+- **NFR-04 (30s real-time):** Approve a submission in `/semak`; measure time until it appears on `/concourse` (<30s).
 - **NFR-08 (legibility):** DevTools → Computed → font-size on cabin name (≥24px) and message (≥18px).
 
 Automated checks cover audit-log integrity (`deno task test:e2e:smoke --filter audit`).

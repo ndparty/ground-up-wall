@@ -87,7 +87,7 @@ export interface UseTrainPlaybackResult {
 }
 
 async function publishTrainCommand(command: TrainCommand): Promise<boolean> {
-  const res = await fetch("/api/display/train-command", {
+  const res = await fetch("/api/concourse/train-command", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(command),
@@ -193,7 +193,7 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
 
   const syncOverrideFromServer = useCallback(async () => {
     try {
-      const res = await fetchWithRetry("/api/display/override-state");
+      const res = await fetchWithRetry("/api/concourse/override-state");
       if (!res.ok) return;
       const override = await res.json();
       if (override) setOverrideState(override as OverrideState);
@@ -205,7 +205,7 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
   const syncPlaybackFromServer = useCallback(async () => {
     if (orchestratorBusyRef.current || pendingRef.current.length > 0) return;
     try {
-      const res = await fetchWithRetry("/api/display/submissions");
+      const res = await fetchWithRetry("/api/concourse/submissions");
       if (!res.ok) return;
       const data = await res.json();
       if (data.playback) {
@@ -238,8 +238,8 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
     async function bootstrap() {
       try {
         const [meRes, submissionsRes] = await Promise.all([
-          fetchWithRetry("/api/auth/me"),
-          fetchWithRetry("/api/display/submissions"),
+          fetchWithRetry("/api/masuk/me"),
+          fetchWithRetry("/api/concourse/submissions"),
         ]);
         if (cancelled) return;
 
@@ -362,7 +362,7 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
   };
 
   const connectionStatus = useReconnectingEventSource(
-    "/api/display/events",
+    "/api/concourse/events",
     sseHandlersRef,
     {
       enabled: bootstrapComplete,
