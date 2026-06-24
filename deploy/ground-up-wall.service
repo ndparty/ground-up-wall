@@ -7,9 +7,9 @@ Wants=postgresql.service
 Type=simple
 User=groundupwall
 Group=groundupwall
-WorkingDirectory=/opt/ground-up-wall
+WorkingDirectory=/opt/ground-up-wall/ground-up-wall
 EnvironmentFile=/opt/ground-up-wall/.env
-ExecStart=/usr/local/bin/deno run -A /opt/ground-up-wall/prod.ts
+ExecStart=/usr/local/bin/deno run -A /opt/ground-up-wall/ground-up-wall/prod.ts
 Restart=on-failure
 RestartSec=5
 
@@ -18,7 +18,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/var/lib/ground-up-wall /opt/ground-up-wall
+ReadWritePaths=/var/lib/ground-up-wall /opt/ground-up-wall/ground-up-wall
 
 [Install]
 WantedBy=multi-user.target

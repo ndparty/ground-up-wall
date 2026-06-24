@@ -86,8 +86,8 @@ sudo ufw enable
 sudo ufw status
 ```
 
-> After Caddy obtains its first certificate, replace wide `allow 80/tcp` / `allow 443/tcp` with
-> **Cloudflare-CIDR-only** rules so the origin cannot be bypassed.
+> After Caddy obtains its first certificate, run [`scripts/cloudflare-ufw.sh`](../../scripts/cloudflare-ufw.sh)
+> (§9.2) to replace wide `allow 80/tcp` / `allow 443/tcp` with **Cloudflare-CIDR-only** rules.
 
 ### 2.3 SSH
 
@@ -214,6 +214,16 @@ sudo -u groundupwall git ls-remote https://github.com/ndparty/ground-up-wall.git
 
 ## 4. Application user and directories
 
+The `groundupwall` system user has home **`APP_HOME`** at `/opt/ground-up-wall`. The git checkout
+lives separately at **`APP_DIR`** `/opt/ground-up-wall/ground-up-wall`. Do **not** clone into
+`APP_HOME` — tag checkouts would mix with `.ssh`, `.git-credentials`, and `.env`.
+
+| Path | Role |
+| ---- | ---- |
+| `/opt/ground-up-wall` | `APP_HOME` — `.ssh`, `.git-credentials`, `.env` |
+| `/opt/ground-up-wall/ground-up-wall` | `APP_DIR` — git checkout, app code |
+| `/var/lib/ground-up-wall/uploads` | `STORAGE_PATH` — uploaded images |
+
 ```bash
 sudo useradd --system --home-dir /opt/ground-up-wall --create-home --shell /bin/bash groundupwall || true
 sudo mkdir -p /var/lib/ground-up-wall/uploads
@@ -224,12 +234,14 @@ Clone the repo after [§3.5](#35-github-access-private-repository) auth is worki
 
 ```bash
 # SSH (recommended — deploy key)
-sudo -u groundupwall git clone git@github.com:ndparty/ground-up-wall.git /opt/ground-up-wall
+sudo -u groundupwall git clone git@github.com:ndparty/ground-up-wall.git \
+  /opt/ground-up-wall/ground-up-wall
 
 # Or HTTPS (fine-grained PAT in ~/.git-credentials — see §3.5)
-# sudo -u groundupwall git clone https://github.com/ndparty/ground-up-wall.git /opt/ground-up-wall
+# sudo -u groundupwall git clone https://github.com/ndparty/ground-up-wall.git \
+#   /opt/ground-up-wall/ground-up-wall
 
-cd /opt/ground-up-wall
+cd /opt/ground-up-wall/ground-up-wall
 sudo -u groundupwall git fetch --tags origin
 sudo -u groundupwall git checkout v1.0.4   # or latest v* tag
 ```
@@ -237,7 +249,7 @@ sudo -u groundupwall git checkout v1.0.4   # or latest v* tag
 Cache dependencies once:
 
 ```bash
-cd /opt/ground-up-wall
+cd /opt/ground-up-wall/ground-up-wall
 sudo -u groundupwall deno cache --lock=deno.lock prod.ts main.ts
 ```
 
@@ -245,8 +257,11 @@ sudo -u groundupwall deno cache --lock=deno.lock prod.ts main.ts
 
 ## 5. Environment file
 
+Production `.env` lives in **`APP_HOME`** (not inside the git checkout) so secrets survive
+re-clones and are never touched by `git checkout`.
+
 ```bash
-sudo -u groundupwall cp /opt/ground-up-wall/.env.example /opt/ground-up-wall/.env
+sudo -u groundupwall cp /opt/ground-up-wall/ground-up-wall/.env.example /opt/ground-up-wall/.env
 sudo chmod 600 /opt/ground-up-wall/.env
 sudo chown groundupwall:groundupwall /opt/ground-up-wall/.env
 ```
@@ -271,16 +286,19 @@ DEMO_DISPLAY_PASSWORD=YourStrongDisplayPass!
 
 ## 6. Database migrate and seed (first time only)
 
+Run from **`APP_DIR`**. Load env from home first (systemd does this automatically at runtime;
+one-off CLI needs an explicit source):
+
 ```bash
-cd /opt/ground-up-wall
-sudo -u groundupwall deno task db:migrate
-sudo -u groundupwall deno task db:seed
+cd /opt/ground-up-wall/ground-up-wall
+sudo -u groundupwall bash -c 'set -a && source /opt/ground-up-wall/.env && set +a && deno task db:migrate'
+sudo -u groundupwall bash -c 'set -a && source /opt/ground-up-wall/.env && set +a && deno task db:seed'
 ```
 
 Optional demo train data:
 
 ```bash
-sudo -u groundupwall deno task db:seed:demos
+sudo -u groundupwall bash -c 'set -a && source /opt/ground-up-wall/.env && set +a && deno task db:seed:demos'
 ```
 
 ---
@@ -290,7 +308,8 @@ sudo -u groundupwall deno task db:seed:demos
 Copy the unit file from the repo (adjust paths if your install dir differs):
 
 ```bash
-sudo cp /opt/ground-up-wall/deploy/ground-up-wall.service /etc/systemd/system/ground-up-wall.service
+sudo cp /opt/ground-up-wall/ground-up-wall/deploy/ground-up-wall.service \
+  /etc/systemd/system/ground-up-wall.service
 ```
 
 Or create `/etc/systemd/system/ground-up-wall.service` manually:
@@ -305,9 +324,9 @@ Wants=postgresql.service
 Type=simple
 User=groundupwall
 Group=groundupwall
-WorkingDirectory=/opt/ground-up-wall
+WorkingDirectory=/opt/ground-up-wall/ground-up-wall
 EnvironmentFile=/opt/ground-up-wall/.env
-ExecStart=/usr/local/bin/deno run -A /opt/ground-up-wall/prod.ts
+ExecStart=/usr/local/bin/deno run -A /opt/ground-up-wall/ground-up-wall/prod.ts
 Restart=on-failure
 RestartSec=5
 
@@ -316,7 +335,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/var/lib/ground-up-wall /opt/ground-up-wall
+ReadWritePaths=/var/lib/ground-up-wall /opt/ground-up-wall/ground-up-wall
 
 [Install]
 WantedBy=multi-user.target
@@ -450,22 +469,56 @@ hardening; requires Caddy `tls` client auth config.
 
 Without this, someone who learns your origin IP can bypass Cloudflare on **either** port.
 
-1. Download current ranges: [https://www.cloudflare.com/ips/](https://www.cloudflare.com/ips/)
-2. In **OCI Security List** and **UFW**, allow **80** and **443** only from Cloudflare IPv4/IPv6
-   ranges (not `0.0.0.0/0`).
-3. Keep **22** restricted to your admin IP.
+Cloudflare publishes current ranges as plain text:
 
-Example (refresh IPs from Cloudflare before applying):
+- IPv4: [https://www.cloudflare.com/ips-v4](https://www.cloudflare.com/ips-v4)
+- IPv6: [https://www.cloudflare.com/ips-v6](https://www.cloudflare.com/ips-v6)
+
+Use [`scripts/cloudflare-ufw.sh`](../../scripts/cloudflare-ufw.sh) on the VPS to fetch both lists and
+apply UFW rules for **80** and **443** (tagged `cloudflare` for safe refresh). The script also removes
+the world-open `80/tcp` and `443/tcp` rules from §2.2.
+
+**Run once after Caddy/LE works** (from the app checkout on the VPS):
 
 ```bash
-# Illustrative — replace with current https://www.cloudflare.com/ips-v4
-for ip in 173.245.48.0/20 103.21.244.0/22; do
-  sudo ufw allow from "$ip" to any port 80 proto tcp
-  sudo ufw allow from "$ip" to any port 443 proto tcp
+chmod +x /opt/ground-up-wall/ground-up-wall/scripts/cloudflare-ufw.sh
+sudo /opt/ground-up-wall/ground-up-wall/scripts/cloudflare-ufw.sh
+sudo ufw status numbered
+```
+
+Verify the site still loads through Cloudflare (`https://your.domain.example/api/health`).
+
+**Refresh when Cloudflare adds ranges** (weekly cron as root):
+
+```bash
+sudo crontab -e
+```
+
+```cron
+# Sunday 03:00 — sync Cloudflare IPs into UFW
+0 3 * * 0 /opt/ground-up-wall/ground-up-wall/scripts/cloudflare-ufw.sh --purge >> /var/log/cloudflare-ufw.log 2>&1
+```
+
+`--purge` deletes old `cloudflare`-tagged rules and re-applies from the live lists. Without it, the
+script only adds missing CIDRs (fine for ad-hoc runs).
+
+**OCI Security List (required separately):** UFW is host-only. In the Oracle console (or OCI CLI),
+ingress rules for **80** and **443** must also allow only the same Cloudflare IPv4/IPv6 CIDRs — not
+`0.0.0.0/0`. Download the lists from the URLs above and mirror them in the VCN security list.
+Keep **22** restricted to your admin IP in both UFW and OCI.
+
+**Manual one-liner** (if you prefer not to use the script — IPv4 only):
+
+```bash
+curl -fsS https://www.cloudflare.com/ips-v4 | while read -r ip; do
+  sudo ufw allow from "$ip" to any port 80 proto tcp comment 'cloudflare'
+  sudo ufw allow from "$ip" to any port 443 proto tcp comment 'cloudflare'
 done
-sudo ufw delete allow 80/tcp    # remove wide-open rules from §2.2 if added
+sudo ufw delete allow 80/tcp
 sudo ufw delete allow 443/tcp
 ```
+
+Also fetch [ips-v6](https://www.cloudflare.com/ips-v6) if the instance has a public IPv6 address.
 
 ### 9.3 App compatibility (already handled in code)
 
@@ -539,32 +592,47 @@ the service. It reuses the same `origin` credentials configured in
 section.
 
 ```bash
-sudo chmod +x /opt/ground-up-wall/scripts/deploy.sh
+sudo chmod +x /opt/ground-up-wall/ground-up-wall/scripts/deploy.sh
 ```
 
 **Latest tag:**
 
 ```bash
-sudo /opt/ground-up-wall/scripts/deploy.sh
+sudo /opt/ground-up-wall/ground-up-wall/scripts/deploy.sh
 ```
 
 **Specific release:**
 
 ```bash
-sudo /opt/ground-up-wall/scripts/deploy.sh v1.0.2
+sudo /opt/ground-up-wall/ground-up-wall/scripts/deploy.sh v1.0.2
 ```
 
 Optional convenience symlink:
 
 ```bash
 echo '#!/bin/bash
-exec /opt/ground-up-wall/scripts/deploy.sh "$@"' | sudo tee /usr/local/bin/deploy-wall
+exec /opt/ground-up-wall/ground-up-wall/scripts/deploy.sh "$@"' | sudo tee /usr/local/bin/deploy-wall
 sudo chmod +x /usr/local/bin/deploy-wall
 ```
 
 **Rollback:** deploy an older tag — only safe if no irreversible DB migrations ran between versions.
 
 **Downtime:** ~2–5 seconds on `systemctl restart`. Display wall SSE clients reconnect automatically.
+
+### 10.1 Migrating an existing VPS (repo was cloned into home)
+
+If you previously cloned into `/opt/ground-up-wall` directly:
+
+1. Stop the service: `sudo systemctl stop ground-up-wall`
+2. Preserve secrets: ensure `.env` is at `/opt/ground-up-wall/.env` (move out of the old checkout
+   if needed)
+3. Preserve Git auth: keep `/opt/ground-up-wall/.ssh` and `.git-credentials` in home
+4. Clone fresh to the subdirectory (or move the checkout):
+   `sudo -u groundupwall git clone git@github.com:ndparty/ground-up-wall.git /opt/ground-up-wall/ground-up-wall`
+5. Copy the updated unit file and reload:
+   `sudo cp /opt/ground-up-wall/ground-up-wall/deploy/ground-up-wall.service /etc/systemd/system/`
+   then `sudo systemctl daemon-reload`
+6. Verify: `sudo deploy-wall` (or run `deploy.sh` with your current tag)
 
 ### Optional: auto-deploy on GitHub Release
 
@@ -590,7 +658,7 @@ Add a weekly `cron` entry as root.
 ## 12. Pre-event checklist
 
 - [ ] Cloudflare **Full (strict)**; Caddy LE cert valid (or Origin Cert if using §8.1)
-- [ ] Origin **80 and 443** restricted to Cloudflare IP ranges (not open to world)
+- [ ] Origin **80 and 443** restricted to Cloudflare IP ranges — UFW via `cloudflare-ufw.sh` (§9.2) and matching OCI Security List rules
 - [ ] `https://your.domain.example/muatnaik` loads through Cloudflare
 - [ ] `https://your.domain.example/api/health` returns `{"ok":true,"db":true}`
 - [ ] Admin login works; change default passwords if still using seed values
@@ -599,7 +667,7 @@ Add a weekly `cron` entry as root.
 - [ ] Cloudflare WAF rate limits configured (§9.6)
 - [ ] Oracle idle reclamation: light traffic or cron `curl` during the week before the event
 - [ ] GitHub deploy key or PAT verified:
-      `sudo -u groundupwall git -C /opt/ground-up-wall fetch --tags origin` (non-interactive)
+      `sudo -u groundupwall git -C /opt/ground-up-wall/ground-up-wall fetch --tags origin` (non-interactive)
 - [ ] `deploy-wall` tested once on staging tag
 
 ---

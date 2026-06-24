@@ -9,4 +9,6 @@ Production deployment for the Phase 01 application on an **Oracle Cloud Always F
 
 **Deploy:** tag-based via [`scripts/deploy.sh`](../../scripts/deploy.sh) — checkout `v*`, migrate, restart, health check.
 
+**VPS paths:** git checkout at `/opt/ground-up-wall/ground-up-wall` (`APP_DIR`); production `.env` and Git auth in `/opt/ground-up-wall` (`APP_HOME`).
+
 **App flags:** `DEPLOYED=1` in `.env` enables HSTS, Secure cookies, and required seed passwords.
