@@ -1,0 +1,10 @@
+[Unit]
+Description=GitHub release deploy webhook (adnanh/webhook)
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/webhook -hooks /etc/webhook/hooks.json -port 9000 -verbose
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

@@ -22,6 +22,7 @@ access.
 | TLS origin (Caddy)                                      | [§8](#8-caddy-https-origin)                                         |
 | Cloudflare edge + origin-only exposure                  | [§9](#9-cloudflare-recommended)                                     |
 | Authenticated Origin Pulls (mTLS from Cloudflare)       | [§9.7](#97-authenticated-origin-pulls-recommended)                |
+| Tag-based deploy + optional GitHub Release webhook      | [§10](#10-updates-tag-based-deploy)–[§10.2](#102-optional-auto-deploy-on-github-release) |
 | Backups                                                 | [§11](#11-backups-recommended)                                      |
 
 **Application-level security** (NFR-23: rate limits, CSRF, PoW, CSP) is already in code — enable
@@ -518,6 +519,10 @@ sudo crontab -e
 `--purge` deletes old `cloudflare`-tagged rules and re-applies from the live lists. Without it, the
 script only adds missing CIDRs (fine for ad-hoc runs).
 
+> **Optional:** If you enable GitHub Release auto-deploy (§10.2), run
+> [`github-webhook-ufw.sh`](../../scripts/github-webhook-ufw.sh) separately for port 9000 and add a
+> matching weekly cron (§10.2.4).
+
 **OCI Security List (required separately):** UFW is host-only. In the Oracle console (or OCI CLI),
 ingress rules for **80** and **443** must also allow only the same Cloudflare IPv4/IPv6 CIDRs — not
 `0.0.0.0/0`. Download the lists from the URLs above and mirror them in the VCN security list.
@@ -543,7 +548,7 @@ Also fetch [ips-v6](https://www.cloudflare.com/ips-v6) if the instance has a pub
 | **Real client IP** for rate limit / login lockout | `clientKey()` prefers `CF-Connecting-IP`, then `X-Forwarded-For` ([`lib/security/rate_limit.ts`](../../lib/security/rate_limit.ts))                                 |
 | **Caddy forwards client IP**                      | `header_up X-Forwarded-For {CF-Connecting-IP}` in §8.1                                                                                                              |
 | **Secure cookies + HSTS**                         | `DEPLOYED=1` in `.env`                                                                                                                                              |
-| **CSRF**                                          | Compares `Origin`/`Referer` to request URL — works through Cloudflare (same public host)                                                                            |
+| **CSRF**                                          | Compares `Origin`/`Referer` to public origin from `X-Forwarded-Proto` + `Host` when `DEPLOYED=1` ([`lib/middleware/csrf_origin.ts`](../../lib/middleware/csrf_origin.ts)); Caddy must forward both headers (§8.1) |
 | **SSE long connections**                          | Comment keepalive every 25s in [`lib/sse/create_event_stream.ts`](../../lib/sse/create_event_stream.ts) — avoids Cloudflare proxy read timeout during quiet periods |
 | **Upload size**                                   | 12 MB app limit; Cloudflare free proxy body limit is 100 MB — sufficient                                                                                            |
 
@@ -820,10 +825,107 @@ If you previously cloned into `/opt/ground-up-wall` directly:
    then `sudo systemctl daemon-reload`
 6. Verify: `sudo deploy-wall` (or run `deploy.sh` with your current tag)
 
-### Optional: auto-deploy on GitHub Release
+### 10.2 Optional — auto-deploy on GitHub Release
 
-Use a [webhook](https://github.com/adnanh/webhook) on the VPS that runs `deploy.sh` with the release
-tag when you publish a GitHub Release. Restrict by shared secret; do not auto-deploy `main`.
+When you **publish a GitHub Release** (tag `v*`), a webhook on the VPS can run `deploy-wall` with
+that tag. This is optional — manual `sudo deploy-wall v1.0.2` remains the default workflow.
+
+**Do not** auto-deploy `main` or on every push. Only `release` events with `action: published` and
+tags matching `v*`.
+
+**Prerequisites:** [§3.5](#35-github-access-private-repository) working; `deploy-wall` tested manually
+(§10 above).
+
+#### 10.2.1 Install webhook and deploy-wall
+
+```bash
+sudo apt install -y webhook
+sudo chmod +x /opt/ground-up-wall/ground-up-wall/scripts/deploy.sh
+
+echo '#!/bin/bash
+exec /opt/ground-up-wall/ground-up-wall/scripts/deploy.sh "$@"' | sudo tee /usr/local/bin/deploy-wall
+sudo chmod +x /usr/local/bin/deploy-wall
+```
+
+#### 10.2.2 Shared secret and hooks config
+
+Generate a secret (save the output — you will paste it into GitHub and `hooks.json`):
+
+```bash
+openssl rand -hex 32
+```
+
+Copy the example hooks file and set the secret:
+
+```bash
+sudo mkdir -p /etc/webhook
+sudo cp /opt/ground-up-wall/ground-up-wall/deploy/webhook.hooks.json.example /etc/webhook/hooks.json
+sudo chmod 600 /etc/webhook/hooks.json
+sudo sed -i 's/REPLACE_WITH_WEBHOOK_SECRET/YOUR_SECRET_HERE/' /etc/webhook/hooks.json
+```
+
+The hook validates `X-Hub-Signature-256`, accepts only `release` + `published`, and only deploys
+tags starting with `v`.
+
+#### 10.2.3 systemd service
+
+```bash
+sudo cp /opt/ground-up-wall/ground-up-wall/deploy/webhook.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now webhook
+sudo systemctl status webhook
+```
+
+The listener binds **port 9000** on all interfaces. GitHub delivers webhooks directly to your
+origin IP — **not** through Cloudflare.
+
+#### 10.2.4 Firewall (UFW + OCI)
+
+Restrict port **9000** to [GitHub webhook IP ranges](https://api.github.com/meta) (`hooks` field)
+only. Use [`scripts/github-webhook-ufw.sh`](../../scripts/github-webhook-ufw.sh):
+
+```bash
+chmod +x /opt/ground-up-wall/ground-up-wall/scripts/github-webhook-ufw.sh
+sudo /opt/ground-up-wall/ground-up-wall/scripts/github-webhook-ufw.sh
+sudo ufw status numbered
+```
+
+**OCI Security List (required separately):** UFW is host-only. In the Oracle console, add ingress
+rules for **9000/tcp** from the same GitHub `hooks` CIDRs — not `0.0.0.0/0`. Fetch current ranges
+from `https://api.github.com/meta`.
+
+Refresh when GitHub updates ranges (weekly cron as root, alongside Cloudflare sync):
+
+```cron
+# Sunday 03:00 — sync GitHub webhook IPs into UFW
+5 3 * * 0 /opt/ground-up-wall/ground-up-wall/scripts/github-webhook-ufw.sh --purge >> /var/log/github-webhook-ufw.log 2>&1
+```
+
+`--purge` deletes old `github-hooks`-tagged rules and re-applies from the live API. Without it,
+the script only adds missing CIDRs.
+
+#### 10.2.5 GitHub repository webhook
+
+In the repo: **Settings → Webhooks → Add webhook**
+
+| Field | Value |
+| ----- | ----- |
+| Payload URL | `http://YOUR_VPS_PUBLIC_IP:9000/hooks/ground-up-wall-release` |
+| Content type | `application/json` |
+| Secret | same value as in `/etc/webhook/hooks.json` |
+| Events | **Releases** only |
+
+A **tag push alone does not deploy** — you must publish a Release (e.g. `gh release create v1.0.5`).
+
+#### 10.2.6 Verify
+
+1. **Recent Deliveries** in GitHub webhook settings — redeliver a `release` event; expect `200`.
+2. Publish a test release tag and confirm:
+   `sudo journalctl -u ground-up-wall -n 20`
+3. `curl -fsS http://127.0.0.1:8080/api/health` returns `{"ok":true,...}`.
+
+**Security:** HMAC secret is required even with IP-restricted UFW. Never expose the webhook on your
+Cloudflare-proxied app hostname.
 
 ---
 
@@ -856,6 +958,7 @@ Add a weekly `cron` entry as root.
 - [ ] GitHub deploy key or PAT verified:
       `sudo -u groundupwall git -C /opt/ground-up-wall/ground-up-wall fetch --tags origin` (non-interactive)
 - [ ] `deploy-wall` tested once on staging tag
+- [ ] (Optional) GitHub Release webhook: `webhook` service active; UFW + OCI allow port 9000 from GitHub `hooks` CIDRs only (§10.2)
 
 ---
 
@@ -878,6 +981,9 @@ Add a weekly `cron` entry as root.
 | `git clone` / `git fetch` 401, 403, or password prompt | Complete [§3.5](#35-github-access-private-repository); test as `groundupwall`           |
 | `Permission denied (publickey)` on `git fetch`         | Deploy key not on repo, wrong key path, or `core.sshCommand` not set for `groundupwall` |
 | `Host key verification failed` (git/ssh)               | `sudo -u groundupwall ssh-keyscan github.com >> /opt/ground-up-wall/.ssh/known_hosts`   |
+| GitHub webhook delivery fails / times out              | Check OCI + UFW allow 9000 from GitHub `hooks` CIDRs (§10.2.4); `systemctl status webhook` |
+| Webhook returns 403 / signature mismatch               | Secret in GitHub must match `/etc/webhook/hooks.json`; redeploy hooks after editing       |
+| Webhook fires but deploy does not run                  | `deploy-wall` must exist and run as root; check `journalctl -u webhook`                   |
 
 ---
 

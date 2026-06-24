@@ -113,6 +113,18 @@ function SubmissionCard({
     }
   }
 
+  async function handleShowOnDisplay() {
+    setBusy(true);
+    setError("");
+    try {
+      await onShowOnDisplay?.();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Show on display failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <article
       class={`submission-card ${submission.is_flagged ? "submission-card--flagged" : ""}`}
@@ -248,7 +260,7 @@ function SubmissionCard({
             <button
               type="button"
               disabled={busy}
-              onClick={() => void onShowOnDisplay()}
+              onClick={handleShowOnDisplay}
               class="btn btn--purple"
             >
               Show on display (cabin {cabinNumber})
