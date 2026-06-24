@@ -46,6 +46,18 @@ sudo -u "$APP_USER" deno install --lock=deno.lock
 echo "==> cache dependencies"
 sudo -u "$APP_USER" deno cache --lock=deno.lock prod.ts main.ts
 
+echo "==> build production routes"
+sudo -u "$APP_USER" bash -c "
+  cd '$APP_DIR'
+  if [[ -f '$ENV_FILE' ]]; then
+    set -a
+    # shellcheck disable=SC1090
+    source '$ENV_FILE'
+    set +a
+  fi
+  deno task build
+"
+
 echo "==> migrate database"
 sudo -u "$APP_USER" bash -c "
   cd '$APP_DIR'

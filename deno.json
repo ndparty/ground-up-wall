@@ -3,6 +3,7 @@
   "tasks": {
     "start": "deno run -A --watch=static/,routes/,lib/,islands/,components/ dev.ts",
     "start:prod": "deno run -A prod.ts",
+    "preview:prod": "deno task build && deno task start:prod",
     "dev": "deno run -A --watch=static/,routes/,lib/,islands/,components/ dev.ts",
     "build": "deno run -A dev.ts build",
     "test": "deno test -P",
