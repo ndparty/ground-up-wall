@@ -21,6 +21,7 @@ access.
 | systemd service hardening                               | [§7](#7-systemd-service)                                            |
 | TLS origin (Caddy)                                      | [§8](#8-caddy-https-origin)                                         |
 | Cloudflare edge + origin-only exposure                  | [§9](#9-cloudflare-recommended)                                     |
+| Authenticated Origin Pulls (mTLS from Cloudflare)       | [§9.7](#97-authenticated-origin-pulls-recommended)                |
 | Backups                                                 | [§11](#11-backups-recommended)                                      |
 
 **Application-level security** (NFR-23: rate limits, CSRF, PoW, CSP) is already in code — enable
@@ -402,6 +403,8 @@ curl -fsS --resolve your.domain.example:443:127.0.0.1 \
 
 Public visitors use `https://your.domain.example` through Cloudflare.
 
+After the origin cert works, add **Authenticated Origin Pulls** ([§9.7](#97-authenticated-origin-pulls-recommended)).
+
 ### 8.2 Let's Encrypt on origin (port 80 + 443) — preferred if you want public LE
 
 Caddy can obtain and renew **Let's Encrypt** certificates automatically. With **proxied** Cloudflare
@@ -436,6 +439,8 @@ curl -fsS https://your.domain.example/api/health
 **Risks of exposing port 80** (and how to mitigate) — see
 [§9.5](#95-risks-of-origin-port-80-with-lets-encrypt).
 
+After LE works, add **Authenticated Origin Pulls** ([§9.7](#97-authenticated-origin-pulls-recommended)).
+
 ### 8.3 Alternative: Cloudflare Origin Certificate (no port 80)
 
 If you want **443 only** on the origin, use a Cloudflare Origin Certificate
@@ -462,8 +467,10 @@ never talk to your origin IP on port 80.
 | **Minimum TLS Version** | 1.2+                                            | Reasonable default                                      |
 | **WebSockets**          | On (default)                                    | SSE display/moderation streams                          |
 
-Optional: **Authenticated Origin Pulls** (CF presents a client cert to your origin) — extra
-hardening; requires Caddy `tls` client auth config.
+**Authenticated Origin Pulls** (recommended): Cloudflare presents a client certificate on every
+proxied request to your origin; Caddy verifies it with [§9.7](#97-authenticated-origin-pulls-recommended).
+Use together with [§9.2](#92-firewall-only-cloudflare-may-reach-80-and-443) — IP allowlists and mTLS
+are independent layers.
 
 ### 9.2 Firewall: only Cloudflare may reach :80 and :443
 
@@ -543,7 +550,7 @@ No `DEPLOYED=0` or code changes needed beyond deploying a release that includes 
 
 | Risk                                                                 | Severity                          | Mitigation                                                                                                                                                                                                    |
 | -------------------------------------------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Bypass Cloudflare** (hit origin IP directly, skip WAF/rate limits) | High if firewall is open          | Restrict **80 and 443** to Cloudflare IPs only ([§9.2](#92-firewall-only-cloudflare-may-reach-80-and-443)). This is the critical control — port 80 alone is not the problem; **world-open** origin ports are. |
+| **Bypass Cloudflare** (hit origin IP directly, skip WAF/rate limits) | High if firewall is open          | Restrict **80 and 443** to Cloudflare IPs only ([§9.2](#92-firewall-only-cloudflare-may-reach-80-and-443)). Enable **Authenticated Origin Pulls** ([§9.7](#97-authenticated-origin-pulls-recommended)) so direct TLS to Caddy without CF's client cert fails even if IP rules drift. |
 | **Plain HTTP to origin**                                             | Medium                            | Cloudflare **Full (strict)** only — never **Flexible** (that sends decrypted HTTP from CF to origin). Caddy should redirect all non-ACME HTTP to HTTPS.                                                       |
 | **DDoS / scanning on :80**                                           | Medium if open to world           | Cloudflare-only firewall rules; Oracle VCN matches UFW.                                                                                                                                                       |
 | **LE renewal failure**                                               | Medium (outage when cert expires) | Keep :80 reachable **from Cloudflare**; monitor Caddy logs / cert expiry; test `caddy reload` after firewall changes.                                                                                         |
@@ -581,6 +588,175 @@ return 404 at the app layer.
 | Display wall       | `/concourse`   |
 | Admin              | `/towkay`      |
 | Change password    | `/tukar`       |
+
+### 9.7 Authenticated Origin Pulls (recommended)
+
+**Authenticated Origin Pulls (AOP)** add a cryptographic check on top of the Cloudflare IP firewall
+([§9.2](#92-firewall-only-cloudflare-may-reach-80-and-443)). When enabled, Cloudflare presents a
+**client certificate** signed by Cloudflare's origin-pull CA on every proxied HTTPS request to your
+origin. Caddy verifies that certificate during the TLS handshake and rejects connections that do not
+present a valid one — including a direct `curl` to your origin IP that might otherwise reach Caddy
+if firewall rules drift or the origin IP leaks.
+
+| Layer | What it blocks |
+| ----- | -------------- |
+| UFW + OCI (§9.2) | Non-Cloudflare source IPs on :80 / :443 |
+| AOP (this section) | Connections that reach :443 without Cloudflare's client cert |
+
+Do **both**. AOP does not replace IP allowlists (someone on a Cloudflare IP range without a valid
+client cert should still be blocked by mTLS; conversely, mTLS does not help if :443 is world-open and
+an attacker finds another path to your app).
+
+**Prerequisites:** Caddy serves HTTPS for your hostname ([§8.1](#81-cloudflare-origin-certificate-443-only-no-le) or
+[§8.2](#82-lets-encrypt-on-origin-port-80--443--preferred-if-you-want-public-le)); Cloudflare DNS is
+**proxied**; SSL mode is **Full (strict)** ([§9.1](#91-cloudflare-dashboard)).
+
+#### 9.7.1 Download Cloudflare's origin-pull CA
+
+On the VPS:
+
+```bash
+sudo mkdir -p /etc/caddy/certs
+sudo curl -fsS -o /etc/caddy/certs/cloudflare-origin-pull-ca.pem \
+  https://developers.cloudflare.com/ssl/static/authenticated_origin_pull_ca.pem
+sudo chmod 644 /etc/caddy/certs/cloudflare-origin-pull-ca.pem
+sudo chown root:caddy /etc/caddy/certs/cloudflare-origin-pull-ca.pem
+```
+
+Official reference:
+[Cloudflare Authenticated Origin Pulls CA](https://developers.cloudflare.com/ssl/static/authenticated_origin_pull_ca.pem).
+
+Re-download after major Cloudflare CA rotations (rare). Pin the URL above rather than copying PEM
+text from blog posts.
+
+#### 9.7.2 Configure Caddy `client_auth`
+
+Add a `client_auth` block inside the site `tls` configuration. Caddy **2.8+** (Ubuntu 24.04
+package) uses `trust_pool file`; older Caddy builds may need `trusted_ca_cert_file` instead (see
+note at end).
+
+**With Cloudflare Origin Certificate** ([§8.1](#81-cloudflare-origin-certificate-443-only-no-le)) —
+replace `your.domain.example`:
+
+```
+your.domain.example {
+    tls /etc/caddy/certs/origin.pem /etc/caddy/certs/origin-key.pem {
+        client_auth {
+            mode require_and_verify
+            trust_pool file /etc/caddy/certs/cloudflare-origin-pull-ca.pem
+        }
+    }
+
+    reverse_proxy 127.0.0.1:8080 {
+        header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
+        header_up X-Forwarded-Proto https
+        header_up Host {host}
+    }
+}
+```
+
+**With Let's Encrypt** ([§8.2](#82-lets-encrypt-on-origin-port-80--443--preferred-if-you-want-public-le)) —
+explicit `tls` block so `client_auth` nests correctly; Caddy still obtains and renews LE certs:
+
+```
+your.domain.example {
+    tls {
+        client_auth {
+            mode require_and_verify
+            trust_pool file /etc/caddy/certs/cloudflare-origin-pull-ca.pem
+        }
+    }
+
+    reverse_proxy 127.0.0.1:8080 {
+        header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
+        header_up X-Forwarded-Proto {http.request.header.X-Forwarded-Proto}
+        header_up Host {host}
+    }
+}
+```
+
+Validate syntax before reload:
+
+```bash
+sudo caddy validate --config /etc/caddy/Caddyfile
+sudo systemctl reload caddy
+```
+
+> **Older Caddy:** if `caddy validate` rejects `trust_pool`, use
+> `trusted_ca_cert_file /etc/caddy/certs/cloudflare-origin-pull-ca.pem` inside `client_auth` instead
+> of `trust_pool file`.
+
+#### 9.7.3 Enable in Cloudflare
+
+1. Open your zone (e.g. `wall.example.com`) → **SSL/TLS** → **Origin Server**.
+2. Under **Authenticated Origin Pulls**, toggle **On** (zone-level, Cloudflare-managed client cert).
+3. Confirm **SSL/TLS encryption mode** remains **Full (strict)**.
+
+This is **zone-level** AOP with Cloudflare's shared origin-pull certificate — the usual setup for a
+single photowall hostname. Per-hostname custom client certs are only needed for multi-tenant origins;
+see [Cloudflare per-hostname AOP](https://developers.cloudflare.com/ssl/origin-configuration/authenticated-origin-pull/set-up/per-hostname/)
+if you outgrow zone-level.
+
+**Safe rollout order**
+
+1. Install the CA file on the VPS ([§9.7.1](#971-download-cloudflares-origin-pull-ca)).
+2. Update the Caddyfile and `caddy validate` + `reload` ([§9.7.2](#972-configure-caddy-client_auth)).
+3. Verify the site still works through Cloudflare **before** enabling the Cloudflare toggle (Caddy
+   accepts connections without a client cert until CF starts sending one — brief window only if you
+   delay step 3).
+4. Enable **Authenticated Origin Pulls** in the dashboard ([§9.7.3](#973-enable-in-cloudflare)).
+5. Re-test through Cloudflare and run the negative test ([§9.7.4](#974-verify)).
+
+If you enable the Cloudflare toggle **before** Caddy enforces client auth, proxied traffic continues
+to work (CF sends a cert; Caddy ignores it until configured). If you enable Caddy `require_and_verify`
+**before** the Cloudflare toggle, proxied traffic **breaks** (502) until step 4 is done — configure
+Caddy first, then flip the toggle immediately.
+
+#### 9.7.4 Verify
+
+**Through Cloudflare (must succeed):**
+
+```bash
+curl -fsS https://your.domain.example/api/health
+```
+
+**Direct to origin IP without Cloudflare client cert (must fail):**
+
+Use your VPS public IP. With Origin Certificate, pin the cert; with LE, use `-k` to skip server cert
+verification — you are testing **client-auth rejection**, not server trust.
+
+```bash
+# Origin Certificate (§8.1)
+curl -v --resolve your.domain.example:443:YOUR_VPS_IP \
+  --cacert /etc/caddy/certs/origin.pem \
+  https://your.domain.example/api/health
+# Expect: TLS handshake error, connection reset, or HTTP 4xx — not {"ok":true}
+
+# Let's Encrypt (§8.2) — -k only to reach origin; mTLS should still block
+curl -vk --resolve your.domain.example:443:YOUR_VPS_IP \
+  https://your.domain.example/api/health
+# Expect: handshake failure / no JSON health body
+```
+
+**From the VPS via localhost** (also without client cert — should fail once AOP is fully enabled):
+
+```bash
+curl -vk --resolve your.domain.example:443:127.0.0.1 \
+  https://your.domain.example/api/health
+```
+
+If the negative test still returns `{"ok":true}`, Caddy is not enforcing `require_and_verify` — recheck
+the Caddyfile, `caddy validate`, and that you reloaded Caddy.
+
+#### 9.7.5 Troubleshooting AOP
+
+| Symptom | Likely cause | Fix |
+| ------- | ------------ | --- |
+| **502** from Cloudflare right after enabling AOP | Caddy requires client cert but CF toggle off, or wrong CA file | Enable CF AOP; verify CA path; `journalctl -u caddy -n 30` |
+| Site works direct-to-IP | `client_auth` missing or mode not `require_and_verify` | Fix Caddyfile; `caddy validate`; `reload` |
+| `caddy validate` syntax error on `trust_pool` | Older Caddy | Use `trusted_ca_cert_file` ([§9.7.2](#972-configure-caddy-client_auth)) |
+| Health OK via CF, fails direct | Expected when AOP works | No action |
+| Grey-cloud DNS (DNS only) | CF does not send origin-pull cert on non-proxied records | Keep **proxied** (orange cloud) for the app `A` record |
 
 ---
 
@@ -658,6 +834,7 @@ Add a weekly `cron` entry as root.
 ## 12. Pre-event checklist
 
 - [ ] Cloudflare **Full (strict)**; Caddy LE cert valid (or Origin Cert if using §8.1)
+- [ ] **Authenticated Origin Pulls** enabled in Cloudflare and enforced in Caddy (§9.7); direct-to-origin `curl` without client cert fails
 - [ ] Origin **80 and 443** restricted to Cloudflare IP ranges — UFW via `cloudflare-ufw.sh` (§9.2) and matching OCI Security List rules
 - [ ] `https://your.domain.example/muatnaik` loads through Cloudflare
 - [ ] `https://your.domain.example/api/health` returns `{"ok":true,"db":true}`
@@ -677,7 +854,9 @@ Add a weekly `cron` entry as root.
 | Problem                                                | Fix                                                                                     |
 | ------------------------------------------------------ | --------------------------------------------------------------------------------------- |
 | **525/526** SSL errors from Cloudflare                 | Set SSL mode to **Full (strict)**; verify origin cert paths in Caddyfile                |
+| **502** from Cloudflare after enabling AOP             | Enable CF **Authenticated Origin Pulls** (§9.7.3); verify CA file + `client_auth` in Caddyfile |
 | **502** from Cloudflare                                | App or Caddy down — `systemctl status caddy ground-up-wall`                             |
+| Direct `curl` to origin IP still returns health JSON   | AOP not enforced — add `client_auth` (§9.7.2), `require_and_verify`, reload Caddy       |
 | Rate limits affect everyone at once                    | Caddy not passing `CF-Connecting-IP` — check §8.1 headers                               |
 | Display SSE drops every ~100s                          | Deploy version with SSE keepalive; confirm Cloudflare proxy (not grey-cloud)            |
 | `Connection refused` on 8080                           | `sudo journalctl -u ground-up-wall -f` — check `DATABASE_URL`, Postgres running         |

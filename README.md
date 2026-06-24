@@ -10,7 +10,7 @@ Built for the Singapore National Day ground-up party.
 **Phase 01 (local MVP)** — **complete** (released as **v1.0.1**): upload, moderation, display wall,
 admin panel, and audit logging on localhost.
 
-**Phase 02 (production)** — **in progress** (tag **v1.0.5** on `phase2` branch): Oracle VPS deploy
+**Phase 02 (production)** — **in progress** (tag **v1.0.6** on `phase2` branch): Oracle VPS deploy
 path — `prod.ts`, `DEPLOYED=1` hardening, Caddy + Let's Encrypt + Cloudflare. Ops guide:
 [docs/phase02/oracle_vps_deploy.md](docs/phase02/oracle_vps_deploy.md).
 
