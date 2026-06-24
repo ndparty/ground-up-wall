@@ -23,3 +23,18 @@ Deno.test("testUpdateWordList", () => {
   const stored = normalizeWordListInput("bad, word\nanother");
   assertEquals(stored, '["bad","word","another"]');
 });
+
+Deno.test("testPublicParticipantUrl valid base URL", () => {
+  assertEquals(validateParameterValue("public_participant_url", ""), null);
+  assertEquals(
+    validateParameterValue("public_participant_url", "http://192.168.1.5:8080"),
+    null,
+  );
+});
+
+Deno.test("testPublicParticipantUrl rejects deep links", () => {
+  assertEquals(
+    validateParameterValue("public_participant_url", "http://192.168.1.5:8080/muatnaik") !== null,
+    true,
+  );
+});

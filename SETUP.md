@@ -126,6 +126,17 @@ and SSE all come from the same host.
 guest phones use `http://<server-ip>:8080` on the venue Wi‑Fi. Public internet is **not** required
 during the event.
 
+**Mobile login and upload on HTTP LAN:** proof-of-work uses a bundled SHA-256 solver (`static/pow-worker.js`)
+that does not require `crypto.subtle`, so staff login (`/masuk`) and participant upload (`/muatnaik`)
+work on phones over plain HTTP. PoW challenges prefetch in the background while the user fills the form.
+Tune cost vs speed in Admin → Parameters → **Proof-of-work difficulty** (`pow_difficulty_bits`, default 16;
+lower for slower devices or congested Wi‑Fi).
+
+**Display PC on localhost, phones on LAN:** if the projector opens `http://localhost:8080/concourse` but
+guests must scan a LAN address, set Admin → Parameters → **Public participant URL** (`public_participant_url`)
+to e.g. `http://192.168.1.5:8080`. The top banner shows that host; the QR cabin encodes the same origin
+(home redirect sends phones to upload). Leave empty to auto-detect from the browser address bar.
+
 | Requirement | Notes |
 |-------------|--------|
 | Pre-install (once, with internet) | `deno cache` / `deno task start` pulls JSR + npm deps; run `db:migrate` and `db:seed` |

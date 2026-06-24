@@ -20,6 +20,10 @@ import {
 } from "./jump_orchestrator_guard.ts";
 import { applyCommitAdvance, type PendingAdvance } from "./pending_advance.ts";
 import {
+  type PublicParticipantUrl,
+  resolvePublicParticipantUrl,
+} from "../display/public_participant_url.ts";
+import {
   addApproved,
   applyServerWindow,
   getCanonicalCount,
@@ -81,6 +85,7 @@ export interface UseTrainPlaybackResult {
   connectionStatus: ConnectionStatus;
   overrideState: OverrideState;
   reloadGeneration: number;
+  publicParticipantUrl: PublicParticipantUrl | null;
   setOrchestratorBusy: (busy: boolean) => void;
   flushDeferredJump: () => boolean;
   clearOrchestratorState: () => void;
@@ -105,6 +110,9 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
   const [pendingAdvances, setPendingAdvances] = useState(0);
   const [overrideState, setOverrideState] = useState<OverrideState>({ type: "normal" });
   const [reloadGeneration, setReloadGeneration] = useState(0);
+  const [publicParticipantUrl, setPublicParticipantUrl] = useState<PublicParticipantUrl | null>(
+    null,
+  );
 
   const isPlayingRef = useRef(isPlaying);
   const pendingRef = useRef<PendingAdvance[]>([]);
@@ -261,6 +269,11 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
           }
           setTrainViewState(state);
           setBootstrapError(null);
+          if (data.publicParticipantUrl) {
+            setPublicParticipantUrl(data.publicParticipantUrl as PublicParticipantUrl);
+          } else {
+            setPublicParticipantUrl(null);
+          }
         } else {
           setBootstrapError("Could not load the display. Please try again.");
         }
@@ -359,6 +372,11 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
       void syncPlaybackFromServer();
       setReloadGeneration((n) => n + 1);
     },
+    system_config_changed: (event) => {
+      const cfg = parseSseData<{ key: string; value: string }>(event);
+      if (!cfg || cfg.key !== "public_participant_url") return;
+      setPublicParticipantUrl(resolvePublicParticipantUrl(cfg.value));
+    },
   };
 
   const connectionStatus = useReconnectingEventSource(
@@ -418,6 +436,7 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
     connectionStatus,
     overrideState,
     reloadGeneration,
+    publicParticipantUrl,
     setOrchestratorBusy,
     flushDeferredJump,
     clearOrchestratorState,

@@ -1,8 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { fetchWithRetry } from "../lib/client/fetch_with_retry.ts";
 import { useReconnectingEventSource } from "../lib/client/use_reconnecting_event_source.ts";
-import { obtainPowToken } from "../lib/security/pow_client.ts";
+import { powErrorMessage } from "../lib/api/pow_errors.ts";
 import { readJsonError, uploadErrorMessage } from "../lib/api/upload_client.ts";
+import {
+  invalidatePowCache,
+  obtainPowTokenDetailed,
+  prefetchPowToken,
+} from "../lib/security/pow_client.ts";
 import { pickRandomStation } from "../lib/copy/mrt_stations.ts";
 import { POSTING_GUIDELINES_DISCLAIMER } from "../lib/copy/disclaimers.ts";
 import { PRIVACY_NOTICE_ITEMS } from "../lib/copy/privacy_notice.ts";
@@ -117,6 +122,7 @@ export default function UploadForm({
     const profile = loadFormProfile();
     setSubmitterName(profile.submitterName);
     setSocialHandle(profile.socialHandle);
+    prefetchPowToken();
   }, []);
 
   // FR-13a: live-reload prompt/length config when an admin changes it.
@@ -307,12 +313,17 @@ export default function UploadForm({
 
     let res = await send();
     if (res.status === 428) {
-      const token = await obtainPowToken();
-      if (!token) {
-        setError(uploadErrorMessage(null, 428));
+      const pow = await obtainPowTokenDetailed();
+      if (!pow.ok) {
+        setError(powErrorMessage(pow.reason));
         return;
       }
-      res = await send(token);
+      res = await send(pow.token);
+      if (res.status === 428) {
+        invalidatePowCache();
+        setError(powErrorMessage("solve_failed"));
+        return;
+      }
     }
 
     if (!res.ok) {
@@ -394,7 +405,7 @@ export default function UploadForm({
   return (
     <>
       <ConnectionBanner status={connectionStatus} />
-      <form onSubmit={handleSubmit} class="form">
+      <form onSubmit={handleSubmit} class="form form--upload">
         <link rel="stylesheet" href="/upload.css" />
 
         <section class="upload-privacy-notice">
@@ -482,10 +493,11 @@ export default function UploadForm({
           />
         </label>
 
-        <div data-field="acknowledged" class="form-field">
-          <label class="form-label--row">
+        <div data-field="acknowledged" class="form-field form-field--checkbox">
+          <label class="form-label--row form-label--checkbox">
             <input
               type="checkbox"
+              class="form-checkbox"
               checked={acknowledged}
               onChange={(e) => {
                 setAcknowledged((e.target as HTMLInputElement).checked);
@@ -512,7 +524,7 @@ export default function UploadForm({
         <button
           type="submit"
           disabled={loading}
-          class="btn btn--primary-lg"
+          class="btn btn--primary-lg btn--touch"
         >
           {loading ? "Processing photo…" : "Submit"}
         </button>

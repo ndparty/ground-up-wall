@@ -9,6 +9,7 @@ import {
 import { BodyTooLargeError, readFormDataWithLimit } from "../../../lib/security/body_limit.ts";
 import { verifyPowToken } from "../../../lib/security/pow_challenge_store.ts";
 import { securityGatesDisabled } from "../../../lib/security/gate_mode.ts";
+import { isStaffRequest } from "../../../lib/security/staff_gates.ts";
 import { define } from "../../../utils.ts";
 
 // Public upload endpoint: cap request size before buffering, and rate-limit per IP (NFR-23).
@@ -26,7 +27,7 @@ export const handlers = define.handlers({
         return ctx.json({ error: "Proof-of-work required", powRequired: true }, { status: 428 });
       }
     }
-    if (gatesOn) {
+    if (gatesOn && !isStaffRequest(ctx)) {
       const limit = uploadRateLimiter.check(clientKey(ctx.req, ctx.info));
       if (!limit.allowed) {
         return tooManyRequests(limit.retryAfterMs);

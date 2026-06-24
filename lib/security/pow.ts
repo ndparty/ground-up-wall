@@ -1,19 +1,22 @@
 /**
- * Hashcash-style proof-of-work (NFR-23). Isomorphic: uses Web Crypto (`crypto.subtle`)
- * so the same module runs in Deno (server verify) and the browser (client solve).
- *
- * A challenge is a `{ nonce, difficulty }`. A solution `s` is valid when
- * sha256(`${nonce}.${s}`) has at least `difficulty` leading zero bits. Verification
- * is a single hash; solving costs ~2^difficulty hashes — the intended asymmetry.
+ * Hashcash-style proof-of-work (NFR-23). Isomorphic: sync SHA-256 runs in Deno, browser, and
+ * static/pow-worker.js so solving works on HTTP LAN (no crypto.subtle required).
  */
+import { sha256HexSync } from "./sha256.ts";
+
 export const DEFAULT_POW_DIFFICULTY_BITS = 16;
 
-export async function sha256Hex(input: string): Promise<string> {
-  const data = new TextEncoder().encode(input);
-  const digest = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(digest))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
+export const CHALLENGE_TTL_MS = 2 * 60_000;
+/** Refresh cached client tokens this many ms before server nonce expiry. */
+export const POW_CACHE_REFRESH_BEFORE_MS = 30_000;
+
+export function sha256Hex(input: string): string {
+  return sha256HexSync(input);
+}
+
+/** @deprecated Use sha256Hex — kept for callers expecting async. */
+export async function sha256HexAsync(input: string): Promise<string> {
+  return sha256HexSync(input);
 }
 
 export function hasLeadingZeroBits(hexDigest: string, bits: number): boolean {
@@ -40,8 +43,22 @@ export async function verifyPow(
   difficulty: number,
 ): Promise<boolean> {
   if (!nonce || !solution) return false;
-  const digest = await sha256Hex(`${nonce}.${solution}`);
+  const digest = sha256Hex(`${nonce}.${solution}`);
   return hasLeadingZeroBits(digest, difficulty);
+}
+
+/** Solve a challenge synchronously (Deno tests and main-thread fallback). */
+export function solvePowSync(
+  nonce: string,
+  difficulty: number,
+  maxIterations = 5_000_000,
+): string | null {
+  for (let i = 0; i < maxIterations; i++) {
+    const solution = i.toString(36);
+    const digest = sha256Hex(`${nonce}.${solution}`);
+    if (hasLeadingZeroBits(digest, difficulty)) return solution;
+  }
+  return null;
 }
 
 /** Solve a challenge (client-side). Returns the solution string, or null if not found. */
@@ -50,10 +67,5 @@ export async function solvePow(
   difficulty: number,
   maxIterations = 5_000_000,
 ): Promise<string | null> {
-  for (let i = 0; i < maxIterations; i++) {
-    const solution = i.toString(36);
-    const digest = await sha256Hex(`${nonce}.${solution}`);
-    if (hasLeadingZeroBits(digest, difficulty)) return solution;
-  }
-  return null;
+  return solvePowSync(nonce, difficulty, maxIterations);
 }

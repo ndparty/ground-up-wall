@@ -18,3 +18,57 @@
 .upload-cabin-preview .train-cabin__body {
   margin-bottom: 12px;
 }
+
+.upload-privacy-notice {
+  margin-bottom: 1.25rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--border-light, #ddd);
+  border-radius: 8px;
+  background: var(--bg-muted, #fafafa);
+}
+
+.upload-privacy-notice__title {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+  color: var(--sg-dark, #1a1a2e);
+}
+
+.upload-privacy-notice__list {
+  margin: 0;
+  padding-left: 1.25rem;
+  font-size: 0.9rem;
+  color: var(--text-subtle, #555);
+  line-height: 1.45;
+}
+
+.upload-field-error {
+  display: block;
+  margin-top: 0.35rem;
+  color: var(--error, #c62828);
+  font-size: 0.9rem;
+}
+
+.upload-preview-loading {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.9rem;
+  color: var(--text-muted, #666);
+}
+
+.form-input {
+  font-size: 16px;
+}
+
+@media (max-width: 640px) {
+  .upload-privacy-notice__list {
+    font-size: 0.85rem;
+  }
+
+  .upload-cabin-preview {
+    max-width: 100%;
+  }
+
+  .upload-cabin-preview .train-cabin-wrap {
+    max-width: 100%;
+  }
+}

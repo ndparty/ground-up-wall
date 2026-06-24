@@ -33,10 +33,40 @@ export function validateParameterValue(key: string, value: string): string | nul
         return "pow_challenge_enabled must be 'true' or 'false'";
       }
       return null;
+    case "pow_difficulty_bits": {
+      const n = Number.parseInt(value, 10);
+      if (!Number.isFinite(n) || n < 8 || n > 24) {
+        return "pow_difficulty_bits must be an integer between 8 and 24";
+      }
+      return null;
+    }
     case "qr_cabin_interval": {
       const n = Number.parseInt(value, 10);
       if (!Number.isFinite(n) || n < 0 || n > 999) {
         return "qr_cabin_interval must be an integer between 0 and 999 (0 disables)";
+      }
+      return null;
+    }
+    case "public_participant_url": {
+      if (!value.trim()) return null;
+      if (value.length > 200) {
+        return "public_participant_url must be at most 200 characters";
+      }
+      let url: URL;
+      try {
+        url = new URL(value.trim());
+      } catch {
+        return "public_participant_url must be a valid http or https URL";
+      }
+      if (url.protocol !== "http:" && url.protocol !== "https:") {
+        return "public_participant_url must use http or https";
+      }
+      if (!url.hostname) {
+        return "public_participant_url must include a host";
+      }
+      const path = url.pathname.replace(/\/$/, "") || "";
+      if (path !== "") {
+        return "public_participant_url must be a base URL (no path beyond /)";
       }
       return null;
     }
@@ -85,7 +115,9 @@ export const PARAMETER_LABELS: Record<string, string> = {
   auto_moderator_word_list: "Auto-moderator word list",
   default_placeholder_image: "Default placeholder image URL",
   pow_challenge_enabled: "Proof-of-work challenge (upload + login)",
+  pow_difficulty_bits: "Proof-of-work difficulty (leading zero bits, 8–24)",
   qr_cabin_interval: "QR cabin interval (every N cabins, 0 = off)",
+  public_participant_url: "Public participant URL (banner + QR; empty = auto-detect)",
   system_killswitch_enabled: "Event killswitch (disable everything except login + admin)",
   uploads_enabled: "Public uploads enabled",
 };
@@ -98,7 +130,9 @@ export const PARAMETER_CATEGORIES: Record<string, string> = {
   auto_moderator_word_list: "Moderation",
   default_placeholder_image: "Display Override",
   pow_challenge_enabled: "Security",
+  pow_difficulty_bits: "Security",
   qr_cabin_interval: "Display",
+  public_participant_url: "Display",
   system_killswitch_enabled: "Event",
   uploads_enabled: "Event",
 };

@@ -74,6 +74,7 @@ export default function TrainDisplay() {
     connectionStatus,
     overrideState,
     reloadGeneration,
+    publicParticipantUrl,
     setOrchestratorBusy,
     flushDeferredJump,
     clearOrchestratorState,
@@ -83,9 +84,10 @@ export default function TrainDisplay() {
   const [instantSnap, setInstantSnap] = useState(true);
   const [isSliding, setIsSliding] = useState(false);
   const [highlightReady, setHighlightReady] = useState(true);
-  const [baseUrl, setBaseUrl] = useState("");
-  const [originUrl, setOriginUrl] = useState("");
   const [jumpOverlaySteps, setJumpOverlaySteps] = useState<TrainStep[] | null>(null);
+
+  const baseUrl = publicParticipantUrl?.bannerHost ?? globalThis.location?.host ?? "";
+  const originUrl = publicParticipantUrl?.qrOrigin ?? globalThis.location?.origin ?? "";
 
   const stageRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
@@ -118,11 +120,6 @@ export default function TrainDisplay() {
     getCenterKey(trainView);
   const showControls = shouldShowTrainControls(userRole);
   const overrideView = resolveOverrideView(overrideState);
-
-  useEffect(() => {
-    setBaseUrl(globalThis.location?.host ?? "");
-    setOriginUrl(globalThis.location?.origin ?? "");
-  }, []);
 
   useEffect(() => {
     const dismissed = globalThis.localStorage?.getItem("display_wall_fullscreen_dismissed");

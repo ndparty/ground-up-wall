@@ -1,7 +1,12 @@
-import { useState } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
 import { loginRedirectPath } from "../lib/auth/login_redirect.ts";
+import { powErrorMessage } from "../lib/api/pow_errors.ts";
 import { readJsonError, uploadErrorMessage } from "../lib/api/upload_client.ts";
-import { obtainPowToken } from "../lib/security/pow_client.ts";
+import {
+  invalidatePowCache,
+  obtainPowTokenDetailed,
+  prefetchPowToken,
+} from "../lib/security/pow_client.ts";
 import type { User } from "../lib/types.ts";
 
 export interface LoginFormProps {
@@ -11,6 +16,10 @@ export interface LoginFormProps {
 export default function LoginForm({ initialError = "" }: LoginFormProps) {
   const [error, setError] = useState(initialError);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    prefetchPowToken();
+  }, []);
 
   async function handleSubmit(e: Event) {
     e.preventDefault();
@@ -33,12 +42,17 @@ export default function LoginForm({ initialError = "" }: LoginFormProps) {
 
       let res = await send();
       if (res.status === 428) {
-        const token = await obtainPowToken();
-        if (!token) {
-          setError(uploadErrorMessage(null, 428));
+        const pow = await obtainPowTokenDetailed();
+        if (!pow.ok) {
+          setError(powErrorMessage(pow.reason));
           return;
         }
-        res = await send(token);
+        res = await send(pow.token);
+        if (res.status === 428) {
+          invalidatePowCache();
+          setError(powErrorMessage("solve_failed"));
+          return;
+        }
       }
       if (!res.ok) {
         const bodyError = await readJsonError(res);
@@ -82,7 +96,7 @@ export default function LoginForm({ initialError = "" }: LoginFormProps) {
       <button
         type="submit"
         disabled={loading}
-        class="btn btn--primary"
+        class="btn btn--primary btn--touch"
       >
         {loading ? "Signing in…" : "Sign in"}
       </button>

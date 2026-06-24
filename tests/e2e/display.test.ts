@@ -1,4 +1,5 @@
 import { assertEquals } from "@std/assert";
+import * as bcrypt from "bcrypt";
 import {
   authedRequest,
   cleanupTestData,
@@ -243,6 +244,56 @@ Deno.test({
     const res = await handler(authedRequest("http://localhost/concourse", token), serveInfo);
     const html = await res.text();
     assertEquals(html.includes("Jump to cabin"), false);
+    await teardownTestDb();
+  },
+});
+
+Deno.test({
+  name: "smoke: public_participant_url returned in concourse submissions bootstrap",
+  async fn() {
+    const handler = await createTestHandler();
+    await cleanupTestData();
+    const repo = await createTestRepository();
+    const password = "pass123";
+    const hash = await bcrypt.hash(password);
+    const admin = await repo.createUser({
+      username: `admin_${crypto.randomUUID().slice(0, 8)}`,
+      password_hash: hash,
+      role: "admin",
+    });
+    const displayWall = await repo.createDisplayWallUser({
+      username: `dw_${crypto.randomUUID().slice(0, 8)}`,
+      password_hash: hash,
+      role: "display_wall",
+    });
+    await repo.upsertSystemConfig(
+      "public_participant_url",
+      "http://192.168.1.5:8080",
+      admin.id,
+    );
+    await repo.close();
+
+    const dwLogin = await handler(
+      new Request("http://localhost/api/masuk/session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: displayWall.username, password }),
+      }),
+      serveInfo,
+    );
+    const dwCookie = dwLogin.headers.get("set-cookie");
+    const dwToken = dwCookie?.match(/session=([^;]+)/)?.[1];
+    if (!dwToken) throw new Error("Display wall login failed");
+
+    const res = await handler(
+      authedRequest("http://localhost/api/concourse/submissions", decodeURIComponent(dwToken)),
+      serveInfo,
+    );
+    const body = await res.json();
+    assertEquals(body.publicParticipantUrl, {
+      bannerHost: "192.168.1.5:8080",
+      qrOrigin: "http://192.168.1.5:8080",
+    });
     await teardownTestDb();
   },
 });

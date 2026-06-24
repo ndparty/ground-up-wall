@@ -145,47 +145,66 @@ export default function UserManagement() {
 
       {message && <p class="panel__message">{message}</p>}
 
-      <table class="data-table">
-        <thead>
-          <tr class="data-table__head">
-            <th class="data-table__cell">Username</th>
-            <th>Role</th>
-            <th>Status</th>
-            <th>Created</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {users.map((user) => (
-            <tr key={user.id} class="data-table__row">
-              <td class="data-table__cell">{user.username}</td>
-              <td>{user.role === "moderator" ? "Photo Moderator" : "Display Wall"}</td>
-              <td class={user.disabled ? "text-status-disabled" : "text-status-active"}>
-                {user.disabled ? "Disabled" : "Active"}
-              </td>
-              <td>{new Date(user.created_at).toLocaleString()}</td>
-              <td class="data-table__cell">
-                <button type="button" onClick={() => toggleStatus(user)}>Toggle</button>{" "}
-                <button type="button" onClick={() => setResetUserId(user.id)}>Reset pwd</button>
-                {" "}
-                <button type="button" onClick={() => deleteUser(user)}>Delete</button>
-                {resetUserId === user.id && (
-                  <div class="reset-panel">
-                    <input
-                      type="password"
-                      placeholder="New password"
-                      aria-label={`New password for ${user.username}`}
-                      value={resetPassword}
-                      onInput={(e) => setResetPassword((e.target as HTMLInputElement).value)}
-                    />
-                    <button type="button" onClick={() => submitResetPassword(user)}>Save</button>
-                  </div>
-                )}
-              </td>
+      <div class="data-table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr class="data-table__head">
+              <th class="data-table__cell">Username</th>
+              <th>Role</th>
+              <th>Status</th>
+              <th>Created</th>
+              <th>Actions</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {users.map((user) => (
+              <tr key={user.id} class="data-table__row">
+                <td class="data-table__cell">{user.username}</td>
+                <td>{user.role === "moderator" ? "Photo Moderator" : "Display Wall"}</td>
+                <td class={user.disabled ? "text-status-disabled" : "text-status-active"}>
+                  {user.disabled ? "Disabled" : "Active"}
+                </td>
+                <td>{new Date(user.created_at).toLocaleString()}</td>
+                <td class="data-table__cell data-table__actions">
+                  <button
+                    type="button"
+                    class="btn btn--ghost btn--table-action"
+                    onClick={() => toggleStatus(user)}
+                  >
+                    Toggle
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn--ghost btn--table-action"
+                    onClick={() => setResetUserId(user.id)}
+                  >
+                    Reset pwd
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn--ghost btn--table-action"
+                    onClick={() => deleteUser(user)}
+                  >
+                    Delete
+                  </button>
+                  {resetUserId === user.id && (
+                    <div class="reset-panel">
+                      <input
+                        type="password"
+                        placeholder="New password"
+                        aria-label={`New password for ${user.username}`}
+                        value={resetPassword}
+                        onInput={(e) => setResetPassword((e.target as HTMLInputElement).value)}
+                      />
+                      <button type="button" onClick={() => submitResetPassword(user)}>Save</button>
+                    </div>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

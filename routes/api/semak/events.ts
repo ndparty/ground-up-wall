@@ -1,14 +1,13 @@
 import { define } from "../../../utils.ts";
 import { createSseResponse } from "../../../lib/sse/create_event_stream.ts";
 import { acquireConnection, releaseConnection } from "../../../lib/sse/connection_limit.ts";
-
-const MAX_SSE_CONNECTIONS = 50;
+import { maxSseConnectionsForUser } from "../../../lib/security/staff_gates.ts";
 
 export const handlers = define.handlers({
   GET(ctx) {
     const user = ctx.state.user;
     const connKey = `moderate:${user?.id ?? "anon"}`;
-    if (!acquireConnection(connKey, MAX_SSE_CONNECTIONS)) {
+    if (!acquireConnection(connKey, maxSseConnectionsForUser(user))) {
       return new Response("Too many connections", { status: 503 });
     }
 

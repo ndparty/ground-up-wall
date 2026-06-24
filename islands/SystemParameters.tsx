@@ -370,7 +370,8 @@ export default function SystemParameters() {
 
                   <input
 
-                    type={p.key === "train_dwell_time" || p.key === "message_length_limit"
+                    type={p.key === "train_dwell_time" || p.key === "message_length_limit" ||
+                        p.key === "pow_difficulty_bits"
 
                       ? "number"
 

@@ -1,6 +1,14 @@
 import { assertEquals } from "@std/assert";
-import { hasLeadingZeroBits, solvePow, verifyPow } from "./pow.ts";
+import { hasLeadingZeroBits, solvePow, solvePowSync, verifyPow } from "./pow.ts";
 import { _clearChallenges, issueChallenge, verifyPowToken } from "./pow_challenge_store.ts";
+
+Deno.test("solvePowSync matches solvePow", async () => {
+  const nonce = "sync-test";
+  const difficulty = 8;
+  const sync = solvePowSync(nonce, difficulty);
+  const async = await solvePow(nonce, difficulty);
+  assertEquals(sync, async);
+});
 
 Deno.test("hasLeadingZeroBits checks bit prefix", () => {
   assertEquals(hasLeadingZeroBits("00ff", 8), true);
