@@ -247,10 +247,12 @@ sudo -u groundupwall git fetch --tags origin
 sudo -u groundupwall git checkout v1.0.4   # or latest v* tag
 ```
 
-Cache dependencies once:
+Install and cache dependencies once (npm packages such as OpenTelemetry, esbuild, and preact
+require a local `node_modules/` directory; `deno install` creates it from `deno.lock`):
 
 ```bash
 cd /opt/ground-up-wall/ground-up-wall
+sudo -u groundupwall deno install --lock=deno.lock
 sudo -u groundupwall deno cache --lock=deno.lock prod.ts main.ts
 ```
 

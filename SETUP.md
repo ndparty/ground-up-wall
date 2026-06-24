@@ -69,7 +69,13 @@ For a step-by-step demo walkthrough, see **[DEMO.md](DEMO.md)**.
 
    Re-run with fresh demo data: `deno run -A scripts/seed_demo_submissions.ts --force`
 
-7. **Start the dev server:**
+7. **Install dependencies** (first clone only; creates `node_modules/` for npm packages):
+
+   ```bash
+   deno install --lock=deno.lock
+   ```
+
+8. **Start the dev server:**
 
    ```bash
    deno task start
@@ -139,7 +145,7 @@ to e.g. `http://192.168.1.5:8080`. The top banner shows that host; the QR cabin 
 
 | Requirement | Notes |
 |-------------|--------|
-| Pre-install (once, with internet) | `deno cache` / `deno task start` pulls JSR + npm deps; run `db:migrate` and `db:seed` |
+| Pre-install (once, with internet) | `deno install --lock=deno.lock` then `deno task start`; run `db:migrate` and `db:seed` |
 | On-site | Deno server running; PostgreSQL reachable (default `localhost` or LAN host) |
 | `.env` defaults | `DATABASE_URL` → local Postgres; `REALTIME_PROVIDER=memory`; `STORAGE_PATH=./uploads` |
 | Breaks offline use | Remote cloud Postgres (e.g. Supabase URL); missing pre-cached npm packages |
@@ -176,6 +182,7 @@ Uploaded images are served at `/submissions/`, `/placeholders/`, and `/overrides
 | `session was terminated unexpectedly` on dev restart | Postgres is up but the old connection was stale — fixed by reconnect logic; if it persists after rapid restarts, wait a few seconds or restart the PostgreSQL service |
 | Seed says admin exists | Idempotent — safe to re-run |
 | Images 404 on display | Confirm files exist under `./uploads/` and server is running |
+| `Could not find a matching package for 'npm:@opentelemetry/api'` | Fresh clone missing `node_modules/`. Run `deno install --lock=deno.lock`, then retry `deno cache` or `deno task start` |
 
 ## Phase roadmap
 

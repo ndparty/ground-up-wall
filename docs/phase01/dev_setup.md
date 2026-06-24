@@ -56,6 +56,7 @@ After tools are installed, bootstrap the application (from the repo root):
 createdb ground_up_wall_dev
 createdb ground_up_wall_test
 cp .env.example .env
+deno install --lock=deno.lock
 deno task db:migrate
 deno task db:seed
 deno task start
@@ -505,6 +506,7 @@ Run these checks to confirm the machine is ready for development:
 | 6 | Git installed | `git --version` | Version output without errors |
 | 7 | VS Code installed | `code --version` | Version output without errors |
 | 8 | Deno can fetch remote modules | `deno eval --allow-net "const _ = await import('jsr:@std/assert@^1.0.0'); console.log('module fetch OK');"` | `module fetch OK` |
+| 9 | npm dependencies installed | `deno install --lock=deno.lock` | `node_modules/` created without errors |
 
 > ¹ On Windows PowerShell, use `echo $env:DATABASE_URL` instead.
 

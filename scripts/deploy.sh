@@ -40,6 +40,9 @@ fi
 
 sudo -u "$APP_USER" git checkout --force "$TAG"
 
+echo "==> install dependencies"
+sudo -u "$APP_USER" deno install --lock=deno.lock
+
 echo "==> cache dependencies"
 sudo -u "$APP_USER" deno cache --lock=deno.lock prod.ts main.ts
 
