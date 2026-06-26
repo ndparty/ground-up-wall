@@ -8,11 +8,11 @@ import {
   createTestRepository,
   createTestSubmission,
   loginAsModerator,
+  makePhotoForm,
   serveInfo,
   submitViaApi,
   teardownTestDb,
   testPhoto,
-  makePhotoForm,
 } from "../helpers.ts";
 
 const FORBIDDEN_AUDIT_METHODS = ["updateAuditEntry", "deleteAuditEntry"] as const;
@@ -40,7 +40,7 @@ Deno.test({
   name: "smoke: US-NFR-03 admin API not publicly accessible",
   async fn() {
     const handler = await createTestHandler();
-    const res = await handler(new Request("http://localhost/api/admin/users"), serveInfo);
+    const res = await handler(new Request("http://localhost/api/towkay/users"), serveInfo);
     assertEquals(res.status, 401);
     await teardownTestDb();
   },
@@ -51,9 +51,9 @@ Deno.test({
   async fn() {
     const handler = await createTestHandler();
     const { token } = await loginAsModerator(handler);
-    const res = await handler(authedRequest("http://localhost/admin", token), serveInfo);
+    const res = await handler(authedRequest("http://localhost/towkay", token), serveInfo);
     assertEquals(res.status, 302);
-    assertEquals(res.headers.get("location"), "http://localhost/moderate");
+    assertEquals(res.headers.get("location"), "http://localhost/semak");
     await teardownTestDb();
   },
 });
@@ -81,7 +81,7 @@ Deno.test({
     const { token, userId } = await loginAsModerator(handler);
     const submission = await createTestSubmission();
     await handler(
-      authedRequest(`http://localhost/api/moderate/approve/${submission.id}`, token, {
+      authedRequest(`http://localhost/api/semak/approve/${submission.id}`, token, {
         method: "POST",
       }),
       serveInfo,
@@ -104,7 +104,7 @@ Deno.test({
       const sub = await createTestSubmission({ submitter_name: `User ${i}` });
       ids.push(sub.id);
       await handler(
-        authedRequest(`http://localhost/api/moderate/approve/${sub.id}`, token, {
+        authedRequest(`http://localhost/api/semak/approve/${sub.id}`, token, {
           method: "POST",
         }),
         serveInfo,
@@ -112,7 +112,7 @@ Deno.test({
     }
     const start = performance.now();
     const res = await handler(
-      authedRequest("http://localhost/api/display/submissions", token),
+      authedRequest("http://localhost/api/concourse/submissions", token),
       serveInfo,
     );
     const elapsed = performance.now() - start;
@@ -124,12 +124,21 @@ Deno.test({
 });
 
 Deno.test({
-  name: "US-NFR-01 upload page uses readable layout classes",
+  name: "US-NFR-01 upload page has mobile viewport and upload styles",
   async fn() {
     const handler = await createTestHandler();
-    const res = await handler(new Request("http://localhost/upload"), serveInfo);
+    const res = await handler(new Request("http://localhost/muatnaik"), serveInfo);
     const html = await res.text();
+    assertEquals(html.includes("width=device-width"), true);
+    assertEquals(html.includes("viewport-fit=cover"), true);
     assertEquals(html.includes("upload") || html.includes("Upload"), true);
+    const css = await Deno.readTextFile("static/upload.css");
+    assertEquals(css.includes("upload-privacy-notice"), true);
+    assertEquals(
+      css.includes("btn--touch") ||
+        (await Deno.readTextFile("static/app.css")).includes("btn--touch"),
+      true,
+    );
     await teardownTestDb();
   },
 });

@@ -8,12 +8,12 @@ const ALL_OK = { killswitch: false, uploadsEnabled: true };
 Deno.test("login and admin stay available under killswitch", () => {
   for (
     const path of [
-      "/login",
-      "/admin",
-      "/admin/users",
-      "/api/auth/login",
-      "/api/admin/parameters",
-      "/api/pow/challenge",
+      "/masuk",
+      "/towkay",
+      "/towkay/users",
+      "/api/masuk/session",
+      "/api/towkay/parameters",
+      "/api/masuk/challenge",
     ]
   ) {
     assertEquals(accessDecision(path, ON), "allow");
@@ -21,23 +21,23 @@ Deno.test("login and admin stay available under killswitch", () => {
 });
 
 Deno.test("killswitch blocks display, upload, and moderation", () => {
-  assertEquals(accessDecision("/display", ON), "offline");
-  assertEquals(accessDecision("/upload", ON), "offline");
-  assertEquals(accessDecision("/moderate", ON), "offline");
-  assertEquals(accessDecision("/api/display/submissions", ON), "offline");
-  assertEquals(accessDecision("/api/moderate/pending", ON), "offline");
+  assertEquals(accessDecision("/concourse", ON), "offline");
+  assertEquals(accessDecision("/muatnaik", ON), "offline");
+  assertEquals(accessDecision("/semak", ON), "offline");
+  assertEquals(accessDecision("/api/concourse/submissions", ON), "offline");
+  assertEquals(accessDecision("/api/semak/pending", ON), "offline");
 });
 
 Deno.test("uploads-disabled blocks only upload paths", () => {
-  assertEquals(accessDecision("/upload", UPLOADS_OFF), "uploads-closed");
-  assertEquals(accessDecision("/api/submissions", UPLOADS_OFF), "uploads-closed");
-  assertEquals(accessDecision("/display", UPLOADS_OFF), "allow");
-  assertEquals(accessDecision("/moderate", UPLOADS_OFF), "allow");
+  assertEquals(accessDecision("/muatnaik", UPLOADS_OFF), "uploads-closed");
+  assertEquals(accessDecision("/api/muatnaik/submit", UPLOADS_OFF), "uploads-closed");
+  assertEquals(accessDecision("/concourse", UPLOADS_OFF), "allow");
+  assertEquals(accessDecision("/semak", UPLOADS_OFF), "allow");
 });
 
 Deno.test("everything allowed when both toggles are healthy", () => {
   for (
-    const path of ["/display", "/upload", "/moderate", "/api/submissions", "/api/display/events"]
+    const path of ["/concourse", "/muatnaik", "/semak", "/api/muatnaik/submit", "/api/concourse/events"]
   ) {
     assertEquals(accessDecision(path, ALL_OK), "allow");
   }

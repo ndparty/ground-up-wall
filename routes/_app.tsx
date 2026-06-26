@@ -7,7 +7,7 @@ export default define.page(function App({ Component, state }) {
     <html lang="en">
       <head>
         <meta charset="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
         <title>Ground-Up Photowall — National Day Ground-Up Party</title>
         <link rel="icon" href="/sg-flag.svg" type="image/svg+xml" />
         <link rel="icon" href="/favicon.ico" sizes="any" />

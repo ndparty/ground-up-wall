@@ -11,9 +11,6 @@ export const QR_CABIN_NAME = "Scan to share your photo";
 /** Upload preview roof badge when no server destination is assigned. */
 export const UPLOAD_PREVIEW_DESTINATION = "Preview";
 
-/** Proof-of-work difficulty (bits). */
-export const DEFAULT_POW_DIFFICULTY_BITS = 16;
-
 /** Public upload rate limit: requests per window. */
 export const UPLOAD_RATE_LIMIT = 15;
 export const UPLOAD_RATE_WINDOW_MS = 60_000;
@@ -50,7 +47,9 @@ export function buildSystemDefaults(): SystemDefaultRow[] {
     },
     { key: "default_placeholder_image", value: "", default_value: "" },
     { key: "pow_challenge_enabled", value: "true", default_value: "true" },
+    { key: "pow_difficulty_bits", value: "16", default_value: "16" },
     { key: "qr_cabin_interval", value: "15", default_value: "15" },
+    { key: "public_participant_url", value: "", default_value: "" },
     { key: "system_killswitch_enabled", value: "false", default_value: "false" },
     { key: "uploads_enabled", value: "true", default_value: "true" },
   ];

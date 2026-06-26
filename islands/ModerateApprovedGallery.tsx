@@ -14,7 +14,7 @@ export default function ModerateApprovedGallery() {
 
   async function loadApproved() {
     try {
-      const res = await fetchWithRetry("/api/moderate/approved");
+      const res = await fetchWithRetry("/api/semak/pamer");
       if (!res.ok) {
         setError("Failed to load approved submissions");
         return;
@@ -50,7 +50,7 @@ export default function ModerateApprovedGallery() {
   };
 
   const connectionStatus = useReconnectingEventSource(
-    "/api/moderate/events",
+    "/api/semak/events",
     sseHandlersRef,
     { onReconnect: () => void loadApproved() },
   );
@@ -60,7 +60,7 @@ export default function ModerateApprovedGallery() {
   }, []);
 
   async function showOnDisplay(cabinNumber: number): Promise<void> {
-    const res = await fetch("/api/display/train-command", {
+    const res = await fetch("/api/concourse/train-command", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ type: "jump", cabinNumber }),
@@ -85,7 +85,7 @@ export default function ModerateApprovedGallery() {
           <ApprovedWallList
             approved={approved}
             onEdit={async (sub, data) => {
-              const res = await fetch(`/api/moderate/edit/${sub.id}`, {
+              const res = await fetch(`/api/semak/edit/${sub.id}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(data),
@@ -95,7 +95,7 @@ export default function ModerateApprovedGallery() {
               setApproved((prev) => prev.map((s) => (s.id === sub.id ? updated : s)));
             }}
             onDelete={async (sub) => {
-              await apiAction(`/api/moderate/delete/${sub.id}`, "POST");
+              await apiAction(`/api/semak/delete/${sub.id}`, "POST");
               setApproved((prev) => prev.filter((s) => s.id !== sub.id));
             }}
             onShowOnDisplay={showOnDisplay}

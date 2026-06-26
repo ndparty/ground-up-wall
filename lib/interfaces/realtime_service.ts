@@ -22,11 +22,11 @@ export interface TrainCommand {
   window?: TrainStep[];
   /** Position (1-based) of the centered post within the canonical list. */
   currentCabin?: number;
-  /** Forward slide count for jump animation. */
+  /** @deprecated Client reconciles from `window` only; no longer published. */
   stepsToTarget?: number;
-  /** Extended linear tape for jump animation (preserves existing cabins + new right-edge steps). */
+  /** @deprecated Client reconciles from `window` only; no longer published. */
   animationWindow?: TrainStep[];
-  /** @deprecated Client uses final `window` + `stepsToTarget` only; no multi-step playback. */
+  /** @deprecated Client uses final `window` only; no multi-step playback. */
   stepWindows?: TrainStep[][];
 }
 

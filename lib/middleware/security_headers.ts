@@ -1,10 +1,8 @@
 import type { Middleware } from "fresh";
 import type { State } from "../../utils.ts";
+import { isDeployedEnvironment } from "../deployed.ts";
 
-/** True in deployed (HTTPS) environments — enables HSTS and Secure cookies. */
-export function isDeployedEnvironment(): boolean {
-  return Boolean(Deno.env.get("DENO_DEPLOYMENT_ID"));
-}
+export { isDeployedEnvironment } from "../deployed.ts";
 
 function buildContentSecurityPolicy(nonce: string): string {
   return [

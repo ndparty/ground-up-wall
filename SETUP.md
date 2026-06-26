@@ -47,7 +47,7 @@ For a step-by-step demo walkthrough, see **[DEMO.md](DEMO.md)**.
    export DEMO_DISPLAY_PASSWORD="demo123"
    ```
 
-   > **Security:** If passwords are not set, the seed script uses local fallbacks (`admin123`, `demo123`) and prints them to the console. The seed script **refuses** fallbacks when `DENO_DEPLOYMENT_ID` is set (deployed environments).
+   > **Security:** If passwords are not set, the seed script uses local fallbacks (`admin123`, `demo123`) and prints them to the console. The seed script **refuses** fallbacks when `DEPLOYED=1` (or `DENO_DEPLOYMENT_ID` is set) in deployed environments. See [docs/phase02/oracle_vps_deploy.md](docs/phase02/oracle_vps_deploy.md) for VPS production setup.
 
 5. **Run migrations:**
 
@@ -69,7 +69,13 @@ For a step-by-step demo walkthrough, see **[DEMO.md](DEMO.md)**.
 
    Re-run with fresh demo data: `deno run -A scripts/seed_demo_submissions.ts --force`
 
-7. **Start the dev server:**
+7. **Install dependencies** (first clone only; creates `node_modules/` for npm packages):
+
+   ```bash
+   deno install --lock=deno.lock
+   ```
+
+8. **Start the dev server:**
 
    ```bash
    deno task start
@@ -110,8 +116,8 @@ deno task test
 
 Some non-functional requirements require manual verification on target hardware:
 
-- **NFR-03 (60fps):** Open `/display` in Chrome → DevTools → Performance → record 30s with 50+ cabins → confirm ≥55fps sustained.
-- **NFR-04 (30s real-time):** Approve a submission in `/moderate`; measure time until it appears on `/display` (<30s).
+- **NFR-03 (60fps):** Open `/concourse` in Chrome → DevTools → Performance → record 30s with 50+ cabins → confirm ≥55fps sustained.
+- **NFR-04 (30s real-time):** Approve a submission in `/semak`; measure time until it appears on `/concourse` (<30s).
 - **NFR-08 (legibility):** DevTools → Computed → font-size on cabin name (≥24px) and message (≥18px).
 
 Automated checks cover audit-log integrity (`deno task test:e2e:smoke --filter audit`).
@@ -126,9 +132,20 @@ and SSE all come from the same host.
 guest phones use `http://<server-ip>:8080` on the venue Wi‑Fi. Public internet is **not** required
 during the event.
 
+**Mobile login and upload on HTTP LAN:** proof-of-work uses a bundled SHA-256 solver (`static/pow-worker.js`)
+that does not require `crypto.subtle`, so staff login (`/masuk`) and participant upload (`/muatnaik`)
+work on phones over plain HTTP. PoW challenges prefetch in the background while the user fills the form.
+Tune cost vs speed in Admin → Parameters → **Proof-of-work difficulty** (`pow_difficulty_bits`, default 16;
+lower for slower devices or congested Wi‑Fi).
+
+**Display PC on localhost, phones on LAN:** if the projector opens `http://localhost:8080/concourse` but
+guests must scan a LAN address, set Admin → Parameters → **Public participant URL** (`public_participant_url`)
+to e.g. `http://192.168.1.5:8080`. The top banner shows that host; the QR cabin encodes the same origin
+(home redirect sends phones to upload). Leave empty to auto-detect from the browser address bar.
+
 | Requirement | Notes |
 |-------------|--------|
-| Pre-install (once, with internet) | `deno cache` / `deno task start` pulls JSR + npm deps; run `db:migrate` and `db:seed` |
+| Pre-install (once, with internet) | `deno install --lock=deno.lock` then `deno task start`; run `db:migrate` and `db:seed` |
 | On-site | Deno server running; PostgreSQL reachable (default `localhost` or LAN host) |
 | `.env` defaults | `DATABASE_URL` → local Postgres; `REALTIME_PROVIDER=memory`; `STORAGE_PATH=./uploads` |
 | Breaks offline use | Remote cloud Postgres (e.g. Supabase URL); missing pre-cached npm packages |
@@ -165,11 +182,12 @@ Uploaded images are served at `/submissions/`, `/placeholders/`, and `/overrides
 | `session was terminated unexpectedly` on dev restart | Postgres is up but the old connection was stale — fixed by reconnect logic; if it persists after rapid restarts, wait a few seconds or restart the PostgreSQL service |
 | Seed says admin exists | Idempotent — safe to re-run |
 | Images 404 on display | Confirm files exist under `./uploads/` and server is running |
+| `Could not find a matching package for 'npm:@opentelemetry/api'` | Fresh clone missing `node_modules/`. Run `deno install --lock=deno.lock`, then retry `deno cache` or `deno task start` |
 
 ## Phase roadmap
 
-- **Phase 1 (current):** Local MVP — Deno Fresh + Postgres + filesystem storage
-- **Phase 2:** Cloud deployment (Deno Deploy + Supabase)
-- **Phase 3:** Instagram integration
+- **Phase 1 (complete):** Local MVP — Deno Fresh + Postgres + filesystem storage
+- **Phase 2 (production):** [docs/phase02/oracle_vps_deploy.md](docs/phase02/oracle_vps_deploy.md) — Oracle VPS (same stack as local; no Deno Deploy / Supabase)
+- **Phase 3 (planned):** Instagram integration — [docs/phase03/instagram_feasibility.md](docs/phase03/instagram_feasibility.md)
 
 See [docs/phase01/epic_plan-phase01.md](docs/phase01/epic_plan-phase01.md) for the full work-item breakdown.

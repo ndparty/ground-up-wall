@@ -1,6 +1,5 @@
 /** Pure layout math for track centering (testable without DOM). */
 import type { RenderCabin } from "./train_view.ts";
-import { RIGHT_RENDER } from "./train_view_constants.ts";
 
 export function computeAbsoluteTrackTranslate(
   stageCenterX: number,
@@ -166,24 +165,7 @@ export function measureSlotPitchPx(trackEl: HTMLElement): number {
   return b.offsetLeft - a.offsetLeft;
 }
 
-/** Start translateX for far-jump slide (target already at center slot after commit). */
-export function jumpSlideStartTx(
-  finalTx: number,
-  slideSteps: number,
-  slotPitchPx: number,
-): number {
-  const offsetSlots = Math.min(slideSteps, RIGHT_RENDER);
-  return finalTx + offsetSlots * slotPitchPx;
-}
-
 /** Remove CSS class that blocks transform transitions (!important). */
 export function ensureTrackCanAnimate(trackEl: HTMLElement): void {
   trackEl.classList.remove("display-wall__track--instant");
-}
-
-/** Set track to offset start position before animating a far jump. */
-export function prepareJumpSlideOffset(trackEl: HTMLElement, startTx: number): void {
-  ensureTrackCanAnimate(trackEl);
-  trackEl.style.transition = "none";
-  trackEl.style.transform = `translateX(${startTx}px)`;
 }

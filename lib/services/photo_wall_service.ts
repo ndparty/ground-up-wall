@@ -18,6 +18,11 @@ import {
 } from "../train/train_playback_controller.ts";
 import { SEEDED_DEFAULT_WORD_LIST } from "./auto_moderator_service_impl.ts";
 import { safeError } from "../log_safe.ts";
+import { DEFAULT_POW_DIFFICULTY_BITS } from "../security/pow.ts";
+import {
+  type PublicParticipantUrl,
+  resolvePublicParticipantUrl,
+} from "../display/public_participant_url.ts";
 import { isMessageValid, type MessageLengthConfig } from "../validation/message_length.ts";
 import type {
   AuditEntry,
@@ -48,6 +53,8 @@ export class PhotoWallService {
   private readonly playback: TrainPlaybackController;
   private playbackInitialized = false;
   private powFlagCache?: { value: boolean; at: number };
+  private powDifficultyCache?: { value: number; at: number };
+  private publicParticipantUrlCache?: { value: PublicParticipantUrl | null; at: number };
   private killswitchCache?: { value: boolean; at: number };
   private uploadsEnabledCache?: { value: boolean; at: number };
 
@@ -366,6 +373,34 @@ export class PhotoWallService {
     return value;
   }
 
+  /** Proof-of-work difficulty in leading zero bits (NFR-23). Cached 5s. */
+  async getPowDifficultyBits(): Promise<number> {
+    const now = Date.now();
+    if (this.powDifficultyCache && now - this.powDifficultyCache.at < 5_000) {
+      return this.powDifficultyCache.value;
+    }
+    const config = await this.repository.getSystemConfig("pow_difficulty_bits");
+    let value = DEFAULT_POW_DIFFICULTY_BITS;
+    if (config?.value) {
+      const n = Number.parseInt(config.value, 10);
+      if (Number.isFinite(n) && n >= 8 && n <= 24) value = n;
+    }
+    this.powDifficultyCache = { value, at: now };
+    return value;
+  }
+
+  /** Admin override for display banner host + QR origin; null when unset. Cached 5s. */
+  async getPublicParticipantUrl(): Promise<PublicParticipantUrl | null> {
+    const now = Date.now();
+    if (this.publicParticipantUrlCache && now - this.publicParticipantUrlCache.at < 5_000) {
+      return this.publicParticipantUrlCache.value;
+    }
+    const config = await this.repository.getSystemConfig("public_participant_url");
+    const value = resolvePublicParticipantUrl(config?.value);
+    this.publicParticipantUrlCache = { value, at: now };
+    return value;
+  }
+
   /** Event killswitch (NFR): when on, everything except login + admin is disabled. */
   async isKillswitchEnabled(): Promise<boolean> {
     const now = Date.now();
@@ -507,6 +542,7 @@ export class PhotoWallService {
     });
 
     await this.realtime.publish("system_config:changed", config);
+    this.invalidateSystemConfigCache(key);
 
     if (key === "train_dwell_time") {
       await this.ensurePlaybackInitialized();
@@ -532,6 +568,7 @@ export class PhotoWallService {
     });
 
     await this.realtime.publish("system_config:changed", config);
+    this.invalidateSystemConfigCache(key);
 
     if (key === "train_dwell_time") {
       await this.ensurePlaybackInitialized();
@@ -541,6 +578,14 @@ export class PhotoWallService {
       await this.ensurePlaybackInitialized();
       this.playback.setQrInterval(parseQrInterval(config.value));
     }
+  }
+
+  private invalidateSystemConfigCache(key: string): void {
+    if (key === "public_participant_url") this.publicParticipantUrlCache = undefined;
+    if (key === "pow_difficulty_bits") this.powDifficultyCache = undefined;
+    if (key === "pow_challenge_enabled") this.powFlagCache = undefined;
+    if (key === "system_killswitch_enabled") this.killswitchCache = undefined;
+    if (key === "uploads_enabled") this.uploadsEnabledCache = undefined;
   }
 
   async getAuditLog(filters: AuditFilter): Promise<AuditEntry[]> {

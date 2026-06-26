@@ -3,10 +3,8 @@ import { Client } from "@db/postgres";
 import { normalizeDatabaseUrl } from "../lib/db_url.ts";
 import { loadEnvFile } from "../lib/load_env.ts";
 import { PostgresRepository } from "../lib/repositories/postgres_repository.ts";
-import {
-  buildSystemDefaults,
-  CONFIG_MIGRATIONS,
-} from "../lib/defaults/app_defaults.ts";
+import { buildSystemDefaults, CONFIG_MIGRATIONS } from "../lib/defaults/app_defaults.ts";
+import { isDeployedEnvironment } from "../lib/deployed.ts";
 import { runMigrations } from "./migrate.ts";
 
 export const ADMIN_USERNAME = "admin";
@@ -31,7 +29,7 @@ export function resolveAdminPassword(): { password: string; source: "env" | "loc
   if (fromEnv && fromEnv.length > 0) {
     return { password: fromEnv, source: "env" };
   }
-  if (Deno.env.get("DENO_DEPLOYMENT_ID")) {
+  if (isDeployedEnvironment()) {
     throw new Error(
       "ADMIN_INITIAL_PASSWORD must be set before running the seed script in deployed environments.",
     );
@@ -42,8 +40,10 @@ export function resolveAdminPassword(): { password: string; source: "env" | "loc
 export function resolveDemoPassword(envKey: string): string {
   const fromEnv = Deno.env.get(envKey);
   if (fromEnv && fromEnv.length > 0) return fromEnv;
-  if (Deno.env.get("DENO_DEPLOYMENT_ID")) {
-    throw new Error(`${envKey} must be set before running the seed script in deployed environments.`);
+  if (isDeployedEnvironment()) {
+    throw new Error(
+      `${envKey} must be set before running the seed script in deployed environments.`,
+    );
   }
   return LOCAL_DEMO_FALLBACK_PASSWORD;
 }

@@ -1,7 +1,9 @@
 {
-  "nodeModulesDir": "manual",
+  "nodeModulesDir": "auto",
   "tasks": {
     "start": "deno run -A --watch=static/,routes/,lib/,islands/,components/ dev.ts",
+    "start:prod": "deno run -A prod.ts",
+    "preview:prod": "deno task build && deno task start:prod",
     "dev": "deno run -A --watch=static/,routes/,lib/,islands/,components/ dev.ts",
     "build": "deno run -A dev.ts build",
     "test": "deno test -P",
@@ -12,7 +14,7 @@
     "db:seed": "deno run -A scripts/seed.ts",
     "db:seed:demos": "deno run -A scripts/seed_demo_submissions.ts",
     "generate:mrt-stations": "deno run -A scripts/generate_mrt_stations.ts",
-    "check": "deno fmt --check . && deno lint . && deno check main.ts"
+    "check": "deno fmt --check . && deno lint . && deno check main.ts prod.ts"
   },
   "compilerOptions": {
     "lib": ["dom", "dom.asynciterable", "dom.iterable", "deno.ns"],
@@ -42,8 +44,10 @@
     "fresh": "jsr:@fresh/core@^2.3.3",
     "fresh/dev": "jsr:@fresh/core@^2.3.3/dev",
     "preact": "npm:preact@^10.29.2",
-    "preact/": "npm:preact@^10.29.2/",
+    "preact/hooks": "npm:preact@^10.29.2/hooks",
+    "preact/compat": "npm:preact@^10.29.2/compat",
     "preact/jsx-runtime": "npm:preact@^10.29.2/jsx-runtime",
+    "preact/jsx-dev-runtime": "npm:preact@^10.29.2/jsx-dev-runtime",
     "preact-render-to-string": "npm:preact-render-to-string@^6.6.7",
     "@preact/signals": "npm:@preact/signals@^2.9.0",
     "@preact/signals-core": "npm:@preact/signals-core@^1.8.0",

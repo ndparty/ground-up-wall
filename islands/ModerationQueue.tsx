@@ -113,6 +113,18 @@ function SubmissionCard({
     }
   }
 
+  async function handleShowOnDisplay() {
+    setBusy(true);
+    setError("");
+    try {
+      await onShowOnDisplay?.();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Show on display failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <article
       class={`submission-card ${submission.is_flagged ? "submission-card--flagged" : ""}`}
@@ -248,7 +260,7 @@ function SubmissionCard({
             <button
               type="button"
               disabled={busy}
-              onClick={() => void onShowOnDisplay()}
+              onClick={handleShowOnDisplay}
               class="btn btn--purple"
             >
               Show on display (cabin {cabinNumber})
@@ -280,8 +292,8 @@ export default function ModerationQueue() {
   async function loadQueues() {
     try {
       const [pendingRes, approvedRes] = await Promise.all([
-        fetchWithRetry("/api/moderate/pending"),
-        fetchWithRetry("/api/moderate/approved"),
+        fetchWithRetry("/api/semak/pending"),
+        fetchWithRetry("/api/semak/pamer"),
       ]);
       if (!pendingRes.ok || !approvedRes.ok) {
         setError("Failed to load moderation queue");
@@ -333,7 +345,7 @@ export default function ModerationQueue() {
   };
 
   const connectionStatus = useReconnectingEventSource(
-    "/api/moderate/events",
+    "/api/semak/events",
     sseHandlersRef,
     { onReconnect: () => void loadQueues() },
   );
@@ -343,7 +355,7 @@ export default function ModerationQueue() {
   }, []);
 
   async function showOnDisplay(cabinNumber: number): Promise<void> {
-    const res = await fetch("/api/display/train-command", {
+    const res = await fetch("/api/concourse/train-command", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ type: "jump", cabinNumber }),
@@ -383,17 +395,17 @@ export default function ModerationQueue() {
             key={sub.id}
             submission={sub}
             onApprove={async () => {
-              await apiAction(`/api/moderate/approve/${sub.id}`, "POST");
+              await apiAction(`/api/semak/approve/${sub.id}`, "POST");
               setPending((prev) => prev.filter((s) => s.id !== sub.id));
-              const res = await fetch("/api/moderate/approved");
+              const res = await fetch("/api/semak/pamer");
               if (res.ok) setApproved(await res.json());
             }}
             onReject={async () => {
-              await apiAction(`/api/moderate/reject/${sub.id}`, "POST");
+              await apiAction(`/api/semak/reject/${sub.id}`, "POST");
               setPending((prev) => prev.filter((s) => s.id !== sub.id));
             }}
             onEdit={async (data) => {
-              const res = await fetch(`/api/moderate/edit/${sub.id}`, {
+              const res = await fetch(`/api/semak/edit/${sub.id}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(data),
@@ -409,7 +421,7 @@ export default function ModerationQueue() {
       <ApprovedWallList
         approved={approved}
         onEdit={async (sub, data) => {
-          const res = await fetch(`/api/moderate/edit/${sub.id}`, {
+          const res = await fetch(`/api/semak/edit/${sub.id}`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(data),
@@ -419,7 +431,7 @@ export default function ModerationQueue() {
           setApproved((prev) => prev.map((s) => (s.id === sub.id ? updated : s)));
         }}
         onDelete={async (sub) => {
-          await apiAction(`/api/moderate/delete/${sub.id}`, "POST");
+          await apiAction(`/api/semak/delete/${sub.id}`, "POST");
           setApproved((prev) => prev.filter((s) => s.id !== sub.id));
         }}
         onShowOnDisplay={showOnDisplay}

@@ -14,7 +14,7 @@ Deno.test({
     const handler = await createTestHandler();
     const { token } = await loginAsModerator(handler);
     const res = await handler(
-      authedRequest("http://localhost/api/auth/change-password", token, {
+      authedRequest("http://localhost/api/masuk/tukar", token, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -36,7 +36,7 @@ Deno.test({
     const handler = await createTestHandler();
     const { token } = await loginAsModerator(handler);
     const res = await handler(
-      authedRequest("http://localhost/api/auth/change-password", token, {
+      authedRequest("http://localhost/api/masuk/tukar", token, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -58,7 +58,7 @@ Deno.test({
     const handler = await createTestHandler();
     const { token } = await loginAsModerator(handler);
     const res = await handler(
-      authedRequest("http://localhost/api/auth/change-password", token, {
+      authedRequest("http://localhost/api/masuk/tukar", token, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

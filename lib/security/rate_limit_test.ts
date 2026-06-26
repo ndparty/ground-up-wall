@@ -25,6 +25,16 @@ Deno.test("RateLimiter isolates keys", () => {
   assertEquals(limiter.check("a", 0).allowed, false);
 });
 
+Deno.test("clientKey prefers CF-Connecting-IP when proxied via Cloudflare", () => {
+  const req = new Request("http://localhost/", {
+    headers: {
+      "cf-connecting-ip": "203.0.113.9",
+      "x-forwarded-for": "198.51.100.1",
+    },
+  });
+  assertEquals(clientKey(req), "203.0.113.9");
+});
+
 Deno.test("clientKey prefers X-Forwarded-For first hop", () => {
   const req = new Request("http://localhost/", {
     headers: { "x-forwarded-for": "203.0.113.7, 10.0.0.1" },

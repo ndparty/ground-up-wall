@@ -48,7 +48,7 @@ export default function AuditLogView() {
     if (dateTo) params.set("date_to", dateTo);
     params.set("limit", String(PAGE_SIZE));
     params.set("offset", String(pageOffset));
-    const res = await fetch(`/api/admin/audit-log?${params}`);
+    const res = await fetch(`/api/towkay/audit-log?${params}`);
     if (res.ok) {
       const body = await res.json() as { entries: AuditEntry[]; total: number };
       setEntries(body.entries);
@@ -105,7 +105,9 @@ export default function AuditLogView() {
           value={dateTo}
           onInput={(e) => setDateTo((e.target as HTMLInputElement).value)}
         />
-        <button type="button" class="btn btn--primary" onClick={() => load(0)}>Apply filters</button>
+        <button type="button" class="btn btn--primary" onClick={() => load(0)}>
+          Apply filters
+        </button>
       </div>
 
       {total > 0 && (
@@ -135,34 +137,36 @@ export default function AuditLogView() {
       {entries.length === 0
         ? <p class="text-muted">No audit log entries found</p>
         : (
-          <table class="data-table data-table--compact">
-            <thead>
-              <tr class="data-table__head">
-                <th class="data-table__cell">Timestamp</th>
-                <th>Moderator</th>
-                <th>Action</th>
-                <th>Target</th>
-                <th>Old</th>
-                <th>New</th>
-              </tr>
-            </thead>
-            <tbody>
-              {entries.map((e) => (
-                <tr key={e.id} class="data-table__row">
-                  <td class="data-table__cell">{new Date(e.timestamp).toISOString()}</td>
-                  <td>{e.moderator_username ?? e.moderator_id}</td>
-                  <td>{e.action_type}</td>
-                  <td>{e.target_type}:{e.target_id}</td>
-                  <td class="data-table__cell--truncate">
-                    {e.old_value ?? "—"}
-                  </td>
-                  <td class="data-table__cell--truncate">
-                    {e.new_value ?? "—"}
-                  </td>
+          <div class="data-table-scroll">
+            <table class="data-table data-table--compact">
+              <thead>
+                <tr class="data-table__head">
+                  <th class="data-table__cell">Timestamp</th>
+                  <th>Moderator</th>
+                  <th>Action</th>
+                  <th>Target</th>
+                  <th>Old</th>
+                  <th>New</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {entries.map((e) => (
+                  <tr key={e.id} class="data-table__row">
+                    <td class="data-table__cell">{new Date(e.timestamp).toISOString()}</td>
+                    <td>{e.moderator_username ?? e.moderator_id}</td>
+                    <td>{e.action_type}</td>
+                    <td>{e.target_type}:{e.target_id}</td>
+                    <td class="data-table__cell--truncate">
+                      {e.old_value ?? "—"}
+                    </td>
+                    <td class="data-table__cell--truncate">
+                      {e.new_value ?? "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
     </div>
   );

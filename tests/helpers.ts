@@ -5,11 +5,11 @@ import {
   loginAsModerator,
   serveInfo,
   type TestHandler,
-} from "../lib/api/moderate_route_test_helpers.ts";
+} from "../lib/api/semak_route_test_helpers.ts";
 import {
   loginAsAdmin,
   loginAsDisplayWall,
-} from "../lib/api/display_route_test_helpers.ts";
+} from "../lib/api/concourse_route_test_helpers.ts";
 import { FileStorageService } from "../lib/repositories/file_storage_service.ts";
 import { MemoryRealtimeService } from "../lib/repositories/memory_realtime_service.ts";
 import { AuditServiceImpl } from "../lib/services/audit_service_impl.ts";
@@ -83,7 +83,7 @@ export async function loginAs(
   password: string,
 ): Promise<string> {
   const loginRes = await handler(
-    new Request("http://localhost/api/auth/login", {
+    new Request("http://localhost/api/masuk/session", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, password }),
@@ -186,7 +186,7 @@ export async function submitViaApi(
   form: FormData,
 ): Promise<Response> {
   return await handler(
-    new Request("http://localhost/api/submissions", { method: "POST", body: form }),
+    new Request("http://localhost/api/muatnaik/submit", { method: "POST", body: form }),
     serveInfo,
   );
 }

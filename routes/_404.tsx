@@ -1,6 +1,13 @@
+import { page } from "fresh";
 import { define } from "../utils.ts";
 
-export default define.page(function NotFound() {
+export const handlers = define.handlers({
+  GET() {
+    return page({}, { status: 404 });
+  },
+});
+
+export default define.page<typeof handlers>(function NotFound() {
   return (
     <div class="page page--center">
       <img

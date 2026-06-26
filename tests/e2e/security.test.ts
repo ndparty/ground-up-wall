@@ -59,7 +59,7 @@ Deno.test({
     const adminToken = await loginAs(handler, admin.username, adminPassword);
 
     const disableRes = await handler(
-      authedRequest("http://localhost/api/admin/users/toggle-status", adminToken, {
+      authedRequest("http://localhost/api/towkay/users/toggle-status", adminToken, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: mod.id, action: "disable" }),
@@ -69,7 +69,7 @@ Deno.test({
     assertEquals(disableRes.status, 200);
 
     const meRes = await handler(
-      authedRequest("http://localhost/api/auth/me", modToken),
+      authedRequest("http://localhost/api/masuk/me", modToken),
       serveInfo,
     );
     assertEquals(meRes.status, 401);
@@ -83,7 +83,7 @@ Deno.test({
     const handler = await createTestHandler();
     const { token } = await loginAsAdmin(handler);
     const res = await handler(
-      authedRequest("http://localhost/api/auth/change-password", token, {
+      authedRequest("http://localhost/api/masuk/tukar", token, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -106,13 +106,13 @@ Deno.test({
     const { token } = await loginAsModerator(handler);
     const submission = await createTestSubmission();
     await handler(
-      authedRequest(`http://localhost/api/moderate/approve/${submission.id}`, token, {
+      authedRequest(`http://localhost/api/semak/approve/${submission.id}`, token, {
         method: "POST",
       }),
       serveInfo,
     );
     const res = await handler(
-      authedRequest(`http://localhost/api/moderate/approve/${submission.id}`, token, {
+      authedRequest(`http://localhost/api/semak/approve/${submission.id}`, token, {
         method: "POST",
       }),
       serveInfo,
@@ -127,14 +127,14 @@ Deno.test({
   async fn() {
     const handler = await createTestHandler();
     const res = await handler(
-      new Request("http://localhost/login?username=demo&password=demo123"),
+      new Request("http://localhost/masuk?username=demo&password=demo123"),
       serveInfo,
     );
     assertEquals(res.status, 302);
     const location = res.headers.get("location") ?? "";
     assertEquals(location.includes("username="), false);
     assertEquals(location.includes("password="), false);
-    assertStringIncludes(location, "/login");
+    assertStringIncludes(location, "/masuk");
     await teardownTestDb();
   },
 });
@@ -143,17 +143,17 @@ Deno.test({
   name: "smoke: login form uses POST method",
   async fn() {
     const handler = await createTestHandler();
-    const res = await handler(new Request("http://localhost/login"), serveInfo);
+    const res = await handler(new Request("http://localhost/masuk"), serveInfo);
     assertEquals(res.status, 200);
     const html = await res.text();
     assertStringIncludes(html, 'method="post"');
-    assertStringIncludes(html, 'action="/login"');
+    assertStringIncludes(html, 'action="/masuk"');
     await teardownTestDb();
   },
 });
 
 Deno.test({
-  name: "smoke: POST /login form authenticates and redirects",
+  name: "smoke: POST /masuk form authenticates and redirects",
   async fn() {
     const handler = await createTestHandler();
     await cleanupTestData();
@@ -170,26 +170,48 @@ Deno.test({
     form.append("username", mod.username);
     form.append("password", password);
     const res = await handler(
-      new Request("http://localhost/login", { method: "POST", body: form }),
+      new Request("http://localhost/masuk", { method: "POST", body: form }),
       serveInfo,
     );
     assertEquals(res.status, 302);
-    assertStringIncludes(res.headers.get("location") ?? "", "/moderate");
+    assertStringIncludes(res.headers.get("location") ?? "", "/semak");
     assertStringIncludes(res.headers.get("set-cookie") ?? "", "session=");
     await teardownTestDb();
   },
 });
 
 Deno.test({
-  name: "smoke: POST /api/auth/login JSON unchanged",
+  name: "smoke: POST /api/masuk/session JSON unchanged",
   async fn() {
     const handler = await createTestHandler();
     const { token } = await loginAsModerator(handler);
     const meRes = await handler(
-      authedRequest("http://localhost/api/auth/me", token),
+      authedRequest("http://localhost/api/masuk/me", token),
       serveInfo,
     );
     assertEquals(meRes.status, 200);
+    await teardownTestDb();
+  },
+});
+
+Deno.test({
+  name: "smoke: legacy scanner paths return 404",
+  async fn() {
+    const handler = await createTestHandler();
+    for (
+      const path of [
+        "/login",
+        "/upload",
+        "/moderate",
+        "/display",
+        "/admin",
+        "/api/auth/login",
+        "/api/submissions",
+      ]
+    ) {
+      const res = await handler(new Request(`http://localhost${path}`), serveInfo);
+      assertEquals(res.status, 404, path);
+    }
     await teardownTestDb();
   },
 });

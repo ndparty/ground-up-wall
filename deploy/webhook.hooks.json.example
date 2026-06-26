@@ -1,0 +1,56 @@
+[
+  {
+    "id": "ground-up-wall-release",
+    "execute-command": "/usr/local/bin/deploy-wall",
+    "pass-arguments-to-command": [
+      {
+        "source": "payload",
+        "name": "release.tag_name"
+      }
+    ],
+    "trigger-rule": {
+      "and": [
+        {
+          "match": {
+            "type": "payload-hmac-sha256",
+            "secret": "REPLACE_WITH_WEBHOOK_SECRET",
+            "parameter": {
+              "source": "header",
+              "name": "X-Hub-Signature-256"
+            }
+          }
+        },
+        {
+          "match": {
+            "type": "value",
+            "value": "release",
+            "parameter": {
+              "source": "header",
+              "name": "X-GitHub-Event"
+            }
+          }
+        },
+        {
+          "match": {
+            "type": "regex",
+            "regex": "^published$",
+            "parameter": {
+              "source": "payload",
+              "name": "action"
+            }
+          }
+        },
+        {
+          "match": {
+            "type": "regex",
+            "regex": "^v",
+            "parameter": {
+              "source": "payload",
+              "name": "release.tag_name"
+            }
+          }
+        }
+      ]
+    }
+  }
+]

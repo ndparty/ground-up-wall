@@ -5,9 +5,13 @@ export interface SseStreamHandle {
 
 const SSE_HEADERS = {
   "Content-Type": "text/event-stream",
-  "Cache-Control": "no-cache",
+  "Cache-Control": "no-cache, no-store",
   Connection: "keep-alive",
+  "X-Accel-Buffering": "no",
 } as const;
+
+/** Comment pings keep proxied SSE alive (e.g. Cloudflare ~100s read timeout). */
+const SSE_KEEPALIVE_MS = 25_000;
 
 /**
  * ReadableStream SSE response with guarded enqueue so late async callbacks
@@ -51,6 +55,16 @@ export function createSseResponse(
         return;
       }
       setup(handle, (fn) => cleanups.push(fn));
+      const keepalive = setInterval(() => {
+        if (closed || controller === null) return;
+        try {
+          controller.enqueue(encoder.encode(": keepalive\n\n"));
+        } catch {
+          closed = true;
+          clearInterval(keepalive);
+        }
+      }, SSE_KEEPALIVE_MS);
+      cleanups.push(() => clearInterval(keepalive));
     },
     cancel() {
       closed = true;

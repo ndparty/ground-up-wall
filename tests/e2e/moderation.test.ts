@@ -14,7 +14,7 @@ Deno.test({
   async fn() {
     const handler = await createTestHandler();
     const { token } = await loginAsModerator(handler);
-    const res = await handler(authedRequest("http://localhost/moderate", token), serveInfo);
+    const res = await handler(authedRequest("http://localhost/semak", token), serveInfo);
     assertEquals(res.status, 200);
     await teardownTestDb();
   },
@@ -26,7 +26,7 @@ Deno.test({
     const handler = await createTestHandler();
     await cleanupTestData();
     const res = await handler(
-      new Request("http://localhost/api/auth/login", {
+      new Request("http://localhost/api/masuk/session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username: "nobody", password: "wrong" }),
@@ -42,9 +42,9 @@ Deno.test({
   name: "US-03 access without login redirects",
   async fn() {
     const handler = await createTestHandler();
-    const res = await handler(new Request("http://localhost/moderate"), serveInfo);
+    const res = await handler(new Request("http://localhost/semak"), serveInfo);
     assertEquals(res.status, 302);
-    assertEquals(res.headers.get("location"), "http://localhost/login");
+    assertEquals(res.headers.get("location"), "http://localhost/masuk");
     await teardownTestDb();
   },
 });
@@ -56,7 +56,7 @@ Deno.test({
     const { token } = await loginAsModerator(handler);
     await createTestSubmission();
     const res = await handler(
-      authedRequest("http://localhost/api/moderate/pending", token),
+      authedRequest("http://localhost/api/semak/pending", token),
       serveInfo,
     );
     assertEquals(res.status, 200);
@@ -72,7 +72,7 @@ Deno.test({
     const handler = await createTestHandler();
     const { token } = await loginAsModerator(handler);
     const res = await handler(
-      authedRequest("http://localhost/api/moderate/pending", token),
+      authedRequest("http://localhost/api/semak/pending", token),
       serveInfo,
     );
     assertEquals(res.status, 200);
@@ -89,7 +89,7 @@ Deno.test({
     const { token } = await loginAsModerator(handler);
     const submission = await createTestSubmission();
     const res = await handler(
-      authedRequest(`http://localhost/api/moderate/approve/${submission.id}`, token, {
+      authedRequest(`http://localhost/api/semak/approve/${submission.id}`, token, {
         method: "POST",
       }),
       serveInfo,
@@ -107,14 +107,14 @@ Deno.test({
     const { token } = await loginAsModerator(handler);
     const submission = await createTestSubmission();
     const res = await handler(
-      authedRequest(`http://localhost/api/moderate/reject/${submission.id}`, token, {
+      authedRequest(`http://localhost/api/semak/reject/${submission.id}`, token, {
         method: "POST",
       }),
       serveInfo,
     );
     assertEquals(res.status, 200);
     const pending = await handler(
-      authedRequest("http://localhost/api/moderate/pending", token),
+      authedRequest("http://localhost/api/semak/pending", token),
       serveInfo,
     );
     const list = await pending.json();
@@ -130,7 +130,7 @@ Deno.test({
     const { token } = await loginAsModerator(handler);
     const submission = await createTestSubmission();
     const res = await handler(
-      authedRequest(`http://localhost/api/moderate/edit/${submission.id}`, token, {
+      authedRequest(`http://localhost/api/semak/edit/${submission.id}`, token, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: "Edited message", submitter_name: "New Name" }),
@@ -150,13 +150,13 @@ Deno.test({
     const { token } = await loginAsModerator(handler);
     const submission = await createTestSubmission();
     await handler(
-      authedRequest(`http://localhost/api/moderate/approve/${submission.id}`, token, {
+      authedRequest(`http://localhost/api/semak/approve/${submission.id}`, token, {
         method: "POST",
       }),
       serveInfo,
     );
     const res = await handler(
-      authedRequest(`http://localhost/api/moderate/edit/${submission.id}`, token, {
+      authedRequest(`http://localhost/api/semak/edit/${submission.id}`, token, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: "Approved edit", submitter_name: "Name" }),
@@ -175,20 +175,20 @@ Deno.test({
     const { token } = await loginAsModerator(handler);
     const submission = await createTestSubmission();
     await handler(
-      authedRequest(`http://localhost/api/moderate/approve/${submission.id}`, token, {
+      authedRequest(`http://localhost/api/semak/approve/${submission.id}`, token, {
         method: "POST",
       }),
       serveInfo,
     );
     const res = await handler(
-      authedRequest(`http://localhost/api/moderate/delete/${submission.id}`, token, {
+      authedRequest(`http://localhost/api/semak/delete/${submission.id}`, token, {
         method: "POST",
       }),
       serveInfo,
     );
     assertEquals(res.status, 200);
     const approved = await handler(
-      authedRequest("http://localhost/api/moderate/approved", token),
+      authedRequest("http://localhost/api/semak/pamer", token),
       serveInfo,
     );
     const list = await approved.json();
@@ -204,7 +204,7 @@ Deno.test({
     const { token } = await loginAsModerator(handler);
     await createTestSubmission({ message: "what the hell", submitter_name: "User" });
     const res = await handler(
-      authedRequest("http://localhost/api/moderate/pending", token),
+      authedRequest("http://localhost/api/semak/pending", token),
       serveInfo,
     );
     const body = await res.json();
@@ -223,7 +223,7 @@ Deno.test({
       submitter_name: "User",
     });
     const res = await handler(
-      authedRequest(`http://localhost/api/moderate/approve/${submission.id}`, token, {
+      authedRequest(`http://localhost/api/semak/approve/${submission.id}`, token, {
         method: "POST",
       }),
       serveInfo,

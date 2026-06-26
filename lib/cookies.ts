@@ -1,3 +1,5 @@
+import { isDeployedEnvironment } from "./deployed.ts";
+
 export function getSessionToken(req: Request): string | null {
   const cookie = req.headers.get("cookie");
   if (!cookie) return null;
@@ -7,7 +9,7 @@ export function getSessionToken(req: Request): string | null {
 
 /** `; Secure` in deployed (HTTPS) environments so the session cookie is not sent over plain HTTP. */
 function secureAttr(): string {
-  return Deno.env.get("DENO_DEPLOYMENT_ID") ? "; Secure" : "";
+  return isDeployedEnvironment() ? "; Secure" : "";
 }
 
 export function sessionCookieHeader(token: string): string {
