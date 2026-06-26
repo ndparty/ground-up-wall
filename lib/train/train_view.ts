@@ -1,4 +1,4 @@
-import { CENTER_SLOT, LEFT_RENDER, RIGHT_RENDER, VIEWPORT_K } from "./train_view_constants.ts";
+import { CENTER_SLOT, LEFT_RENDER, VIEWPORT_K } from "./train_view_constants.ts";
 import type { Submission } from "../types.ts";
 import type { TrainStep } from "../interfaces/realtime_service.ts";
 
@@ -264,128 +264,9 @@ export function getCenterKeyFromSteps(window: TrainStep[]): string | null {
   return center ? `s${center.seq}` : null;
 }
 
-/** DOM key in overlay to slide toward for a jump (seq may differ from committed window). */
-export function getJumpSlideTargetKey(
-  overlay: TrainStep[],
-  committedWindow: TrainStep[],
-): string | null {
-  const centerStep = committedWindow[CENTER_SLOT];
-  if (!centerStep) return getCenterKeyFromSteps(committedWindow);
-
-  if (centerStep.kind === "post" && centerStep.submissionId) {
-    for (let i = overlay.length - 1; i >= 0; i--) {
-      const step = overlay[i];
-      if (
-        step?.kind === "post" &&
-        step.submissionId === centerStep.submissionId &&
-        !step.ephemeral
-      ) {
-        return `s${step.seq}`;
-      }
-    }
-  }
-
-  return getCenterKeyFromSteps(committedWindow);
-}
-
-/** Rightmost canonical target slot index in overlay, or null. */
-export function findCanonicalTargetSlotInOverlay(
-  overlay: TrainStep[],
-  submissionId: string,
-): number | null {
-  let found: number | null = null;
-  for (let i = 0; i < overlay.length; i++) {
-    const step = overlay[i];
-    if (
-      step?.kind === "post" &&
-      step.submissionId === submissionId &&
-      !step.ephemeral
-    ) {
-      found = i;
-    }
-  }
-  return found;
-}
-
-/** True when slideToKey toward getJumpSlideTargetKey would move backward (target left of center). */
-export function isBackwardSlideTarget(
-  overlay: TrainStep[],
-  committedWindow: TrainStep[],
-): boolean {
-  const centerStep = committedWindow[CENTER_SLOT];
-  if (
-    !centerStep ||
-    centerStep.kind !== "post" ||
-    !centerStep.submissionId ||
-    centerStep.ephemeral
-  ) {
-    return false;
-  }
-  const slot = findCanonicalTargetSlotInOverlay(overlay, centerStep.submissionId);
-  if (slot === null) return false;
-  return slot < CENTER_SLOT;
-}
-
-/** Forward DOM anchor for long / backward-target jumps — never a left-of-center canonical. */
-export function getForwardJumpSlideAnchorKey(
-  overlay: TrainStep[],
-  slideSteps: number,
-): string | null {
-  if (overlay.length === 0) return null;
-  const offset = Math.min(Math.max(slideSteps, 1), RIGHT_RENDER);
-  let idx = Math.min(CENTER_SLOT + offset, overlay.length - 1);
-  if (idx <= CENTER_SLOT && overlay.length > CENTER_SLOT + 1) {
-    idx = overlay.length - 1;
-  }
-  const step = overlay[idx];
-  return step ? `s${step.seq}` : null;
-}
-
 /** DOM keys for every step in an animation overlay. */
 export function overlayDomKeys(overlay: TrainStep[]): string[] {
   return overlay.map((step) => `s${step.seq}`);
-}
-
-/** True when the jump target center cabin is already rendered in the current window. */
-export function isJumpTargetInCurrentWindow(
-  current: TrainViewState,
-  nextWindow: TrainStep[],
-): boolean {
-  const centerStep = nextWindow[CENTER_SLOT];
-  if (
-    !centerStep ||
-    centerStep.kind !== "post" ||
-    !centerStep.submissionId ||
-    centerStep.ephemeral
-  ) {
-    return false;
-  }
-  return current.window.some((c) => c.submission?.id === centerStep.submissionId);
-}
-
-/** The cabin that will become center after one forward step (slide target). */
-export function getForwardSlideTargetKey(state: TrainViewState): string | null {
-  return state.window[LEFT_RENDER + 1]?.key ?? null;
-}
-
-/** Key of the cabin to center for the upcoming commit (from next server window). */
-export function getSlideTargetKey(
-  current: TrainViewState,
-  nextWindow: TrainStep[],
-): string | null {
-  const centerStep = nextWindow[CENTER_SLOT];
-  if (!centerStep) return getForwardSlideTargetKey(current);
-  const targetKey = `s${centerStep.seq}`;
-  if (current.window.some((c) => c.key === targetKey)) return targetKey;
-  return getForwardSlideTargetKey(current);
-}
-
-/** Slot steps between current center and slide target (min 1). */
-export function getSlideSlotDistance(current: TrainViewState, targetKey: string): number {
-  const centerIdx = LEFT_RENDER;
-  const targetIdx = current.window.findIndex((c) => c.key === targetKey);
-  if (targetIdx < 0) return 1;
-  return Math.max(Math.abs(targetIdx - centerIdx), 1);
 }
 
 export function addApproved(state: TrainViewState, submission: Submission): TrainViewState {

@@ -3,7 +3,6 @@ import type { TrainStep } from "../interfaces/realtime_service.ts";
 import { computeJumpAnimationPath } from "./train_view.ts";
 import { CENTER_SLOT, LEFT_RENDER, RIGHT_RENDER } from "./train_view_constants.ts";
 import {
-  animationWindowPreservesLivePrefix,
   appendEndStateTail,
   appendFullEndStateBlock,
   appendRightBufferFromSnapshot,
@@ -24,9 +23,13 @@ import {
   isCanonicalAtCenter,
   linearizeCenterShiftSequence,
   linearizeShiftSequence,
-  mergeRightBufferSteps,
   preserveDestinationsFromPreJumpTape,
   subsampleStepWindows,
+  buildReconcileBridge,
+  identityKey,
+  longestIdentityOverlap,
+  QR_IDENTITY,
+  windowsIdentityEqual,
 } from "./tape_helpers.ts";
 import { computeJumpStepCount } from "./train_view.ts";
 
@@ -175,18 +178,6 @@ Deno.test("linearizeShiftSequence appends new right-edge steps from snapshots", 
   ]);
 });
 
-Deno.test("mergeRightBufferSteps appends new steps without reordering current tape", () => {
-  const current = [post("a", 1), post("b", 2), post("c", 3)];
-  const animation = [post("b", 2), post("c", 3), post("d", 4), post("e", 5)];
-  assertEquals(mergeRightBufferSteps(current, animation), [
-    post("a", 1),
-    post("b", 2),
-    post("c", 3),
-    post("d", 4),
-    post("e", 5),
-  ]);
-});
-
 Deno.test("subsampleStepWindows picks evenly spaced windows", () => {
   const windows = Array.from({ length: 10 }, (_, i) => [post(`w${i}`, i)]);
   const sampled = subsampleStepWindows(windows, 3);
@@ -319,7 +310,6 @@ Deno.test("buildAppendOnlyJump long jump c3 to c9 appends minimal tail", () => {
   assertEquals(result.stepsToTarget, computeJumpStepCount(3, 9, 10));
   assertEquals(result.animationWindow.length, 10);
   assertEquals(result.committedTape[CENTER_SLOT]?.submissionId, "c9");
-  assertEquals(animationWindowPreservesLivePrefix(startTape, result.animationWindow), true);
   for (const cabin of [8, 9, 10]) {
     assertEquals(
       hasCanonicalPostInLinear(result.animationWindow, `c${cabin}`),
@@ -444,7 +434,6 @@ Deno.test("buildAppendOnlyJump on-tape left appends full end-state block c15 to 
     appendedTailCabins(startTape.length, result.animationWindow, cabinIds),
     [11, 12, 13, 14, 15, 16, 17],
   );
-  assertEquals(animationWindowPreservesLivePrefix(startTape, result.animationWindow), true);
 });
 
 Deno.test("appendFullEndStateBlock always appends seven cabins", () => {
@@ -478,11 +467,107 @@ function ids(n: number): string[] {
   return Array.from({ length: n }, (_, i) => `c${i + 1}`);
 }
 
-Deno.test("animationWindowPreservesLivePrefix requires matching seq prefix", () => {
-  const live = [post("c1", 1), post("c2", 2), post("c3", 3)];
-  const good = [post("c1", 1), post("c2", 2), post("c3", 3), post("c4", 4)];
-  const bad = [post("c1", 1), post("c2", 99), post("c3", 3)];
-  assertEquals(animationWindowPreservesLivePrefix(live, good), true);
-  assertEquals(animationWindowPreservesLivePrefix(live, bad), false);
-  assertEquals(animationWindowPreservesLivePrefix(live, live.slice(0, 2)), false);
+function qr(seq: number): TrainStep {
+  return { seq, kind: "qr", ephemeral: true };
+}
+
+function makeSeqCounter(start: number): () => number {
+  let n = start;
+  return () => ++n;
+}
+
+function identityKeys(steps: TrainStep[]): (string | null)[] {
+  return steps.map(identityKey);
+}
+
+Deno.test("identityKey maps posts and QR", () => {
+  assertEquals(identityKey(post("c1", 1)), "c1");
+  assertEquals(identityKey(qr(2)), QR_IDENTITY);
+});
+
+Deno.test("buildReconcileBridge advance overlap=6 slides one slot", () => {
+  const current = [
+    postCabin(1, 1), postCabin(2, 2), postCabin(3, 3),
+    postCabin(4, 4), postCabin(5, 5), postCabin(6, 6), postCabin(7, 7),
+  ];
+  const server = [
+    postCabin(2, 8), postCabin(3, 9), postCabin(4, 10),
+    postCabin(5, 11), postCabin(6, 12), postCabin(7, 13), postCabin(8, 14),
+  ];
+  assertEquals(longestIdentityOverlap(current, server), 6);
+  const { slotDelta, committedSlice } = buildReconcileBridge(
+    current,
+    server,
+    makeSeqCounter(100),
+  );
+  assertEquals(slotDelta, 1);
+  assertEquals(windowsIdentityEqual(committedSlice, server), true);
+});
+
+Deno.test("buildReconcileBridge deep suspend overlap=0", () => {
+  const current = [
+    postCabin(1, 1), postCabin(2, 2), postCabin(3, 3),
+    postCabin(4, 4), postCabin(5, 5), postCabin(6, 6), postCabin(7, 7),
+  ];
+  const server = [
+    postCabin(8, 50), postCabin(9, 51), postCabin(10, 52),
+    postCabin(11, 53), postCabin(12, 54), postCabin(13, 55), postCabin(14, 56),
+  ];
+  assertEquals(longestIdentityOverlap(current, server), 0);
+  const { slotDelta, bridge, committedSlice } = buildReconcileBridge(
+    current,
+    server,
+    makeSeqCounter(200),
+  );
+  assertEquals(slotDelta, 7);
+  assertEquals(bridge.length, 14);
+  assertEquals(windowsIdentityEqual(committedSlice, server), true);
+  const bridgeSeqs = bridge.map((s) => s.seq);
+  assertEquals(new Set(bridgeSeqs).size, bridgeSeqs.length);
+});
+
+Deno.test("buildReconcileBridge identity-equal windows is no-op slide", () => {
+  const current = [
+    postCabin(1, 1), postCabin(2, 2), postCabin(1, 3),
+    postCabin(2, 4), postCabin(1, 5), postCabin(2, 6), postCabin(1, 7),
+  ];
+  const server = [
+    postCabin(1, 8), postCabin(2, 9), postCabin(1, 10),
+    postCabin(2, 11), postCabin(1, 12), postCabin(2, 13), postCabin(1, 14),
+  ];
+  const { slotDelta } = buildReconcileBridge(current, server, makeSeqCounter(50));
+  assertEquals(slotDelta, 0);
+});
+
+Deno.test("buildReconcileBridge renumbers appended seqs after restart collision", () => {
+  const current = [
+    postCabin(1, 100), postCabin(2, 101), postCabin(3, 102),
+    postCabin(4, 103), postCabin(5, 104), postCabin(6, 105), postCabin(7, 106),
+  ];
+  const server = [
+    postCabin(5, 1), postCabin(6, 2), postCabin(7, 3),
+    postCabin(8, 4), postCabin(9, 5), postCabin(10, 6), postCabin(11, 7),
+  ];
+  const nextSeq = makeSeqCounter(106);
+  const { bridge, committedSlice } = buildReconcileBridge(current, server, nextSeq);
+  const appended = bridge.slice(7);
+  for (const step of appended) {
+    assertEquals(step.seq > 106, true);
+  }
+  assertEquals(windowsIdentityEqual(committedSlice, server), true);
+  const allSeqs = bridge.map((s) => s.seq);
+  assertEquals(new Set(allSeqs).size, allSeqs.length);
+});
+
+Deno.test("buildReconcileBridge preserves QR ephemeral in server window", () => {
+  const current = [
+    postCabin(1, 1), postCabin(2, 2), postCabin(3, 3),
+    postCabin(4, 4), postCabin(5, 5), postCabin(6, 6), postCabin(7, 7),
+  ];
+  const server = [
+    postCabin(3, 10), postCabin(4, 11), qr(12),
+    postCabin(5, 13), postCabin(6, 14), postCabin(7, 15), postCabin(8, 16),
+  ];
+  const { committedSlice } = buildReconcileBridge(current, server, makeSeqCounter(100));
+  assertEquals(identityKeys(committedSlice), identityKeys(server));
 });

@@ -9,31 +9,22 @@ import type {
 } from "../interfaces/realtime_service.ts";
 import type { Submission, User } from "../types.ts";
 import { mapCommandToOverrideState, type OverrideState } from "./display_override.ts";
-import { rebuildDeferredJumpAnimation } from "./client_jump_deps.ts";
-import { preserveDestinationsFromPreJumpTape } from "./tape_helpers.ts";
-import { shouldApplyPlaybackStateWindow } from "./playback_state_sync.ts";
-import {
-  deferJumpCommand,
-  pendingWithoutJumps,
-  shouldDeferJumpSse,
-  takeDeferredJump,
-} from "./jump_orchestrator_guard.ts";
-import { applyCommitAdvance, type PendingAdvance } from "./pending_advance.ts";
 import {
   type PublicParticipantUrl,
   resolvePublicParticipantUrl,
 } from "../display/public_participant_url.ts";
 import {
-  addApproved,
   applyServerWindow,
   getCanonicalCount,
   getCurrentCabin,
   initTrainView,
+  addApproved,
   removeSubmissionFromView,
   type TrainViewState,
   updateSubmissionInView,
 } from "./train_view.ts";
 import { CENTER_SLOT } from "./train_view_constants.ts";
+import { windowsIdentityEqual } from "./tape_helpers.ts";
 
 interface ServerPlaybackState {
   isPlaying: boolean;
@@ -43,10 +34,13 @@ interface ServerPlaybackState {
   window?: TrainStep[];
 }
 
-export type { PendingAdvance };
-export { applyCommitAdvance } from "./pending_advance.ts";
+export interface LatestTarget {
+  window: TrainStep[];
+  currentCabin: number;
+  allowWhilePaused: boolean;
+}
 
-export interface CommitAdvanceResult {
+export interface CommitReconcileResult {
   view: TrainViewState;
   centerKey: string | null;
 }
@@ -64,21 +58,35 @@ function centerKeyFromWindow(window: TrainStep[]): string | null {
   return center ? `s${center.seq}` : null;
 }
 
+function viewToSteps(view: TrainViewState): TrainStep[] {
+  return view.window.map((c) => ({
+    seq: Number.parseInt(c.key.slice(1), 10),
+    kind: c.kind,
+    submissionId: c.submission?.id,
+    destination: c.destination,
+    ephemeral: c.ephemeral,
+  }));
+}
+function maxSeqInSteps(steps: TrainStep[]): number {
+  return steps.reduce((max, s) => Math.max(max, s.seq), 0);
+}
+
 export interface UseTrainPlaybackResult {
   trainView: TrainViewState;
   isPlaying: boolean;
   userRole: User["role"] | null;
   currentCabin: number;
   trainLength: number;
-  pendingAdvances: number;
-  commitAdvance: () => CommitAdvanceResult | null;
-  peekPendingAdvance: () => PendingAdvance | null;
-  getPendingCount: () => number;
-  hasJumpPending: () => boolean;
+  reconcileGeneration: number;
+  commitReconciled: (committedWindow: TrainStep[], currentCabin: number) => CommitReconcileResult;
+  peekLatestTarget: () => LatestTarget | null;
+  latestGenerationRef: { current: number };
+  nextClientSeq: () => number;
   pauseTrain: () => Promise<boolean>;
   resumeTrain: () => Promise<boolean>;
   jumpTrain: (cabinNumber: number) => Promise<boolean>;
   syncPlaybackFromServer: () => Promise<void>;
+  reconcileFromServer: () => Promise<void>;
   bootstrapComplete: boolean;
   bootstrapError: string | null;
   retryBootstrap: () => void;
@@ -87,8 +95,8 @@ export interface UseTrainPlaybackResult {
   reloadGeneration: number;
   publicParticipantUrl: PublicParticipantUrl | null;
   setOrchestratorBusy: (busy: boolean) => void;
-  flushDeferredJump: () => boolean;
   clearOrchestratorState: () => void;
+  acknowledgeReconcileCatchUp: () => void;
 }
 
 async function publishTrainCommand(command: TrainCommand): Promise<boolean> {
@@ -107,7 +115,7 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
   const [bootstrapComplete, setBootstrapComplete] = useState(false);
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
   const [bootstrapAttempt, setBootstrapAttempt] = useState(0);
-  const [pendingAdvances, setPendingAdvances] = useState(0);
+  const [reconcileGeneration, setReconcileGeneration] = useState(0);
   const [overrideState, setOverrideState] = useState<OverrideState>({ type: "normal" });
   const [reloadGeneration, setReloadGeneration] = useState(0);
   const [publicParticipantUrl, setPublicParticipantUrl] = useState<PublicParticipantUrl | null>(
@@ -115,56 +123,54 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
   );
 
   const isPlayingRef = useRef(isPlaying);
-  const pendingRef = useRef<PendingAdvance[]>([]);
+  const latestTargetRef = useRef<LatestTarget | null>(null);
+  const latestGenerationRef = useRef(0);
+  const clientSeqCounterRef = useRef(0);
   const trainViewRef = useRef(trainView);
   const orchestratorBusyRef = useRef(false);
-  const deferredJumpRef = useRef<TrainCommand | null>(null);
   isPlayingRef.current = isPlaying;
   trainViewRef.current = trainView;
 
-  function clearPending(): void {
-    pendingRef.current = [];
-    setPendingAdvances(0);
+  function seedClientSeqFromSteps(steps: TrainStep[]): void {
+    clientSeqCounterRef.current = Math.max(
+      clientSeqCounterRef.current,
+      maxSeqInSteps(steps),
+    );
   }
 
-  function enqueueAdvance(advance: PendingAdvance): void {
-    pendingRef.current = [...pendingRef.current, advance];
-    setPendingAdvances(pendingRef.current.length);
+  function bumpReconcile(
+    window: TrainStep[],
+    currentCabin: number,
+    allowWhilePaused: boolean,
+  ): void {
+    seedClientSeqFromSteps(window);
+    latestTargetRef.current = { window, currentCabin, allowWhilePaused };
+    latestGenerationRef.current += 1;
+    setReconcileGeneration(latestGenerationRef.current);
   }
 
-  function enqueueJumpSteps(command: TrainCommand): void {
-    if (!command.window) return;
-    enqueueAdvance({
-      window: command.window,
-      currentCabin: command.currentCabin ?? 0,
-      kind: "jump",
-      slideSteps: command.stepsToTarget,
-      animationWindow: command.animationWindow,
-      fromCabin: getCurrentCabin(trainViewRef.current),
-    });
+  function clearLatestTarget(): void {
+    latestTargetRef.current = null;
   }
 
-  const commitAdvance = useCallback((): CommitAdvanceResult | null => {
-    const next = pendingRef.current[0];
-    pendingRef.current = pendingRef.current.slice(1);
-    setPendingAdvances(pendingRef.current.length);
-    if (!next) return null;
-    const updated = applyCommitAdvance(trainViewRef.current, next);
+  const nextClientSeq = useCallback((): number => {
+    clientSeqCounterRef.current += 1;
+    return clientSeqCounterRef.current;
+  }, []);
+
+  const commitReconciled = useCallback((
+    committedWindow: TrainStep[],
+    currentCabin: number,
+  ): CommitReconcileResult => {
+    const updated = applyServerWindow(trainViewRef.current, committedWindow, currentCabin);
     trainViewRef.current = updated;
     setTrainViewState(updated);
-    return { view: updated, centerKey: centerKeyFromWindow(next.window) };
+    seedClientSeqFromSteps(committedWindow);
+    return { view: updated, centerKey: centerKeyFromWindow(committedWindow) };
   }, []);
 
-  const peekPendingAdvance = useCallback((): PendingAdvance | null => {
-    return pendingRef.current[0] ?? null;
-  }, []);
-
-  const getPendingCount = useCallback((): number => {
-    return pendingRef.current.length;
-  }, []);
-
-  const hasJumpPending = useCallback((): boolean => {
-    return pendingRef.current.some((p) => p.kind === "jump");
+  const peekLatestTarget = useCallback((): LatestTarget | null => {
+    return latestTargetRef.current;
   }, []);
 
   const setOrchestratorBusy = useCallback((busy: boolean): void => {
@@ -173,30 +179,11 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
 
   const clearOrchestratorState = useCallback((): void => {
     orchestratorBusyRef.current = false;
-    deferredJumpRef.current = null;
+    clearLatestTarget();
   }, []);
 
-  const flushDeferredJump = useCallback((): boolean => {
-    const command = takeDeferredJump(deferredJumpRef.current);
-    if (!command) return false;
-    deferredJumpRef.current = null;
-    pendingRef.current = pendingWithoutJumps(pendingRef.current);
-    setPendingAdvances(pendingRef.current.length);
-    if (!command.window || command.cabinNumber === undefined) return false;
-    const { animationWindow, stepsToTarget } = rebuildDeferredJumpAnimation(
-      trainViewRef.current,
-      command.cabinNumber,
-    );
-    preserveDestinationsFromPreJumpTape(animationWindow, command.window);
-    enqueueAdvance({
-      window: command.window,
-      currentCabin: command.currentCabin ?? 0,
-      kind: "jump",
-      slideSteps: stepsToTarget,
-      animationWindow,
-      fromCabin: getCurrentCabin(trainViewRef.current),
-    });
-    return true;
+  const acknowledgeReconcileCatchUp = useCallback((): void => {
+    clearLatestTarget();
   }, []);
 
   const syncOverrideFromServer = useCallback(async () => {
@@ -211,14 +198,14 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
   }, []);
 
   const syncPlaybackFromServer = useCallback(async () => {
-    if (orchestratorBusyRef.current || pendingRef.current.length > 0) return;
+    if (orchestratorBusyRef.current || latestTargetRef.current !== null) return;
     try {
       const res = await fetchWithRetry("/api/concourse/submissions");
       if (!res.ok) return;
       const data = await res.json();
       if (data.playback) {
         setIsPlaying(data.playback.isPlaying ?? true);
-        clearPending();
+        clearLatestTarget();
         setTrainViewState((prev) => {
           const withCanon = initTrainView(data.submissions as Submission[]);
           const merged: TrainViewState = { ...withCanon, currentCabin: prev.currentCabin };
@@ -229,6 +216,29 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
           );
         });
       }
+    } catch {
+      // ignore — banner shows reconnect state
+    }
+  }, []);
+
+  const reconcileFromServer = useCallback(async () => {
+    try {
+      const res = await fetchWithRetry("/api/concourse/submissions");
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!data.playback?.window) return;
+
+      setIsPlaying(data.playback.isPlaying ?? true);
+      setTrainViewState((prev) => ({
+        ...initTrainView(data.submissions as Submission[]),
+        window: prev.window,
+        currentCabin: prev.currentCabin,
+      }));
+      bumpReconcile(
+        data.playback.window as TrainStep[],
+        data.playback.currentCabin ?? 0,
+        false,
+      );
     } catch {
       // ignore — banner shows reconnect state
     }
@@ -266,6 +276,13 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
               (data.playback.window as TrainStep[]) ?? [],
               data.playback.currentCabin ?? 0,
             );
+            seedClientSeqFromSteps(state.window.map((c) => ({
+              seq: Number.parseInt(c.key.slice(1), 10),
+              kind: c.kind,
+              submissionId: c.submission?.id,
+              destination: c.destination,
+              ephemeral: c.ephemeral,
+            })));
           }
           setTrainViewState(state);
           setBootstrapError(null);
@@ -317,49 +334,31 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
 
       if (command.type === "pause") {
         setIsPlaying(false);
-        if (!orchestratorBusyRef.current) {
-          clearPending();
-          deferredJumpRef.current = null;
-        }
+        if (!orchestratorBusyRef.current) clearLatestTarget();
         return;
       }
       if (command.type === "play") {
         setIsPlaying(true);
+        latestGenerationRef.current += 1;
+        setReconcileGeneration(latestGenerationRef.current);
         return;
       }
       if (command.type === "advance" && command.window) {
         if (!isPlayingRef.current) return;
-        enqueueAdvance({
-          window: command.window,
-          currentCabin: command.currentCabin ?? 0,
-          kind: "advance",
-        });
+        bumpReconcile(command.window, command.currentCabin ?? 0, false);
         return;
       }
       if (command.type === "jump" && command.window && command.cabinNumber !== undefined) {
-        if (shouldDeferJumpSse(orchestratorBusyRef.current)) {
-          deferredJumpRef.current = deferJumpCommand(deferredJumpRef.current, command);
-          return;
-        }
-        clearPending();
-        enqueueJumpSteps(command);
+        bumpReconcile(command.window, command.currentCabin ?? 0, true);
       }
     },
     train_playback_state: (event) => {
       const playback = parseSseData<ServerPlaybackState>(event);
       if (!playback) return;
       setIsPlaying(playback.isPlaying);
-      if (
-        !shouldApplyPlaybackStateWindow(
-          pendingRef.current.length,
-          orchestratorBusyRef.current,
-          deferredJumpRef.current !== null,
-        )
-      ) return;
-      clearPending();
-      setTrainViewState((prev) =>
-        applyServerWindow(prev, playback.window ?? [], playback.currentCabin)
-      );
+      if (orchestratorBusyRef.current || !playback.window?.length) return;
+      if (windowsIdentityEqual(viewToSteps(trainViewRef.current), playback.window)) return;
+      bumpReconcile(playback.window, playback.currentCabin ?? 0, false);
     },
     display_override: (event) => {
       const command = parseSseData<DisplayOverrideCommand>(event);
@@ -368,7 +367,7 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
       }
     },
     display_reload: () => {
-      clearPending();
+      clearLatestTarget();
       void syncPlaybackFromServer();
       setReloadGeneration((n) => n + 1);
     },
@@ -385,7 +384,7 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
     {
       enabled: bootstrapComplete,
       onReconnect: () => {
-        void syncPlaybackFromServer();
+        void reconcileFromServer();
         void syncOverrideFromServer();
       },
     },
@@ -394,10 +393,7 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
   async function pauseTrain(): Promise<boolean> {
     const wasPlaying = isPlaying;
     setIsPlaying(false);
-    if (!orchestratorBusyRef.current) {
-      clearPending();
-      deferredJumpRef.current = null;
-    }
+    if (!orchestratorBusyRef.current) clearLatestTarget();
     const ok = await publishTrainCommand({ type: "pause" });
     if (!ok) setIsPlaying(wasPlaying);
     return ok;
@@ -406,6 +402,8 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
   async function resumeTrain(): Promise<boolean> {
     const wasPlaying = isPlaying;
     setIsPlaying(true);
+    latestGenerationRef.current += 1;
+    setReconcileGeneration(latestGenerationRef.current);
     const ok = await publishTrainCommand({ type: "play" });
     if (!ok) setIsPlaying(wasPlaying);
     return ok;
@@ -421,15 +419,16 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
     userRole,
     currentCabin: getCurrentCabin(trainView),
     trainLength: getCanonicalCount(trainView),
-    pendingAdvances,
-    commitAdvance,
-    peekPendingAdvance,
-    getPendingCount,
-    hasJumpPending,
+    reconcileGeneration,
+    commitReconciled,
+    peekLatestTarget,
+    latestGenerationRef,
+    nextClientSeq,
     pauseTrain,
     resumeTrain,
     jumpTrain,
     syncPlaybackFromServer,
+    reconcileFromServer,
     bootstrapComplete,
     bootstrapError,
     retryBootstrap,
@@ -438,8 +437,8 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
     reloadGeneration,
     publicParticipantUrl,
     setOrchestratorBusy,
-    flushDeferredJump,
     clearOrchestratorState,
+    acknowledgeReconcileCatchUp,
   };
 }
 

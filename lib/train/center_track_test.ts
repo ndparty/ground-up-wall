@@ -2,7 +2,6 @@ import { assertEquals } from "@std/assert";
 import {
   centerSlotDelta,
   computeAbsoluteTrackTranslate,
-  jumpSlideStartTx,
 } from "./center_track.ts";
 import type { RenderCabin } from "./train_view.ts";
 import { LEFT_RENDER } from "./train_view_constants.ts";
@@ -85,9 +84,4 @@ Deno.test("centerSlotDelta uses extended overlay window for out-of-chain jump", 
   assertEquals(overlayWindow[6]?.key, "s9");
   assertEquals(committedWindow[LEFT_RENDER]?.key, "s9");
   assertEquals(centerSlotDelta(preJumpWindow, committedWindow, "s9"), 0);
-});
-
-Deno.test("jumpSlideStartTx caps offset at RIGHT_RENDER slots", () => {
-  assertEquals(jumpSlideStartTx(-640, 8, 512), -640 + 4 * 512);
-  assertEquals(jumpSlideStartTx(100, 1, 512), 612);
 });

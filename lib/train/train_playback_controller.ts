@@ -368,8 +368,6 @@ export class TrainPlaybackController {
         cabinNumber: targetCabin,
         currentCabin: targetCabin,
         window: [...this.tape],
-        animationWindow: [...startTape],
-        stepsToTarget: 0,
       });
       return;
     }
@@ -398,8 +396,6 @@ export class TrainPlaybackController {
       cabinNumber: this.state.currentCabin,
       currentCabin: this.state.currentCabin,
       window: [...this.tape],
-      animationWindow,
-      stepsToTarget,
     });
     this.scheduleNextTick();
   }

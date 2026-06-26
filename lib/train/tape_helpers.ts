@@ -187,18 +187,6 @@ export function hasJumpBufferAtTarget(linear: TrainStep[], targetIdx: number): b
   return targetIdx >= LEFT_RENDER && (linear.length - 1 - targetIdx) >= RIGHT_RENDER;
 }
 
-/** True when animationWindow begins with the same seq prefix as the live window. */
-export function animationWindowPreservesLivePrefix(
-  liveTape: TrainStep[],
-  animationWindow: TrainStep[],
-): boolean {
-  if (animationWindow.length < liveTape.length) return false;
-  for (let i = 0; i < liveTape.length; i++) {
-    if (animationWindow[i]?.seq !== liveTape[i]?.seq) return false;
-  }
-  return true;
-}
-
 /**
  * Build jump overlay by appending generated steps to the live tape — never removing
  * on-chain cabins. Committed window is a slice of the same object references.
@@ -368,21 +356,6 @@ export function linearizeShiftSequence(
     }
   }
   return linear;
-}
-
-/** Append animationWindow steps not already in current tape (right-buffer extension). */
-export function mergeRightBufferSteps(
-  current: TrainStep[],
-  animation: TrainStep[],
-): TrainStep[] {
-  const seen = new Set(current.map((step) => step.seq));
-  const merged = [...current];
-  for (const step of animation) {
-    if (seen.has(step.seq)) continue;
-    seen.add(step.seq);
-    merged.push(step);
-  }
-  return merged;
 }
 
 /** Build a linear left-to-right tape from an initial window plus center steps after each shift. */
@@ -633,6 +606,68 @@ export function buildJumpAnimationWindow(
     result = linearizeShiftSequence(result, shiftSnapshots.slice(atTarget + 1));
   }
   return result;
+}
+
+/** Stable identity for reconcile overlap (QR uses a sentinel; posts use submissionId). */
+export const QR_IDENTITY = "__qr__";
+
+export function identityKey(step: TrainStep): string | null {
+  if (step.kind === "qr") return QR_IDENTITY;
+  if (step.kind === "post" && step.submissionId) return step.submissionId;
+  return null;
+}
+
+/** Longest n where last n identity keys of current match first n of server. */
+export function longestIdentityOverlap(current: TrainStep[], server: TrainStep[]): number {
+  let maxOverlap = 0;
+  for (let n = 1; n <= Math.min(current.length, server.length); n++) {
+    const suffix = current.slice(-n).map(identityKey);
+    const prefix = server.slice(0, n).map(identityKey);
+    if (suffix.every((id, i) => id !== null && id === prefix[i])) maxOverlap = n;
+  }
+  return maxOverlap;
+}
+
+/** True when two windows have the same identity key at every slot. */
+export function windowsIdentityEqual(a: TrainStep[], b: TrainStep[]): boolean {
+  if (a.length !== b.length) return false;
+  return a.every((step, i) => identityKey(step) === identityKey(b[i]!));
+}
+
+export interface ReconcileBridgeResult {
+  bridge: TrainStep[];
+  targetKey: string;
+  slotDelta: number;
+  committedSlice: TrainStep[];
+}
+
+/**
+ * Build an animation bridge from current display window to server window by identity overlap.
+ * Appended (non-overlap) steps receive fresh seq ids from nextSeq to avoid DOM key collisions.
+ */
+export function buildReconcileBridge(
+  current: TrainStep[],
+  server: TrainStep[],
+  nextSeq: () => number,
+): ReconcileBridgeResult {
+  const overlap = longestIdentityOverlap(current, server);
+  const bridge: TrainStep[] = [...current];
+  const existingSeqs = new Set(bridge.map((s) => s.seq));
+
+  for (const step of server.slice(overlap)) {
+    let seq = nextSeq();
+    while (existingSeqs.has(seq)) seq = nextSeq();
+    existingSeqs.add(seq);
+    bridge.push({ ...step, seq });
+  }
+
+  const targetIdx = current.length - overlap + CENTER_SLOT;
+  const targetStep = bridge[targetIdx]!;
+  const targetKey = `s${targetStep.seq}`;
+  const slotDelta = current.length - overlap;
+  const committedSlice = bridge.slice(targetIdx - LEFT_RENDER, targetIdx + RIGHT_RENDER + 1);
+
+  return { bridge, targetKey, slotDelta, committedSlice };
 }
 
 /** Pick `count` evenly spaced windows from a longer force-generate sequence. */
