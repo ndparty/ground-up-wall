@@ -917,6 +917,17 @@ In the repo: **Settings → Webhooks → Add webhook**
 
 A **tag push alone does not deploy** — you must publish a Release (e.g. `gh release create v1.0.5`).
 
+**Release checklist (avoid mistagged deploys):**
+
+1. Merge changes to `main` first (PR, not a feature branch).
+2. Note the merge commit SHA: `git rev-parse main`.
+3. Create the release with an explicit target — **do not rely on the default branch**:
+   ```bash
+   gh release create vX.Y.Z --target "$(git rev-parse main)" --title "..." --notes "..."
+   ```
+4. Confirm the tag resolves to the expected commit: `git rev-parse vX.Y.Z^{commit}`.
+5. On the VPS after deploy: `git cat-file -e HEAD:prod.ts` and `curl -fsS http://127.0.0.1:8080/api/health`.
+
 #### 10.2.6 Verify
 
 1. **Recent Deliveries** in GitHub webhook settings — redeliver a `release` event; expect `200`.

@@ -1,9 +1,19 @@
 import type { Middleware } from "fresh";
-import { getSessionToken } from "../cookies.ts";
+import { getSessionToken, sessionCookieHeader } from "../cookies.ts";
 import type { AuthState } from "./auth_guard.ts";
 
 export const sessionMiddleware: Middleware<AuthState> = async (ctx) => {
   const token = getSessionToken(ctx.req);
-  ctx.state.user = await ctx.state.services.auth.resolveCurrentUser(token);
-  return await ctx.next();
+  const { user, sessionRefreshed } = await ctx.state.services.auth.resolveCurrentUser(token);
+  ctx.state.user = user;
+  const response = await ctx.next();
+  if (!sessionRefreshed || !token) return response;
+
+  const headers = new Headers(response.headers);
+  headers.append("Set-Cookie", sessionCookieHeader(token));
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
 };

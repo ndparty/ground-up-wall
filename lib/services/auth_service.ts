@@ -2,7 +2,7 @@ import * as bcrypt from "bcrypt";
 import type { AuditService } from "../interfaces/audit_service.ts";
 import type { Repository } from "../interfaces/repository.ts";
 import type { User } from "../types.ts";
-import type { SessionStore } from "./session_store.ts";
+import type { SessionEntry, SessionStore } from "./session_store.ts";
 import { MemorySessionStore } from "./session_store.ts";
 import { LoginThrottle } from "../security/login_throttle.ts";
 import { securityGatesDisabled } from "../security/gate_mode.ts";
@@ -20,7 +20,14 @@ export interface AuthResult {
   error?: string;
 }
 
-const SESSION_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+export const SESSION_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+/** Extend session when less than this remains (debounce DB writes / Set-Cookie churn). */
+export const SESSION_REFRESH_THRESHOLD_MS = 12 * 60 * 60 * 1000;
+
+export interface ResolveUserResult {
+  user: AuthUser | null;
+  sessionRefreshed: boolean;
+}
 
 export class AuthService {
   constructor(
@@ -94,27 +101,41 @@ export class AuthService {
   }
 
   /** Validates session against DB (disabled/deleted users are rejected). */
-  async resolveCurrentUser(token: string | null | undefined): Promise<AuthUser | null> {
-    if (!token) return null;
+  async resolveCurrentUser(
+    token: string | null | undefined,
+  ): Promise<ResolveUserResult> {
+    if (!token) return { user: null, sessionRefreshed: false };
     const session = this.sessions.get(token);
-    if (!session) return null;
+    if (!session) return { user: null, sessionRefreshed: false };
     if (session.expires < new Date()) {
       this.sessions.delete(token);
-      return null;
+      return { user: null, sessionRefreshed: false };
     }
     const dbUser = await this.repository.getUserById(session.user.id);
     if (!dbUser || dbUser.disabled) {
       this.sessions.delete(token);
-      return null;
+      return { user: null, sessionRefreshed: false };
     }
     if (session.user.role !== dbUser.role) {
       this.sessions.delete(token);
-      return null;
+      return { user: null, sessionRefreshed: false };
     }
     const authUser = toAuthUser(dbUser);
     session.user = authUser;
+    const sessionRefreshed = this.touchSessionIfNeeded(token, session);
+    if (!sessionRefreshed) {
+      this.sessions.set(token, session);
+    }
+    return { user: authUser, sessionRefreshed };
+  }
+
+  /** Sliding idle timeout: extend to SESSION_MAX_AGE_MS when near expiry. */
+  private touchSessionIfNeeded(token: string, session: SessionEntry): boolean {
+    const remainingMs = session.expires.getTime() - Date.now();
+    if (remainingMs >= SESSION_REFRESH_THRESHOLD_MS) return false;
+    session.expires = new Date(Date.now() + SESSION_MAX_AGE_MS);
     this.sessions.set(token, session);
-    return authUser;
+    return true;
   }
 
   invalidateSessionsForUser(userId: string, exceptToken?: string): void {

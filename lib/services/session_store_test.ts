@@ -69,7 +69,7 @@ Deno.test({
 
       const auth2 = new AuthService(repo, audit, new FileSessionStore(path));
       assertEquals(
-        (await auth2.resolveCurrentUser(login.token))?.username,
+        (await auth2.resolveCurrentUser(login.token)).user?.username,
         "persist_user",
       );
       await repo.close();
