@@ -20,7 +20,7 @@ function jsonAuthError(status: 401 | 403, error: string): Response {
 export function requireRole(...roles: User["role"][]): Middleware<AuthState> {
   return async (ctx: Context<AuthState>) => {
     const token = getSessionToken(ctx.req);
-    const user = await ctx.state.services.auth.resolveCurrentUser(token);
+    const { user } = await ctx.state.services.auth.resolveCurrentUser(token);
     if (!user) {
       return jsonAuthError(401, "Unauthorized");
     }

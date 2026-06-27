@@ -54,6 +54,11 @@ need to export every variable to your shell unless you want to override `.env` v
 `deno task dev` restarts when you save files. Log in once as **`admin`** to access `/towkay`,
 `/semak`, and `/concourse` in separate tabs. `/muatnaik` is public and needs no login.
 
+**Session lifetime:** All staff and display accounts use a **24-hour idle timeout** — any
+authenticated activity (page loads, API calls, loading protected images) extends the session by
+another 24 hours. The display wall also polls `/api/masuk/me` every 45 minutes when idle so
+long-running SSE sessions do not expire while images are browser-cached.
+
 **Staff URL cheat sheet**
 
 | Role | Page | Path |
