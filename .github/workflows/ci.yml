@@ -20,10 +20,10 @@ jobs:
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: ground_up_wall_test
         options: >-
-          --health-cmd pg_isready
+          --health-cmd pg_isready -U postgres
           --health-interval 10s
           --health-timeout 5s
-          --health-retries 5
+          --health-retries 10
 
     steps:
       - uses: actions/checkout@v4
@@ -32,13 +32,19 @@ jobs:
         with:
           deno-version: v2.x
 
-      - name: Install dependencies
-        run: deno install --lock=deno.lock
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
 
       - name: Wait for PostgreSQL
+        env:
+          PGPASSWORD: postgres
+          PGUSER: postgres
+          POSTGRES_DB: ground_up_wall_test
         run: |
           for i in {1..60}; do
-            if PGPASSWORD=postgres psql -h postgres -p 5432 -U postgres -d ground_up_wall_test -c "SELECT 1" >/dev/null 2>&1; then
+            if pg_isready -h postgres -p 5432 -U "$PGUSER" >/dev/null 2>&1; then
               echo "PostgreSQL is ready"
               exit 0
             fi
