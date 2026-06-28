@@ -1,11 +1,6 @@
 import { assertEquals } from "@std/assert";
 import { Client } from "@db/postgres";
-import {
-  ADMIN_USERNAME,
-  DISPLAY_USERNAME,
-  MODERATOR_USERNAME,
-  runSeed,
-} from "./seed.ts";
+import { ADMIN_USERNAME, DISPLAY_USERNAME, MODERATOR_USERNAME, runSeed } from "./seed.ts";
 import { cleanupTestData, createTestRepository, getTestDatabaseUrl } from "../lib/test_helpers.ts";
 
 const useMock = Deno.env.get("USE_MOCK_DB") === "true";

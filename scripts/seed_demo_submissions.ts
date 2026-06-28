@@ -11,7 +11,10 @@ import {
   getPendingDemoContent,
 } from "../lib/seed/demo_submission_content.ts";
 import { generateDemoImage } from "../lib/seed/generate_demo_image.ts";
-import { AutoModeratorServiceImpl, SEEDED_DEFAULT_WORD_LIST } from "../lib/services/auto_moderator_service_impl.ts";
+import {
+  AutoModeratorServiceImpl,
+  SEEDED_DEFAULT_WORD_LIST,
+} from "../lib/services/auto_moderator_service_impl.ts";
 import { MODERATOR_USERNAME, runSeed } from "./seed.ts";
 
 export const DEMO_SEED_SOURCE = "demo_seed";
@@ -90,7 +93,7 @@ async function removeDemoSeedData(
       if (!(err instanceof Deno.errors.NotFound)) throw err;
     }
   }
-  
+
   // Delete all demo seed submissions
   const allSubmissions = await repo.getSubmissionsByStatus("approved");
   for (const submission of allSubmissions) {
@@ -98,7 +101,7 @@ async function removeDemoSeedData(
       await repo.deleteSubmission(submission.id);
     }
   }
-  
+
   return rows.length;
 }
 
@@ -115,13 +118,15 @@ export async function runSeedDemoSubmissions(
   await runSeed(databaseUrl);
 
   const useMock = Deno.env.get("USE_MOCK_DB") === "true";
-  
+
   let client: Client | null = null;
   let repo;
-  
+
   if (useMock) {
     // Use existing mock repository singleton or create new one
-    const { getMockRepository, setMockRepository } = await import("../lib/repositories/mock_repository.ts");
+    const { getMockRepository, setMockRepository } = await import(
+      "../lib/repositories/mock_repository.ts"
+    );
     repo = getMockRepository() ?? new MockRepository();
     setMockRepository(repo);
   } else {

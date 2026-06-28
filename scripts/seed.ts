@@ -58,7 +58,7 @@ export async function runSeed(databaseUrl?: string): Promise<SeedResult> {
   );
 
   const useMock = Deno.env.get("USE_MOCK_DB") === "true";
-  
+
   if (!useMock) {
     await runMigrations(url);
   }
@@ -66,7 +66,7 @@ export async function runSeed(databaseUrl?: string): Promise<SeedResult> {
   const { password, source } = resolveAdminPassword();
   const moderatorPassword = resolveDemoPassword("DEMO_MODERATOR_PASSWORD");
   const displayPassword = resolveDemoPassword("DEMO_DISPLAY_PASSWORD");
-  
+
   let repo;
   if (useMock) {
     // Always create a fresh mock repository for seeding to avoid state leakage between tests
@@ -122,7 +122,7 @@ export async function runSeed(databaseUrl?: string): Promise<SeedResult> {
     let configsUpdated = 0;
     for (const config of SYSTEM_DEFAULTS) {
       const existing = await repo.getSystemConfig(config.key);
-      
+
       if (!existing) {
         await repo.upsertSystemConfig(config.key, config.value, "seed");
         configsSeeded++;
