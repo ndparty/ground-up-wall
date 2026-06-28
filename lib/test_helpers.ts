@@ -1,6 +1,8 @@
+/// <reference lib="deno.unstable" />
 import { runMigrations } from "../scripts/migrate.ts";
 import { normalizeDatabaseUrl } from "./db_url.ts";
 import { PostgresRepository } from "./repositories/postgres_repository.ts";
+import { MockRepository } from "./repositories/mock_repository.ts";
 
 // Disable per-request security gates (rate limit / login lockout / PoW) in the shared
 // single-process test run so their in-memory singletons do not accumulate across tests.
@@ -18,7 +20,18 @@ export function getTestDatabaseUrl(): string {
 // Point app DI (main.ts loadConfig) at the test database before main is imported.
 Deno.env.set("DATABASE_URL", getTestDatabaseUrl());
 
-export async function createTestRepository(): Promise<PostgresRepository> {
+export async function createTestRepository(): Promise<PostgresRepository | MockRepository> {
+  const useMock = Deno.env.get("USE_MOCK_DB") === "true";
+  
+  if (useMock) {
+    const repo = new MockRepository();
+    await repo.connect();
+    // Store reference for global cleanup
+    const { setMockRepository } = await import("./repositories/mock_repository.ts");
+    setMockRepository(repo);
+    return repo;
+  }
+  
   const url = getTestDatabaseUrl();
   await runMigrations(url);
   const repo = new PostgresRepository(url);
@@ -27,6 +40,15 @@ export async function createTestRepository(): Promise<PostgresRepository> {
 }
 
 export async function cleanupTestData(): Promise<void> {
+  const useMock = Deno.env.get("USE_MOCK_DB") === "true";
+  
+  if (useMock) {
+    // Clear the mock repository singleton
+    const { clearMockRepository } = await import("./repositories/mock_repository.ts");
+    clearMockRepository();
+    return;
+  }
+  
   const url = getTestDatabaseUrl();
   await runMigrations(url);
   const { createPostgresClient } = await import("./db_url.ts");

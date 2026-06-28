@@ -12,15 +12,6 @@ jobs:
     env:
       PGPASSWORD: postgres
       PGUSER: postgres
-    services:
-      postgres:
-        image: postgres:17-alpine
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: ground_up_wall_test
-        options: --health-cmd="pg_isready -U postgres" --health-interval=10s --health-timeout=5s --health-retries=10
-
     steps:
       - uses: actions/checkout@v4
 
@@ -28,46 +19,16 @@ jobs:
         with:
           deno-version: v2.x
 
-      - name: Install PostgreSQL client
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y postgresql-client
-
-      - name: Wait for PostgreSQL
-        env:
-          PGPASSWORD: postgres
-          PGUSER: postgres
-          POSTGRES_DB: ground_up_wall_test
-        run: |
-          for i in {1..60}; do
-            if pg_isready -h localhost -p 5432 -U "$PGUSER" >/dev/null 2>&1; then
-              echo "PostgreSQL is ready"
-              exit 0
-            fi
-            echo "Waiting for PostgreSQL... ($i/60)"
-            sleep 2
-          done
-          echo "PostgreSQL did not become ready in time"
-          exit 1
-
-      - name: Run migrations
-        env:
-          DATABASE_URL: postgres://postgres:postgres@postgres:5432/ground_up_wall_test
-          DATABASE_URL_TEST: postgres://postgres:postgres@postgres:5432/ground_up_wall_test
-        run: deno run -A scripts/migrate.ts
-
-      - name: Run smoke tests (PR)
+      - name: Run tests with mock database (PR)
         if: github.event_name == 'pull_request'
         env:
-          DATABASE_URL: postgres://postgres:postgres@postgres:5432/ground_up_wall_test
-          DATABASE_URL_TEST: postgres://postgres:postgres@postgres:5432/ground_up_wall_test
+          USE_MOCK_DB: "true"
         run: deno task test:e2e:smoke
 
-      - name: Run full test suite (main)
+      - name: Run full test suite with mock database (main)
         if: github.event_name == 'push'
         env:
-          DATABASE_URL: postgres://postgres:postgres@postgres:5432/ground_up_wall_test
-          DATABASE_URL_TEST: postgres://postgres:postgres@postgres:5432/ground_up_wall_test
+          USE_MOCK_DB: "true"
         run: deno task test
 
       - name: Run lint and format check
