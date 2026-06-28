@@ -5,6 +5,7 @@ import type { RealtimeService } from "./interfaces/realtime_service.ts";
 import type { Repository } from "./interfaces/repository.ts";
 import type { StorageService } from "./interfaces/storage_service.ts";
 import { PostgresRepository } from "./repositories/postgres_repository.ts";
+import { MockRepository } from "./repositories/mock_repository.ts";
 import { FileStorageService } from "./repositories/file_storage_service.ts";
 import { MemoryRealtimeService } from "./repositories/memory_realtime_service.ts";
 import { AuditServiceImpl } from "./services/audit_service_impl.ts";
@@ -28,7 +29,10 @@ export interface PhotoWallServiceDeps {
 }
 
 export function createServices(config: AppConfig): PhotoWallServiceDeps {
-  const repository = new PostgresRepository(config.database.url);
+  const useMock = Deno.env.get("USE_MOCK_DB") === "true";
+  const repository = useMock
+    ? new MockRepository()
+    : new PostgresRepository(config.database.url);
   const storage = new FileStorageService(config.storage.path);
   const realtime = new MemoryRealtimeService();
   const audit = new AuditServiceImpl(repository);
@@ -54,9 +58,16 @@ export async function createAppState(config: AppConfig): Promise<AppState> {
   try {
     await deps.repository.connect();
   } catch (error) {
-    console.error(
-      `Postgres not reachable at ${config.database.url} — is the service running?`,
-    );
+    const useMock = Deno.env.get("USE_MOCK_DB") === "true";
+    if (!useMock) {
+      console.error(
+        `Postgres not reachable at ${config.database.url} — is the service running?`,
+      );
+      throw error;
+    }
+    // If using mock DB, connection should always succeed
+    // If it fails here, something is wrong with the mock implementation
+    console.error("Mock database connection failed:", error);
     throw error;
   }
 
