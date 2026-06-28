@@ -210,17 +210,23 @@ export class MockRepository implements Repository {
 
   async disableModerator(id: string): Promise<boolean> {
     const mod = moderators.get(id);
-    if (!mod) return false;
+    const user = users.get(id);
+    if (!mod || !user) return false;
     mod.disabled = true;
     mod.disabled_at = new Date().toISOString();
+    user.disabled = true;
+    user.disabled_at = mod.disabled_at;
     return true;
   }
 
   async enableModerator(id: string): Promise<boolean> {
     const mod = moderators.get(id);
-    if (!mod) return false;
+    const user = users.get(id);
+    if (!mod || !user) return false;
     mod.disabled = false;
     mod.disabled_at = undefined;
+    user.disabled = false;
+    user.disabled_at = undefined;
     return true;
   }
 
@@ -341,16 +347,22 @@ export class MockRepository implements Repository {
   }
 
   async disableDisplayWallUser(id: string): Promise<boolean> {
-    const user = displayWallUsers.get(id);
-    if (!user) return false;
+    const displayUser = displayWallUsers.get(id);
+    const user = users.get(id);
+    if (!displayUser || !user) return false;
+    displayUser.disabled = true;
+    displayUser.disabled_at = new Date().toISOString();
     user.disabled = true;
-    user.disabled_at = new Date().toISOString();
+    user.disabled_at = displayUser.disabled_at;
     return true;
   }
 
   async enableDisplayWallUser(id: string): Promise<boolean> {
-    const user = displayWallUsers.get(id);
-    if (!user) return false;
+    const displayUser = displayWallUsers.get(id);
+    const user = users.get(id);
+    if (!displayUser || !user) return false;
+    displayUser.disabled = false;
+    displayUser.disabled_at = undefined;
     user.disabled = false;
     user.disabled_at = undefined;
     return true;
