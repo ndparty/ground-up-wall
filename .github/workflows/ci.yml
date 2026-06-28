@@ -9,6 +9,9 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      PGPASSWORD: postgres
+      PGUSER: postgres
     services:
       postgres:
         image: postgres:17-alpine
