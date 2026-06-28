@@ -74,14 +74,23 @@ Browser  →  Fresh routes (pages + API)
 ## Tests
 
 ```bash
-deno task test              # all tests (210 scenarios)
-deno task test:e2e:smoke    # PR smoke subset
-deno task test:e2e          # full E2E suite
+# Quick tests with mock database (no PostgreSQL required)
+USE_MOCK_DB=true deno task test              # all tests except seed/integration (468 scenarios)
+USE_MOCK_DB=true deno task test:unit         # unit tests only
+USE_MOCK_DB=true deno task test:e2e:smoke    # smoke tests (PR subset)
+USE_MOCK_DB=true deno task test:e2e          # all e2e tests except seed tests
+
+# Full integration tests (requires PostgreSQL)
+deno task test              # all tests including seed/integration (473+ scenarios)
+deno task test:e2e          # full E2E suite including seed tests
 deno task check             # format, lint, type-check
 ```
 
-Requires Postgres and `ground_up_wall_test` (or set `DATABASE_URL_TEST`). For serial runs on
-Windows: `$env:DENO_JOBS="1"; deno task test`
+**CI uses mock database** — no PostgreSQL required for pull requests.  
+**Local full testing** requires PostgreSQL and `ground_up_wall_test` (or set `DATABASE_URL_TEST`).  
+For serial runs on Windows: `$env:DENO_JOBS="1"; deno task test`
+
+See [TESTING.md](TESTING.md) for detailed testing guide and Docker Compose setup.
 
 ## Documentation
 
@@ -89,6 +98,7 @@ Windows: `$env:DENO_JOBS="1"; deno task test`
 | ---------------------------------------------------------------------- | ---------------------------------------- |
 | [DEMO.md](DEMO.md)                                                     | Start, run, and demonstrate the system   |
 | [SETUP.md](SETUP.md)                                                   | Developer setup and NFR sign-off         |
+| [TESTING.md](TESTING.md)                                               | Testing guide (mock DB + PostgreSQL)     |
 | [docs/phase01/epic_plan-phase01.md](docs/phase01/epic_plan-phase01.md) | Phase 01 work items WI-01–WI-07          |
 | [docs/phase02/oracle_vps_deploy.md](docs/phase02/oracle_vps_deploy.md) | Production deploy (Oracle VPS)           |
 | [docs/phase03/instagram_feasibility.md](docs/phase03/instagram_feasibility.md) | Phase 03 Instagram research      |
