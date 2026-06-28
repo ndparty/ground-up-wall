@@ -1,11 +1,7 @@
 import { parseSubmissionForm } from "../../../lib/api/submission_request.ts";
 import { toPublicError } from "../../../lib/api/public_error.ts";
 import { getUploadFormConfig } from "../../../lib/upload_config.ts";
-import {
-  clientKey,
-  RateLimiter,
-  tooManyRequests,
-} from "../../../lib/security/rate_limit.ts";
+import { clientKey, RateLimiter, tooManyRequests } from "../../../lib/security/rate_limit.ts";
 import { BodyTooLargeError, readFormDataWithLimit } from "../../../lib/security/body_limit.ts";
 import { verifyPowToken } from "../../../lib/security/pow_challenge_store.ts";
 import { securityGatesDisabled } from "../../../lib/security/gate_mode.ts";

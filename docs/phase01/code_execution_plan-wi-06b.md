@@ -1,16 +1,17 @@
 # Code Execution Plan: ground-up-wall
 
-| Field | Value |
-|-------|-------|
-| Document Type | Code Execution Plan |
-| Epic Work Item | `WI-06b` |
-| Tech Spec | `ground-up-wall/docs/phase01/epic_plan-phase01.md` |
-| Version | 1.0 |
-| Author | Developer |
+| Field          | Value                                              |
+| -------------- | -------------------------------------------------- |
+| Document Type  | Code Execution Plan                                |
+| Epic Work Item | `WI-06b`                                           |
+| Tech Spec      | `ground-up-wall/docs/phase01/epic_plan-phase01.md` |
+| Version        | 1.0                                                |
+| Author         | Developer                                          |
 
 ---
 
-> This document is the **single source of truth** for implementation sequencing of WI-06b (Admin: System Parameters).
+> This document is the **single source of truth** for implementation sequencing of WI-06b (Admin:
+> System Parameters).
 
 ---
 
@@ -32,22 +33,24 @@
 
 ### 1.1 System Parameters Page — List All Parameters
 
-**Commit message:** `WI-06b: create system parameters page showing all configurable parameters with current and default values`
+**Commit message:**
+`WI-06b: create system parameters page showing all configurable parameters with current and default values`
 
 #### Files Changed
 
-| File | Change | Description |
-|------|--------|-------------|
-| `routes/admin/parameters.tsx` | New | System parameters page — list all parameters |
-| `islands/SystemParameters.tsx` | New | Client island — parameters list with edit controls |
-| `routes/api/admin/parameters/index.ts` | New | GET /api/admin/parameters — get all system configs |
+| File                                   | Change | Description                                        |
+| -------------------------------------- | ------ | -------------------------------------------------- |
+| `routes/admin/parameters.tsx`          | New    | System parameters page — list all parameters       |
+| `islands/SystemParameters.tsx`         | New    | Client island — parameters list with edit controls |
+| `routes/api/admin/parameters/index.ts` | New    | GET /api/admin/parameters — get all system configs |
 
 #### Implementation Details
 
 1. **Create `routes/api/admin/parameters/index.ts`:**
    - GET handler, requires admin role
    - Calls `photoWallService.getSystemParameters()`
-   - Returns array of SystemConfig objects with: `key`, `value`, `default_value`, `updated_at`, `updated_by`
+   - Returns array of SystemConfig objects with: `key`, `value`, `default_value`, `updated_at`,
+     `updated_by`
 
 2. **Create `routes/admin/parameters.tsx`:** renders SystemParameters island
 
@@ -58,15 +61,16 @@
      - **Upload**: `message_prompt_text`, `message_length_limit`, `message_length_unit`
      - **Moderation**: `auto_moderator_word_list`
      - **Display Override**: `default_placeholder_image`
-   - Each parameter shows: label, current value, default value (for reference), "Reset to Default" button
+   - Each parameter shows: label, current value, default value (for reference), "Reset to Default"
+     button
    - Parameters are editable inline (implemented in next chunks)
 
 #### Unit Tests
 
-| Test File | Test Method | Verifies |
-|-----------|-------------|----------|
-| `islands/SystemParameters_test.tsx` | `testShowsAllParameters` | All 6 system parameters render correctly |
-| `islands/SystemParameters_test.tsx` | `testShowsCurrentAndDefault` | Current and default values displayed |
+| Test File                           | Test Method                  | Verifies                                 |
+| ----------------------------------- | ---------------------------- | ---------------------------------------- |
+| `islands/SystemParameters_test.tsx` | `testShowsAllParameters`     | All 6 system parameters render correctly |
+| `islands/SystemParameters_test.tsx` | `testShowsCurrentAndDefault` | Current and default values displayed     |
 
 #### Verification
 
@@ -85,10 +89,10 @@
 
 #### Files Changed
 
-| File | Change | Description |
-|------|--------|-------------|
-| `routes/api/admin/parameters/update.ts` | New | POST /api/admin/parameters/update — update a parameter |
-| `islands/SystemParameters.tsx` | Modified | Add inline edit for dwell time with slider/input |
+| File                                    | Change   | Description                                            |
+| --------------------------------------- | -------- | ------------------------------------------------------ |
+| `routes/api/admin/parameters/update.ts` | New      | POST /api/admin/parameters/update — update a parameter |
+| `islands/SystemParameters.tsx`          | Modified | Add inline edit for dwell time with slider/input       |
 
 #### Implementation Details
 
@@ -110,11 +114,11 @@
 
 #### Unit Tests
 
-| Test File | Test Method | Verifies |
-|-----------|-------------|----------|
-| `routes/api/admin/parameters/update_test.ts` | `testUpdateDwellTimeValid` | Valid dwell time (10) updates successfully |
-| `routes/api/admin/parameters/update_test.ts` | `testUpdateDwellTimeInvalid` | Invalid dwell time (0, 100) returns 400 |
-| `routes/api/admin/parameters/update_test.ts` | `testUpdateDwellTimeAuditLogged` | Dwell time change logged in audit log |
+| Test File                                    | Test Method                      | Verifies                                   |
+| -------------------------------------------- | -------------------------------- | ------------------------------------------ |
+| `routes/api/admin/parameters/update_test.ts` | `testUpdateDwellTimeValid`       | Valid dwell time (10) updates successfully |
+| `routes/api/admin/parameters/update_test.ts` | `testUpdateDwellTimeInvalid`     | Invalid dwell time (0, 100) returns 400    |
+| `routes/api/admin/parameters/update_test.ts` | `testUpdateDwellTimeAuditLogged` | Dwell time change logged in audit log      |
 
 #### Verification
 
@@ -131,14 +135,15 @@
 
 ### 1.3 Edit Message Prompt Text, Length Limit, and Length Unit
 
-**Commit message:** `WI-06b: implement message prompt text, length limit, and length unit parameter editing`
+**Commit message:**
+`WI-06b: implement message prompt text, length limit, and length unit parameter editing`
 
 #### Files Changed
 
-| File | Change | Description |
-|------|--------|-------------|
-| `routes/api/admin/parameters/update.ts` | Modified | Add validation for message parameters |
-| `islands/SystemParameters.tsx` | Modified | Add inline edit for text, number, and unit select |
+| File                                    | Change   | Description                                       |
+| --------------------------------------- | -------- | ------------------------------------------------- |
+| `routes/api/admin/parameters/update.ts` | Modified | Add validation for message parameters             |
+| `islands/SystemParameters.tsx`          | Modified | Add inline edit for text, number, and unit select |
 
 #### Implementation Details
 
@@ -154,11 +159,11 @@
 
 #### Unit Tests
 
-| Test File | Test Method | Verifies |
-|-----------|-------------|----------|
-| `routes/api/admin/parameters/update_test.ts` | `testUpdatePromptText` | Prompt text updates successfully |
-| `routes/api/admin/parameters/update_test.ts` | `testUpdateLengthLimit` | Length limit updates successfully |
-| `routes/api/admin/parameters/update_test.ts` | `testUpdateLengthUnit` | Length unit switches between characters and words |
+| Test File                                    | Test Method             | Verifies                                          |
+| -------------------------------------------- | ----------------------- | ------------------------------------------------- |
+| `routes/api/admin/parameters/update_test.ts` | `testUpdatePromptText`  | Prompt text updates successfully                  |
+| `routes/api/admin/parameters/update_test.ts` | `testUpdateLengthLimit` | Length limit updates successfully                 |
+| `routes/api/admin/parameters/update_test.ts` | `testUpdateLengthUnit`  | Length unit switches between characters and words |
 
 #### Verification
 
@@ -174,20 +179,22 @@
 
 ### 1.4 Edit Auto-Moderator Word List and Placeholder Image
 
-**Commit message:** `WI-06b: implement auto-moderator word list editing and default placeholder image upload`
+**Commit message:**
+`WI-06b: implement auto-moderator word list editing and default placeholder image upload`
 
 #### Files Changed
 
-| File | Change | Description |
-|------|--------|-------------|
-| `routes/api/admin/parameters/update.ts` | Modified | Add word list and placeholder image handling |
-| `islands/SystemParameters.tsx` | Modified | Add textarea for word list, file upload for placeholder |
-| `routes/api/admin/parameters/upload-placeholder.ts` | New | POST /api/admin/parameters/upload-placeholder — upload/replace placeholder image |
+| File                                                | Change   | Description                                                                      |
+| --------------------------------------------------- | -------- | -------------------------------------------------------------------------------- |
+| `routes/api/admin/parameters/update.ts`             | Modified | Add word list and placeholder image handling                                     |
+| `islands/SystemParameters.tsx`                      | Modified | Add textarea for word list, file upload for placeholder                          |
+| `routes/api/admin/parameters/upload-placeholder.ts` | New      | POST /api/admin/parameters/upload-placeholder — upload/replace placeholder image |
 
 #### Implementation Details
 
 1. **Modify parameter update for word list:**
-   - `auto_moderator_word_list`: accepts comma-separated or line-separated string, stored as comma-separated
+   - `auto_moderator_word_list`: accepts comma-separated or line-separated string, stored as
+     comma-separated
    - "Reset to Default" restores the seeded PG-13 default list
 
 2. **Create `routes/api/admin/parameters/upload-placeholder.ts`:**
@@ -205,11 +212,11 @@
 
 #### Unit Tests
 
-| Test File | Test Method | Verifies |
-|-----------|-------------|----------|
-| `routes/api/admin/parameters/update_test.ts` | `testUpdateWordList` | Word list updates and persists |
-| `routes/api/admin/parameters/update_test.ts` | `testResetWordListToDefault` | Reset restores seeded default |
-| `routes/api/admin/parameters/upload-placeholder_test.ts` | `testUploadPlaceholder` | Placeholder image upload succeeds |
+| Test File                                                | Test Method                  | Verifies                          |
+| -------------------------------------------------------- | ---------------------------- | --------------------------------- |
+| `routes/api/admin/parameters/update_test.ts`             | `testUpdateWordList`         | Word list updates and persists    |
+| `routes/api/admin/parameters/update_test.ts`             | `testResetWordListToDefault` | Reset restores seeded default     |
+| `routes/api/admin/parameters/upload-placeholder_test.ts` | `testUploadPlaceholder`      | Placeholder image upload succeeds |
 
 #### Verification
 

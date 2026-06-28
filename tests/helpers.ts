@@ -6,10 +6,7 @@ import {
   serveInfo,
   type TestHandler,
 } from "../lib/api/semak_route_test_helpers.ts";
-import {
-  loginAsAdmin,
-  loginAsDisplayWall,
-} from "../lib/api/concourse_route_test_helpers.ts";
+import { loginAsAdmin, loginAsDisplayWall } from "../lib/api/concourse_route_test_helpers.ts";
 import { FileStorageService } from "../lib/repositories/file_storage_service.ts";
 import { MemoryRealtimeService } from "../lib/repositories/memory_realtime_service.ts";
 import { AuditServiceImpl } from "../lib/services/audit_service_impl.ts";

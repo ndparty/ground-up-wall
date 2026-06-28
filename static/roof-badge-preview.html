@@ -1,270 +1,306 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>MRT roof badge preview</title>
-  <style>
-    :root {
-      --sg-red: #ef3340;
-      --mrt-yellow: #f5c518;
-      --mrt-teal: #004b50;
-      --mrt-black: #0a0a0a;
-    }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: system-ui, -apple-system, sans-serif;
-      background: #1a1a2e;
-      color: #fff;
-      padding: 2rem 1.5rem 3rem;
-    }
-    h1 { font-size: 1.35rem; margin: 0 0 0.5rem; }
-    p.lead { opacity: 0.85; max-width: 52ch; margin: 0 0 2rem; line-height: 1.5; }
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-      gap: 2rem;
-      max-width: 1200px;
-    }
-    .sample { display: flex; flex-direction: column; gap: 0.75rem; }
-    .sample h2 { margin: 0; font-size: 1rem; font-weight: 600; color: #ffd7db; }
-    .sample p.hint { margin: 0; font-size: 0.85rem; opacity: 0.7; }
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MRT roof badge preview</title>
+    <style>
+      :root {
+        --sg-red: #ef3340;
+        --mrt-yellow: #f5c518;
+        --mrt-teal: #004b50;
+        --mrt-black: #0a0a0a;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: system-ui, -apple-system, sans-serif;
+        background: #1a1a2e;
+        color: #fff;
+        padding: 2rem 1.5rem 3rem;
+      }
+      h1 {
+        font-size: 1.35rem;
+        margin: 0 0 0.5rem;
+      }
+      p.lead {
+        opacity: 0.85;
+        max-width: 52ch;
+        margin: 0 0 2rem;
+        line-height: 1.5;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 2rem;
+        max-width: 1200px;
+      }
+      .sample {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+      .sample h2 {
+        margin: 0;
+        font-size: 1rem;
+        font-weight: 600;
+        color: #ffd7db;
+      }
+      .sample p.hint {
+        margin: 0;
+        font-size: 0.85rem;
+        opacity: 0.7;
+      }
 
-    /* Shared sign primitives */
-    .sign {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      width: 100%;
-      min-height: 44px;
-      padding: 0.35rem 0.6rem;
-      border-radius: 4px;
-    }
-    .sign-logo {
-      flex: 0 0 auto;
-      width: 28px;
-      height: 28px;
-      background: var(--mrt-yellow);
-      border-radius: 50%;
-      position: relative;
-    }
-    .sign-logo::after {
-      content: "S";
-      position: absolute;
-      inset: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 900;
-      font-size: 0.85rem;
-      color: #1a1a1a;
-    }
-    .sign-name {
-      flex: 1;
-      min-width: 0;
-      font-size: 1.05rem;
-      font-weight: 700;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-      color: #fff;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .line-badge {
-      flex: 0 0 auto;
-      font-size: 0.65rem;
-      font-weight: 800;
-      padding: 0.2rem 0.45rem;
-      border-radius: 4px;
-      color: #fff;
-      letter-spacing: 0.05em;
-    }
-    .line-pill {
-      display: flex;
-      overflow: hidden;
-      border-radius: 999px;
-      font-size: 0.6rem;
-      font-weight: 800;
-      letter-spacing: 0.04em;
-    }
-    .line-pill span {
-      padding: 0.2rem 0.4rem;
-      color: #fff;
-    }
-    .line-pill .ns { background: var(--sg-red); }
-    .line-pill .te { background: #7a4a2e; }
-    .exit-box {
-      flex: 0 0 auto;
-      width: 28px;
-      height: 28px;
-      background: var(--mrt-yellow);
-      color: #1a1a1a;
-      font-weight: 900;
-      font-size: 0.9rem;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 2px;
-    }
-    .transit-icons {
-      display: flex;
-      gap: 0.25rem;
-      flex: 0 0 auto;
-    }
-    .transit-icons span {
-      width: 18px;
-      height: 18px;
-      border-radius: 2px;
-      font-size: 0.55rem;
-      font-weight: 800;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #fff;
-    }
-    .transit-icons .mrt { background: var(--sg-red); }
-    .transit-icons .bus { background: #0066b3; }
+      /* Shared sign primitives */
+      .sign {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        width: 100%;
+        min-height: 44px;
+        padding: 0.35rem 0.6rem;
+        border-radius: 4px;
+      }
+      .sign-logo {
+        flex: 0 0 auto;
+        width: 28px;
+        height: 28px;
+        background: var(--mrt-yellow);
+        border-radius: 50%;
+        position: relative;
+      }
+      .sign-logo::after {
+        content: "S";
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 900;
+        font-size: 0.85rem;
+        color: #1a1a1a;
+      }
+      .sign-name {
+        flex: 1;
+        min-width: 0;
+        font-size: 1.05rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: #fff;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .line-badge {
+        flex: 0 0 auto;
+        font-size: 0.65rem;
+        font-weight: 800;
+        padding: 0.2rem 0.45rem;
+        border-radius: 4px;
+        color: #fff;
+        letter-spacing: 0.05em;
+      }
+      .line-pill {
+        display: flex;
+        overflow: hidden;
+        border-radius: 999px;
+        font-size: 0.6rem;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+      }
+      .line-pill span {
+        padding: 0.2rem 0.4rem;
+        color: #fff;
+      }
+      .line-pill .ns {
+        background: var(--sg-red);
+      }
+      .line-pill .te {
+        background: #7a4a2e;
+      }
+      .exit-box {
+        flex: 0 0 auto;
+        width: 28px;
+        height: 28px;
+        background: var(--mrt-yellow);
+        color: #1a1a1a;
+        font-weight: 900;
+        font-size: 0.9rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 2px;
+      }
+      .transit-icons {
+        display: flex;
+        gap: 0.25rem;
+        flex: 0 0 auto;
+      }
+      .transit-icons span {
+        width: 18px;
+        height: 18px;
+        border-radius: 2px;
+        font-size: 0.55rem;
+        font-weight: 800;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+      }
+      .transit-icons .mrt {
+        background: var(--sg-red);
+      }
+      .transit-icons .bus {
+        background: #0066b3;
+      }
 
-    /* Option A — black board */
-    .sign--a {
-      background: var(--mrt-black);
-      border: 1px solid #333;
-    }
-    .sign--a .line-badge { background: var(--sg-red); }
+      /* Option A — black board */
+      .sign--a {
+        background: var(--mrt-black);
+        border: 1px solid #333;
+      }
+      .sign--a .line-badge {
+        background: var(--sg-red);
+      }
 
-    /* Option B — dark teal */
-    .sign--b {
-      background: var(--mrt-teal);
-      border: 1px solid #006870;
-    }
-    .sign--b .bus-icon {
-      width: 20px;
-      height: 20px;
-      background: #0066b3;
-      border-radius: 2px;
-      flex: 0 0 auto;
-      position: relative;
-    }
-    .sign--b .bus-icon::after {
-      content: "B";
-      position: absolute;
-      inset: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 0.55rem;
-      font-weight: 800;
-      color: #fff;
-    }
+      /* Option B — dark teal */
+      .sign--b {
+        background: var(--mrt-teal);
+        border: 1px solid #006870;
+      }
+      .sign--b .bus-icon {
+        width: 20px;
+        height: 20px;
+        background: #0066b3;
+        border-radius: 2px;
+        flex: 0 0 auto;
+        position: relative;
+      }
+      .sign--b .bus-icon::after {
+        content: "B";
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.55rem;
+        font-weight: 800;
+        color: #fff;
+      }
 
-    /* Option C — teal + yellow logo frame */
-    .sign--c {
-      background: var(--mrt-teal);
-      border: 1px solid #006870;
-    }
-    .sign--c .logo-frame {
-      flex: 0 0 auto;
-      padding: 2px;
-      background: var(--mrt-yellow);
-      border-radius: 4px;
-      display: flex;
-      align-items: center;
-      gap: 0.25rem;
-    }
-    .sign--c .logo-frame .sign-logo { width: 22px; height: 22px; }
-    .sign--c .logo-frame .mrt-label {
-      font-size: 0.5rem;
-      font-weight: 800;
-      color: #1a1a1a;
-      padding-right: 0.25rem;
-    }
+      /* Option C — teal + yellow logo frame */
+      .sign--c {
+        background: var(--mrt-teal);
+        border: 1px solid #006870;
+      }
+      .sign--c .logo-frame {
+        flex: 0 0 auto;
+        padding: 2px;
+        background: var(--mrt-yellow);
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+      }
+      .sign--c .logo-frame .sign-logo {
+        width: 22px;
+        height: 22px;
+      }
+      .sign--c .logo-frame .mrt-label {
+        font-size: 0.5rem;
+        font-weight: 800;
+        color: #1a1a1a;
+        padding-right: 0.25rem;
+      }
 
-    /* Simple — dark + logo + name */
-    .sign--simple {
-      background: #1a1f28;
-      border: 1px solid #333;
-    }
+      /* Simple — dark + logo + name */
+      .sign--simple {
+        background: #1a1f28;
+        border: 1px solid #333;
+      }
 
-    .cabin-context {
-      background: linear-gradient(180deg, #a8b0ba 0%, #9aa3af 100%);
-      padding: 0.5rem 0.75rem 0;
-      border-radius: 12px 12px 0 0;
-      border-bottom: 6px solid var(--sg-red);
-    }
-  </style>
-</head>
-<body>
-  <h1>MRT station roof badge — pick a style</h1>
-  <p class="lead">
-    Decorative line codes only (not real NS9/TE2 mappings). Open this page at
-    <code>/roof-badge-preview.html</code> while the dev server is running.
-  </p>
+      .cabin-context {
+        background: linear-gradient(180deg, #a8b0ba 0%, #9aa3af 100%);
+        padding: 0.5rem 0.75rem 0;
+        border-radius: 12px 12px 0 0;
+        border-bottom: 6px solid var(--sg-red);
+      }
+    </style>
+  </head>
+  <body>
+    <h1>MRT station roof badge — pick a style</h1>
+    <p class="lead">
+      Decorative line codes only (not real NS9/TE2 mappings). Open this page at
+      <code>/roof-badge-preview.html</code> while the dev server is running.
+    </p>
 
-  <div class="grid">
-    <div class="sample">
-      <h2>Option A — black board</h2>
-      <p class="hint">Yellow MRT logo, red line badge, white name, transit icons.</p>
-      <div class="cabin-context">
-        <div class="sign sign--a">
-          <span class="sign-logo" aria-hidden="true"></span>
-          <span class="line-badge">NS9</span>
-          <span class="sign-name">Woodlands</span>
-          <span class="transit-icons" aria-hidden="true">
-            <span class="mrt">M</span>
-            <span class="bus">B</span>
-          </span>
+    <div class="grid">
+      <div class="sample">
+        <h2>Option A — black board</h2>
+        <p class="hint">Yellow MRT logo, red line badge, white name, transit icons.</p>
+        <div class="cabin-context">
+          <div class="sign sign--a">
+            <span class="sign-logo" aria-hidden="true"></span>
+            <span class="line-badge">NS9</span>
+            <span class="sign-name">Woodlands</span>
+            <span class="transit-icons" aria-hidden="true">
+              <span class="mrt">M</span>
+              <span class="bus">B</span>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div class="sample">
+        <h2>Option B — dark teal (recommended)</h2>
+        <p class="hint">Logo + bus icon, dual line pill, yellow exit box.</p>
+        <div class="cabin-context">
+          <div class="sign sign--b">
+            <span class="sign-logo" aria-hidden="true"></span>
+            <span class="bus-icon" aria-hidden="true"></span>
+            <span class="sign-name">Woodlands</span>
+            <span class="line-pill" aria-hidden="true">
+              <span class="ns">NS9</span>
+              <span class="te">TE2</span>
+            </span>
+            <span class="exit-box" aria-hidden="true">A</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="sample">
+        <h2>Option C — yellow logo frame</h2>
+        <p class="hint">Framed MRT block, line pill, platform number.</p>
+        <div class="cabin-context">
+          <div class="sign sign--c">
+            <span class="logo-frame" aria-hidden="true">
+              <span class="sign-logo"></span>
+              <span class="mrt-label">MRT</span>
+            </span>
+            <span class="line-pill">
+              <span class="ns">NS9</span>
+              <span class="te">TE2</span>
+            </span>
+            <span class="sign-name">Woodlands</span>
+            <span class="exit-box">1</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="sample">
+        <h2>Simplified — logo + name</h2>
+        <p class="hint">Dark board, MRT mark, station name only.</p>
+        <div class="cabin-context">
+          <div class="sign sign--simple">
+            <span class="sign-logo" aria-hidden="true"></span>
+            <span class="sign-name">Farrer Park</span>
+          </div>
         </div>
       </div>
     </div>
-
-    <div class="sample">
-      <h2>Option B — dark teal (recommended)</h2>
-      <p class="hint">Logo + bus icon, dual line pill, yellow exit box.</p>
-      <div class="cabin-context">
-        <div class="sign sign--b">
-          <span class="sign-logo" aria-hidden="true"></span>
-          <span class="bus-icon" aria-hidden="true"></span>
-          <span class="sign-name">Woodlands</span>
-          <span class="line-pill" aria-hidden="true">
-            <span class="ns">NS9</span>
-            <span class="te">TE2</span>
-          </span>
-          <span class="exit-box" aria-hidden="true">A</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="sample">
-      <h2>Option C — yellow logo frame</h2>
-      <p class="hint">Framed MRT block, line pill, platform number.</p>
-      <div class="cabin-context">
-        <div class="sign sign--c">
-          <span class="logo-frame" aria-hidden="true">
-            <span class="sign-logo"></span>
-            <span class="mrt-label">MRT</span>
-          </span>
-          <span class="line-pill">
-            <span class="ns">NS9</span>
-            <span class="te">TE2</span>
-          </span>
-          <span class="sign-name">Woodlands</span>
-          <span class="exit-box">1</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="sample">
-      <h2>Simplified — logo + name</h2>
-      <p class="hint">Dark board, MRT mark, station name only.</p>
-      <div class="cabin-context">
-        <div class="sign sign--simple">
-          <span class="sign-logo" aria-hidden="true"></span>
-          <span class="sign-name">Farrer Park</span>
-        </div>
-      </div>
-    </div>
-  </div>
-</body>
+  </body>
 </html>

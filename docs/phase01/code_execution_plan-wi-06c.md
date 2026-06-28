@@ -1,16 +1,17 @@
 # Code Execution Plan: ground-up-wall
 
-| Field | Value |
-|-------|-------|
-| Document Type | Code Execution Plan |
-| Epic Work Item | `WI-06c` |
-| Tech Spec | `ground-up-wall/docs/phase01/epic_plan-phase01.md` |
-| Version | 1.0 |
-| Author | Developer |
+| Field          | Value                                              |
+| -------------- | -------------------------------------------------- |
+| Document Type  | Code Execution Plan                                |
+| Epic Work Item | `WI-06c`                                           |
+| Tech Spec      | `ground-up-wall/docs/phase01/epic_plan-phase01.md` |
+| Version        | 1.0                                                |
+| Author         | Developer                                          |
 
 ---
 
-> This document is the **single source of truth** for implementation sequencing of WI-06c (Admin: Audit Log + Display Override).
+> This document is the **single source of truth** for implementation sequencing of WI-06c (Admin:
+> Audit Log + Display Override).
 
 ---
 
@@ -18,12 +19,14 @@
 
 - [ ] WI-01 merged to `main` (Foundation — schema, Repository, RealtimeService, PhotoWallService)
 - [ ] WI-02 merged to `main` (Auth — login, session, role guards, admin role check)
-- [ ] WI-04 merged to `main` (Moderation — creates audit log entries from approve/reject/edit/delete actions)
+- [ ] WI-04 merged to `main` (Moderation — creates audit log entries from approve/reject/edit/delete
+      actions)
 - [ ] WI-05a merged to `main` (Display Wall Core — display wall exists to override)
 - [ ] WI-05b merged to `main` (Train Controls — train exists with play state)
 - [ ] Migration has been run (tables exist)
 - [ ] Branch created from `main`: `wi-06c-admin-audit-override`
-- [ ] ⚠️ This work item can be developed **mostly in parallel** with WI-06a and WI-06b. Part C (Display Override Integration on DisplayComponent) requires WI-05a merged.
+- [ ] ⚠️ This work item can be developed **mostly in parallel** with WI-06a and WI-06b. Part C
+      (Display Override Integration on DisplayComponent) requires WI-05a merged.
 
 ---
 
@@ -39,11 +42,11 @@
 
 #### Files Changed
 
-| File | Change | Description |
-|------|--------|-------------|
-| `routes/admin/audit-log.tsx` | New | Audit log page — filtered read-only table |
-| `islands/AuditLogView.tsx` | New | Client island — audit log table with filter controls |
-| `routes/api/admin/audit-log/index.ts` | New | GET /api/admin/audit-log — query audit log with filters |
+| File                                  | Change | Description                                             |
+| ------------------------------------- | ------ | ------------------------------------------------------- |
+| `routes/admin/audit-log.tsx`          | New    | Audit log page — filtered read-only table               |
+| `islands/AuditLogView.tsx`            | New    | Client island — audit log table with filter controls    |
+| `routes/api/admin/audit-log/index.ts` | New    | GET /api/admin/audit-log — query audit log with filters |
 
 #### Implementation Details
 
@@ -52,7 +55,8 @@
    - Accepts query params: `moderator_id`, `action_type`, `target_type`, `date_from`, `date_to`
    - Calls `photoWallService.getAuditLog(filters)`
    - Returns array of AuditEntry objects (append-only — no delete/update exposed)
-   - Each entry: `id`, `moderator_id`, `action_type`, `target_type`, `target_id`, `old_value`, `new_value`, `timestamp`
+   - Each entry: `id`, `moderator_id`, `action_type`, `target_type`, `target_id`, `old_value`,
+     `new_value`, `timestamp`
 
 2. **Create `routes/admin/audit-log.tsx`:** renders AuditLogView island
 
@@ -60,8 +64,10 @@
    - Fetches audit log from `/api/admin/audit-log` with filters
    - Filter controls:
      - **Moderator**: dropdown populated from moderator list
-     - **Action type**: dropdown of all action types (approve, reject, edit, delete, create_moderator, etc.)
-     - **Target type**: dropdown (submission, moderator, display_wall_user, system_config, display_override)
+     - **Action type**: dropdown of all action types (approve, reject, edit, delete,
+       create_moderator, etc.)
+     - **Target type**: dropdown (submission, moderator, display_wall_user, system_config,
+       display_override)
      - **Date range**: from/to date pickers
      - **Apply Filters** button
    - Table columns: Timestamp, Moderator, Action, Target Type, Target ID, Old Value, New Value
@@ -70,10 +76,10 @@
 
 #### Unit Tests
 
-| Test File | Test Method | Verifies |
-|-----------|-------------|----------|
-| `islands/AuditLogView_test.tsx` | `testShowsAuditEntries` | Audit entries render in table |
-| `islands/AuditLogView_test.tsx` | `testShowsEmptyState` | No entries shows empty message |
+| Test File                       | Test Method              | Verifies                                         |
+| ------------------------------- | ------------------------ | ------------------------------------------------ |
+| `islands/AuditLogView_test.tsx` | `testShowsAuditEntries`  | Audit entries render in table                    |
+| `islands/AuditLogView_test.tsx` | `testShowsEmptyState`    | No entries shows empty message                   |
 | `islands/AuditLogView_test.tsx` | `testFilterByActionType` | Filtering by action type returns correct entries |
 
 #### Verification
@@ -91,15 +97,16 @@
 
 ### 1.2 Display Override Controls (Admin Panel Side)
 
-**Commit message:** `WI-06c: implement display override controls (blank/placeholder/resume) in admin panel`
+**Commit message:**
+`WI-06c: implement display override controls (blank/placeholder/resume) in admin panel`
 
 #### Files Changed
 
-| File | Change | Description |
-|------|--------|-------------|
-| `routes/admin/display-override.tsx` | New | Display override page in admin panel |
-| `islands/AdminDisplayOverride.tsx` | New | Island — blank/placeholder/resume controls for admin |
-| `routes/api/admin/display-override.ts` | New | POST /api/admin/display-override — command display override |
+| File                                   | Change | Description                                                 |
+| -------------------------------------- | ------ | ----------------------------------------------------------- |
+| `routes/admin/display-override.tsx`    | New    | Display override page in admin panel                        |
+| `islands/AdminDisplayOverride.tsx`     | New    | Island — blank/placeholder/resume controls for admin        |
+| `routes/api/admin/display-override.ts` | New    | POST /api/admin/display-override — command display override |
 
 #### Implementation Details
 
@@ -124,11 +131,11 @@
 
 #### Unit Tests
 
-| Test File | Test Method | Verifies |
-|-----------|-------------|----------|
-| `routes/api/admin/display-override_test.ts` | `testBlankDisplayCommand` | Blank command broadcasts event, persists state, logs audit |
+| Test File                                   | Test Method                     | Verifies                                                     |
+| ------------------------------------------- | ------------------------------- | ------------------------------------------------------------ |
+| `routes/api/admin/display-override_test.ts` | `testBlankDisplayCommand`       | Blank command broadcasts event, persists state, logs audit   |
 | `routes/api/admin/display-override_test.ts` | `testPlaceholderDisplayCommand` | Placeholder command shows system default or per-action image |
-| `routes/api/admin/display-override_test.ts` | `testResumeDisplayCommand` | Resume command returns display to normal |
+| `routes/api/admin/display-override_test.ts` | `testResumeDisplayCommand`      | Resume command returns display to normal                     |
 
 #### Verification
 
@@ -149,16 +156,19 @@
 
 #### Files Changed
 
-| File | Change | Description |
-|------|--------|-------------|
+| File                                      | Change   | Description                                                               |
+| ----------------------------------------- | -------- | ------------------------------------------------------------------------- |
 | `lib/repositories/postgres_repository.ts` | Modified | Ensure `getDisplayOverrideState`/`setDisplayOverrideState` work correctly |
-| `lib/services/photo_wall_service.ts` | Modified | Ensure persistence on display override commands |
+| `lib/services/photo_wall_service.ts`      | Modified | Ensure persistence on display override commands                           |
 
 #### Implementation Details
 
 1. **Verify `Repository` methods:**
-   - `setDisplayOverrideState(state: DisplayOverrideState)`: upserts `display_override_state` key in `system_config` table with JSON value `{ type: 'normal' | 'blank' | 'placeholder', imageUrl?: string }`
-   - `getDisplayOverrideState()`: reads the state from `system_config`, returns default `{ type: 'normal' }` if not set
+   - `setDisplayOverrideState(state: DisplayOverrideState)`: upserts `display_override_state` key in
+     `system_config` table with JSON value
+     `{ type: 'normal' | 'blank' | 'placeholder', imageUrl?: string }`
+   - `getDisplayOverrideState()`: reads the state from `system_config`, returns default
+     `{ type: 'normal' }` if not set
 
 2. **Modify `photoWallService.commandDisplayOverride()`:**
    - After broadcasting via RealtimeService, call `repository.setDisplayOverrideState(state)`
@@ -166,8 +176,8 @@
 
 #### Unit Tests
 
-| Test File | Test Method | Verifies |
-|-----------|-------------|----------|
+| Test File                                 | Test Method                   | Verifies                                           |
+| ----------------------------------------- | ----------------------------- | -------------------------------------------------- |
 | `lib/services/photo_wall_service_test.ts` | `testDisplayOverridePersists` | After blank command, new session loads blank state |
 
 #### Verification
@@ -183,12 +193,13 @@
 
 ### 1.4 Display Override Integration (DisplayComponent Side)
 
-**Commit message:** `WI-06c: integrate display override response into DisplayComponent (blank/placeholder/resume)`
+**Commit message:**
+`WI-06c: integrate display override response into DisplayComponent (blank/placeholder/resume)`
 
 #### Files Changed
 
-| File | Change | Description |
-|------|--------|-------------|
+| File                       | Change   | Description                                                                 |
+| -------------------------- | -------- | --------------------------------------------------------------------------- |
 | `islands/TrainDisplay.tsx` | Modified | Subscribe to display override commands, respond to blank/placeholder/resume |
 
 #### Implementation Details
@@ -200,31 +211,33 @@
      ```typescript
      function handleDisplayOverride(command: DisplayOverrideCommand) {
        switch (command.type) {
-         case 'blank':
-           setOverrideState({ type: 'blank' });
+         case "blank":
+           setOverrideState({ type: "blank" });
            break;
-         case 'placeholder':
-           setOverrideState({ type: 'placeholder', imageUrl: command.imageUrl });
+         case "placeholder":
+           setOverrideState({ type: "placeholder", imageUrl: command.imageUrl });
            break;
-         case 'resume':
-           setOverrideState({ type: 'normal' });
+         case "resume":
+           setOverrideState({ type: "normal" });
            break;
        }
      }
      ```
    - Override state affects rendering:
      - `blank`: render solid black screen (hide train completely)
-     - `placeholder`: render placeholder image (centered, fills screen) — use command's imageUrl or fall back to system default
+     - `placeholder`: render placeholder image (centered, fills screen) — use command's imageUrl or
+       fall back to system default
      - `normal`: render train animation as usual
-   - Train continues to receive new submissions and update chain internally during blank/placeholder, but is hidden
+   - Train continues to receive new submissions and update chain internally during
+     blank/placeholder, but is hidden
 
 #### Unit Tests
 
-| Test File | Test Method | Verifies |
-|-----------|-------------|----------|
+| Test File                       | Test Method                 | Verifies                                        |
+| ------------------------------- | --------------------------- | ----------------------------------------------- |
 | `islands/TrainDisplay_test.tsx` | `testBlankScreenHidesTrain` | Display shows black screen when blank commanded |
-| `islands/TrainDisplay_test.tsx` | `testPlaceholderShowsImage` | Display shows placeholder image |
-| `islands/TrainDisplay_test.tsx` | `testResumeRestoresTrain` | Resume returns to train animation |
+| `islands/TrainDisplay_test.tsx` | `testPlaceholderShowsImage` | Display shows placeholder image                 |
+| `islands/TrainDisplay_test.tsx` | `testResumeRestoresTrain`   | Resume returns to train animation               |
 
 #### Verification
 
@@ -245,9 +258,9 @@
 
 #### Files Changed
 
-| File | Change | Description |
-|------|--------|-------------|
-| `routes/api/display/override-state.ts` | New | GET /api/display/override-state — get current display override state |
+| File                                   | Change | Description                                                          |
+| -------------------------------------- | ------ | -------------------------------------------------------------------- |
+| `routes/api/display/override-state.ts` | New    | GET /api/display/override-state — get current display override state |
 
 #### Implementation Details
 
@@ -258,10 +271,10 @@
 
 #### Unit Tests
 
-| Test File | Test Method | Verifies |
-|-----------|-------------|----------|
+| Test File                                   | Test Method                | Verifies                                                 |
+| ------------------------------------------- | -------------------------- | -------------------------------------------------------- |
 | `routes/api/display/override-state_test.ts` | `testReturnsNormalDefault` | Returns normal state when no override has been commanded |
-| `routes/api/display/override-state_test.ts` | `testReturnsBlankState` | Returns blank state after blank command |
+| `routes/api/display/override-state_test.ts` | `testReturnsBlankState`    | Returns blank state after blank command                  |
 
 #### Verification
 

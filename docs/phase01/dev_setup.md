@@ -1,12 +1,15 @@
 # Dev Setup Guide — ground-up-wall
 
-> **Purpose:** Prepare a developer's local machine with the tools and runtimes needed to contribute to the `ground-up-wall` project.
+> **Purpose:** Prepare a developer's local machine with the tools and runtimes needed to contribute
+> to the `ground-up-wall` project.
 >
 > **Applies to:** Windows 11, Ubuntu 26.04, macOS Tahoe 26.5.1
 >
 > **No Docker.** This guide covers bare-metal native installation only.
 >
-> **When to use this guide:** Before starting any code execution plan. After completing this guide, a developer should be able to clone the repository and run `deno task start` / `deno run -A scripts/migrate.ts` without missing dependencies.
+> **When to use this guide:** Before starting any code execution plan. After completing this guide,
+> a developer should be able to clone the repository and run `deno task start` /
+> `deno run -A scripts/migrate.ts` without missing dependencies.
 
 ---
 
@@ -24,14 +27,15 @@
 
 ## 1. Prerequisites (Quick Reference)
 
-| Requirement | Version | Purpose |
-|---|---|---|
-| **Deno** | latest stable | Runtime, TypeScript compiler, test runner, linter, formatter |
-| **PostgreSQL** | 17+ | Relational database |
-| **Git** | any modern | Version control |
-| **VS Code** (recommended) | latest | Code editor |
+| Requirement               | Version       | Purpose                                                      |
+| ------------------------- | ------------- | ------------------------------------------------------------ |
+| **Deno**                  | latest stable | Runtime, TypeScript compiler, test runner, linter, formatter |
+| **PostgreSQL**            | 17+           | Relational database                                          |
+| **Git**                   | any modern    | Version control                                              |
+| **VS Code** (recommended) | latest        | Code editor                                                  |
 
-> **Note:** Node.js / npm are **not** required. Deno bundles its own runtime, package management, and toolchain.
+> **Note:** Node.js / npm are **not** required. Deno bundles its own runtime, package management,
+> and toolchain.
 
 ---
 
@@ -62,33 +66,44 @@ deno task db:seed
 deno task start
 ```
 
-Open http://localhost:8080. Full demo walkthrough: **[../../DEMO.md](../../DEMO.md)**. Developer details: **[../../SETUP.md](../../SETUP.md)**.
+Open http://localhost:8080. Full demo walkthrough: **[../../DEMO.md](../../DEMO.md)**. Developer
+details: **[../../SETUP.md](../../SETUP.md)**.
 
 OS-specific install instructions for each step are below.
 
-> **Version compatibility:** The project (`WI-01`) pins the following dependencies in `deno.json` (all via JSR, exact versions defined in the [WI-01 Code Execution Plan](./code_execution_plan-wi-01.md)):
+> **Version compatibility:** The project (`WI-01`) pins the following dependencies in `deno.json`
+> (all via JSR, exact versions defined in the
+> [WI-01 Code Execution Plan](./code_execution_plan-wi-01.md)):
 >
-> | Package | Version | Purpose |
-> |---|---|---|
-> | [`@fresh/core`](https://jsr.io/@fresh/core) | `^2.3.3` | Deno Fresh framework (matches Deno Deploy runtime ~Deno 2.5) |
-> | [`preact`](https://jsr.io/preact) | `^10.29.2` | UI library |
-> | [`@preact/render-to-string`](https://jsr.io/@preact/render-to-string) | `^6.6.7` | SSR rendering |
-> | [`@preact/signals`](https://jsr.io/@preact/signals) | `^1.3.0` | Reactive state |
-> | [`@std/assert`](https://jsr.io/@std/assert), [`@std/fs`](https://jsr.io/@std/fs), [`@std/path`](https://jsr.io/@std/path), [`@std/encoding`](https://jsr.io/@std/encoding) | `^1.0.0` | Deno standard library modules |
-> | [`@db/postgres`](https://jsr.io/@db/postgres) | `^0.19.5` | Postgres driver (works with local PG and Supabase) |
-> | [`@felix/bcrypt`](https://jsr.io/@felix/bcrypt) | `^1.0.8` | Password hashing |
+> | Package                                                                                                                                                                    | Version    | Purpose                                                      |
+> | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------------------------------------------ |
+> | [`@fresh/core`](https://jsr.io/@fresh/core)                                                                                                                                | `^2.3.3`   | Deno Fresh framework (matches Deno Deploy runtime ~Deno 2.5) |
+> | [`preact`](https://jsr.io/preact)                                                                                                                                          | `^10.29.2` | UI library                                                   |
+> | [`@preact/render-to-string`](https://jsr.io/@preact/render-to-string)                                                                                                      | `^6.6.7`   | SSR rendering                                                |
+> | [`@preact/signals`](https://jsr.io/@preact/signals)                                                                                                                        | `^1.3.0`   | Reactive state                                               |
+> | [`@std/assert`](https://jsr.io/@std/assert), [`@std/fs`](https://jsr.io/@std/fs), [`@std/path`](https://jsr.io/@std/path), [`@std/encoding`](https://jsr.io/@std/encoding) | `^1.0.0`   | Deno standard library modules                                |
+> | [`@db/postgres`](https://jsr.io/@db/postgres)                                                                                                                              | `^0.19.5`  | Postgres driver (works with local PG and Supabase)           |
+> | [`@felix/bcrypt`](https://jsr.io/@felix/bcrypt)                                                                                                                            | `^1.0.8`   | Password hashing                                             |
 >
-> Dependencies are downloaded and cached on first use, then loaded from the local Deno cache — no `npm install` step needed. To upgrade later, run `deno outdated` to see available updates.
+> Dependencies are downloaded and cached on first use, then loaded from the local Deno cache — no
+> `npm install` step needed. To upgrade later, run `deno outdated` to see available updates.
 >
-> **PostgreSQL 17** is used locally and matches the Supabase PG 17 default direction (Supabase self-hosted supports 17; managed cloud is moving toward 17 as the new default — see [Supabase PG 17 upgrade guide](https://supabase.com/docs/guides/self-hosting/postgres-upgrade-17) and [Supabase PR #35961](https://github.com/supabase/supabase/pull/35961) selecting newer PG versions as default). The same codebase will run in Phase 2 on Supabase without changes.
+> **PostgreSQL 17** is used locally and matches the Supabase PG 17 default direction (Supabase
+> self-hosted supports 17; managed cloud is moving toward 17 as the new default — see
+> [Supabase PG 17 upgrade guide](https://supabase.com/docs/guides/self-hosting/postgres-upgrade-17)
+> and [Supabase PR #35961](https://github.com/supabase/supabase/pull/35961) selecting newer PG
+> versions as default). The same codebase will run in Phase 2 on Supabase without changes.
 
-> **Attribution:** This document was produced through a Party Mode roundtable with Winston (System Architect), Amelia (Senior Software Engineer), Paige (Technical Writer), and John (Product Manager).
+> **Attribution:** This document was produced through a Party Mode roundtable with Winston (System
+> Architect), Amelia (Senior Software Engineer), Paige (Technical Writer), and John (Product
+> Manager).
 
 ---
 
 ## 3. macOS (Tahoe 26.5.1)
 
-> Assumes macOS Tahoe (26.5.1). The same instructions work on Sequoia (15.x) and Sonoma (14.x) with identical commands.
+> Assumes macOS Tahoe (26.5.1). The same instructions work on Sequoia (15.x) and Sonoma (14.x) with
+> identical commands.
 
 ### 3.1 Install Homebrew (if not already installed)
 
@@ -96,7 +111,8 @@ OS-specific install instructions for each step are below.
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 ```
 
-> **Apple Silicon (M1/M2/M3/M4):** Homebrew installs to `/opt/homebrew`. Ensure `/opt/homebrew/bin` is in your `PATH` (the installer does this automatically for `~/.zprofile` and `~/.zshrc`).
+> **Apple Silicon (M1/M2/M3/M4):** Homebrew installs to `/opt/homebrew`. Ensure `/opt/homebrew/bin`
+> is in your `PATH` (the installer does this automatically for `~/.zprofile` and `~/.zshrc`).
 >
 > **Intel:** Homebrew installs to `/usr/local`.
 
@@ -200,7 +216,9 @@ brew install --cask visual-studio-code
 
 ## 4. Linux (Ubuntu 26.04)
 
-> Ubuntu 26.04 LTS (released April 2026) — the current LTS release at time of writing. If the default PostgreSQL version in the Ubuntu repositories differs from 17, substitute the version number accordingly.
+> Ubuntu 26.04 LTS (released April 2026) — the current LTS release at time of writing. If the
+> default PostgreSQL version in the Ubuntu repositories differs from 17, substitute the version
+> number accordingly.
 
 ### 4.1 Update System and Install Prerequisites
 
@@ -224,7 +242,8 @@ echo 'export PATH="$HOME/.deno/bin:$PATH"' >> ~/.bashrc
 source ~/.bashrc
 ```
 
-> ⚠️ The `~/.deno/bin` PATH addition is **required** — the install script prints this instruction but many developers forget it.
+> ⚠️ The `~/.deno/bin` PATH addition is **required** — the install script prints this instruction
+> but many developers forget it.
 
 **Verify:**
 
@@ -235,7 +254,8 @@ deno --version
 
 ### 4.3 Install PostgreSQL 17
 
-Ubuntu 26.04 may ship with PostgreSQL 17 or 18 by default. To ensure a specific version, use the official PostgreSQL APT repository.
+Ubuntu 26.04 may ship with PostgreSQL 17 or 18 by default. To ensure a specific version, use the
+official PostgreSQL APT repository.
 
 ```bash
 # Import PostgreSQL signing key
@@ -268,7 +288,8 @@ pg_isready
 
 ### 4.4 Configure Local TCP Access
 
-The project connects via `postgres://localhost:5432/...` (TCP). By default, Ubuntu's `pg_hba.conf` uses `peer` authentication for local Unix socket connections, which will fail for TCP connections.
+The project connects via `postgres://localhost:5432/...` (TCP). By default, Ubuntu's `pg_hba.conf`
+uses `peer` authentication for local Unix socket connections, which will fail for TCP connections.
 
 Edit `pg_hba.conf`:
 
@@ -294,7 +315,8 @@ Restart PostgreSQL:
 sudo systemctl restart postgresql
 ```
 
-> **Security note:** `trust` authentication allows any local connection without a password. This is acceptable for a local development environment. For production, never use `trust`.
+> **Security note:** `trust` authentication allows any local connection without a password. This is
+> acceptable for a local development environment. For production, never use `trust`.
 
 ### 4.5 Create the Database
 
@@ -319,7 +341,8 @@ echo 'export DATABASE_URL=postgres://localhost:5432/ground_up_wall_dev' >> ~/.ba
 source ~/.bashrc
 ```
 
-> If you configured a password for `postgres`, use: `postgres://postgres:yourpassword@localhost:5432/ground_up_wall_dev`
+> If you configured a password for `postgres`, use:
+> `postgres://postgres:yourpassword@localhost:5432/ground_up_wall_dev`
 
 **Verify:**
 
@@ -388,7 +411,9 @@ deno --version
 # → deno 1.x.x (stable)
 ```
 
-> If `deno` is not recognized, ensure the Deno install directory is in your `PATH`. By default, Deno installs to:
+> If `deno` is not recognized, ensure the Deno install directory is in your `PATH`. By default, Deno
+> installs to:
+>
 > - `%USERPROFILE%\.deno\bin` (script install)
 > - `%LOCALAPPDATA%\deno` (winget install)
 
@@ -404,7 +429,8 @@ winget install PostgreSQL.PostgreSQL.17
 
 Download from: https://www.enterprisedb.com/downloads/postgres-postgresql-downloads
 
-> The EDB installer will prompt you to set a password for the `postgres` user. **Remember this password** — you'll need it for the database connection string.
+> The EDB installer will prompt you to set a password for the `postgres` user. **Remember this
+> password** — you'll need it for the database connection string.
 
 **After installation, verify the PostgreSQL service is running:**
 
@@ -427,9 +453,11 @@ Start-Service -Name postgresql-x64-17
 ```
 
 > ⚠️ The PostgreSQL `bin` directory may not be in your `PATH`. Add it:
+>
 > ```powershell
 > [Environment]::SetEnvironmentVariable('Path', $env:Path + ';C:\Program Files\PostgreSQL\17\bin', 'User')
 > ```
+>
 > Restart PowerShell for the change to take effect.
 
 ### 5.4 Create the Database
@@ -438,7 +466,8 @@ Start-Service -Name postgresql-x64-17
 & "C:\Program Files\PostgreSQL\17\bin\createdb.exe" ground_up_wall_dev
 ```
 
-If you set a password during installation, you'll be prompted for it. You can also specify it directly:
+If you set a password during installation, you'll be prompted for it. You can also specify it
+directly:
 
 ```powershell
 & "C:\Program Files\PostgreSQL\17\bin\createdb.exe" -U postgres ground_up_wall_dev
@@ -496,17 +525,17 @@ winget install Microsoft.VisualStudioCode
 
 Run these checks to confirm the machine is ready for development:
 
-| # | Check | Command | Expected Outcome |
-|---|-------|---------|-----------------|
-| 1 | Deno installed | `deno --version` | Version output without errors |
-| 2 | PostgreSQL installed | `psql --version` | Version output without errors |
-| 3 | PostgreSQL accepting connections | `pg_isready` | `accepting connections` |
-| 4 | Database exists | `psql -d ground_up_wall_dev -c '\l'` | Database listed |
-| 5 | Environment variable set | `echo $DATABASE_URL` ¹ | `postgres://localhost:5432/ground_up_wall_dev` |
-| 6 | Git installed | `git --version` | Version output without errors |
-| 7 | VS Code installed | `code --version` | Version output without errors |
-| 8 | Deno can fetch remote modules | `deno eval --allow-net "const _ = await import('jsr:@std/assert@^1.0.0'); console.log('module fetch OK');"` | `module fetch OK` |
-| 9 | npm dependencies installed | `deno install --lock=deno.lock` | `node_modules/` created without errors |
+| # | Check                            | Command                                                                                                     | Expected Outcome                               |
+| - | -------------------------------- | ----------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| 1 | Deno installed                   | `deno --version`                                                                                            | Version output without errors                  |
+| 2 | PostgreSQL installed             | `psql --version`                                                                                            | Version output without errors                  |
+| 3 | PostgreSQL accepting connections | `pg_isready`                                                                                                | `accepting connections`                        |
+| 4 | Database exists                  | `psql -d ground_up_wall_dev -c '\l'`                                                                        | Database listed                                |
+| 5 | Environment variable set         | `echo $DATABASE_URL` ¹                                                                                      | `postgres://localhost:5432/ground_up_wall_dev` |
+| 6 | Git installed                    | `git --version`                                                                                             | Version output without errors                  |
+| 7 | VS Code installed                | `code --version`                                                                                            | Version output without errors                  |
+| 8 | Deno can fetch remote modules    | `deno eval --allow-net "const _ = await import('jsr:@std/assert@^1.0.0'); console.log('module fetch OK');"` | `module fetch OK`                              |
+| 9 | npm dependencies installed       | `deno install --lock=deno.lock`                                                                             | `node_modules/` created without errors         |
 
 > ¹ On Windows PowerShell, use `echo $env:DATABASE_URL` instead.
 
@@ -516,31 +545,33 @@ Run these checks to confirm the machine is ready for development:
 
 ### Common Issues by OS
 
-| Symptom | Likely Cause | Solution |
-|---|---|---|
-| **`deno: command not found`** (macOS) | Homebrew bin not in PATH | Run `eval "$(/opt/homebrew/bin/brew shellenv)"` (Apple Silicon) or check `/usr/local/bin` (Intel) |
-| **`deno: command not found`** (Linux) | `~/.deno/bin` not in PATH | Run `export PATH="$HOME/.deno/bin:$PATH"` and add to `~/.bashrc` |
-| **`deno: command not recognized`** (Windows) | Deno not in PATH | Add `%USERPROFILE%\.deno\bin` to your user PATH via System Environment Variables |
-| **`psql: command not found`** (macOS) | Only Deno PG client installed, not brew PG | Re-run `brew install postgresql@17` which includes `psql` |
-| **`psql: command not recognized`** (Windows) | PG bin not in PATH | Run `$env:Path += ';C:\Program Files\PostgreSQL\17\bin'` in PowerShell |
-| **`pg_isready: command not found`** (macOS/Linux) | PG client tools not installed | macOS: `brew install postgresql@17`. Linux: `sudo apt install postgresql-client-17` |
-| **PostgreSQL service fails to start** (macOS) | Port conflict | Run `lsof -i :5432` to find what's using the port. Stop the other process or configure PG to use a different port |
-| **PostgreSQL service fails to start** (Linux) | Another PG instance or port conflict | `sudo systemctl status postgresql` for logs. Common fix: `sudo systemctl stop postgresql && sudo systemctl start postgresql` |
-| **PostgreSQL service fails to start** (Windows) | Port conflict or corrupted install | Check Event Viewer or run `pg_ctl start` from the PG bin directory manually |
-| **`createdb: could not connect to database template1`** (Linux) | `pg_hba.conf` peer auth blocks TCP | See [Section 4.4](#44-configure-local-tcp-access) to configure `trust` auth for localhost |
-| **`git: command not found`** (Windows) | Git not installed or not in PATH | Run `winget install Git.Git` and restart terminal |
-| **`code: command not found`** (macOS/Linux) | VS Code CLI not in PATH | macOS: Launch VS Code → Cmd+Shift+P → `Shell Command: Install 'code' command in PATH`. Linux: Reinstall or check `/usr/bin/code` |
-| **Deno runtime error on Apple Silicon** | Rosetta translation issue | Ensure you're running native ARM Deno (`brew install deno` installs ARM-native). Check `file $(which deno)` |
-| **`winget: command not found`** (Windows) | Windows 11 without App Installer | Download App Installer from Microsoft Store, or use alternative install methods |
+| Symptom                                                         | Likely Cause                               | Solution                                                                                                                         |
+| --------------------------------------------------------------- | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| **`deno: command not found`** (macOS)                           | Homebrew bin not in PATH                   | Run `eval "$(/opt/homebrew/bin/brew shellenv)"` (Apple Silicon) or check `/usr/local/bin` (Intel)                                |
+| **`deno: command not found`** (Linux)                           | `~/.deno/bin` not in PATH                  | Run `export PATH="$HOME/.deno/bin:$PATH"` and add to `~/.bashrc`                                                                 |
+| **`deno: command not recognized`** (Windows)                    | Deno not in PATH                           | Add `%USERPROFILE%\.deno\bin` to your user PATH via System Environment Variables                                                 |
+| **`psql: command not found`** (macOS)                           | Only Deno PG client installed, not brew PG | Re-run `brew install postgresql@17` which includes `psql`                                                                        |
+| **`psql: command not recognized`** (Windows)                    | PG bin not in PATH                         | Run `$env:Path += ';C:\Program Files\PostgreSQL\17\bin'` in PowerShell                                                           |
+| **`pg_isready: command not found`** (macOS/Linux)               | PG client tools not installed              | macOS: `brew install postgresql@17`. Linux: `sudo apt install postgresql-client-17`                                              |
+| **PostgreSQL service fails to start** (macOS)                   | Port conflict                              | Run `lsof -i :5432` to find what's using the port. Stop the other process or configure PG to use a different port                |
+| **PostgreSQL service fails to start** (Linux)                   | Another PG instance or port conflict       | `sudo systemctl status postgresql` for logs. Common fix: `sudo systemctl stop postgresql && sudo systemctl start postgresql`     |
+| **PostgreSQL service fails to start** (Windows)                 | Port conflict or corrupted install         | Check Event Viewer or run `pg_ctl start` from the PG bin directory manually                                                      |
+| **`createdb: could not connect to database template1`** (Linux) | `pg_hba.conf` peer auth blocks TCP         | See [Section 4.4](#44-configure-local-tcp-access) to configure `trust` auth for localhost                                        |
+| **`git: command not found`** (Windows)                          | Git not installed or not in PATH           | Run `winget install Git.Git` and restart terminal                                                                                |
+| **`code: command not found`** (macOS/Linux)                     | VS Code CLI not in PATH                    | macOS: Launch VS Code → Cmd+Shift+P → `Shell Command: Install 'code' command in PATH`. Linux: Reinstall or check `/usr/bin/code` |
+| **Deno runtime error on Apple Silicon**                         | Rosetta translation issue                  | Ensure you're running native ARM Deno (`brew install deno` installs ARM-native). Check `file $(which deno)`                      |
+| **`winget: command not found`** (Windows)                       | Windows 11 without App Installer           | Download App Installer from Microsoft Store, or use alternative install methods                                                  |
 
 ### pg_hba.conf Explained
 
-PostgreSQL uses `pg_hba.conf` (Host-Based Authentication) to control which connection methods are allowed. For local development, the key settings are:
+PostgreSQL uses `pg_hba.conf` (Host-Based Authentication) to control which connection methods are
+allowed. For local development, the key settings are:
 
 - **`local`** — Unix socket connections (default: `peer`)
 - **`host`** — TCP/IP connections (default: `scram-sha-256` or `md5`)
 
-The project connects via TCP to `localhost:5432`, so the `host` line for `127.0.0.1/32` must permit connections. Either:
+The project connects via TCP to `localhost:5432`, so the `host` line for `127.0.0.1/32` must permit
+connections. Either:
 
 - Set to `trust` (no password, as shown in Section 4.4), or
 - Set to `md5` / `scram-sha-256` and include the password in `DATABASE_URL`
@@ -571,13 +602,13 @@ Expected output: `JSR registry reachable: true`
 
 After installing VS Code, add these extensions for Deno development:
 
-| Extension | ID | Purpose |
-|---|---|---|
-| **Deno** | `denoland.vscode-deno` | Language server, IntelliSense, formatting |
-| **Prettier** | `esbenp.prettier-vscode` | Code formatting |
-| **PostgreSQL** | `ckolkman.vscode-postgres` | Database browsing / query execution |
-| **GitLens** | `eamodio.gitlens` | Git history and blame annotations |
-| **YAML** | `redhat.vscode-yaml` | YAML support (for CI/CD files) |
+| Extension      | ID                         | Purpose                                   |
+| -------------- | -------------------------- | ----------------------------------------- |
+| **Deno**       | `denoland.vscode-deno`     | Language server, IntelliSense, formatting |
+| **Prettier**   | `esbenp.prettier-vscode`   | Code formatting                           |
+| **PostgreSQL** | `ckolkman.vscode-postgres` | Database browsing / query execution       |
+| **GitLens**    | `eamodio.gitlens`          | Git history and blame annotations         |
+| **YAML**       | `redhat.vscode-yaml`       | YAML support (for CI/CD files)            |
 
 Install them from the VS Code Extensions panel (`Cmd+Shift+X` / `Ctrl+Shift+X`) or via CLI:
 
@@ -591,4 +622,6 @@ code --install-extension redhat.vscode-yaml
 
 ---
 
-> **Machine is ready for development.** Proceed to the relevant [Code Execution Plan](./code_execution_plan-wi-01.md) and start with its Pre-Conditions checklist to confirm the environment meets all requirements.
+> **Machine is ready for development.** Proceed to the relevant
+> [Code Execution Plan](./code_execution_plan-wi-01.md) and start with its Pre-Conditions checklist
+> to confirm the environment meets all requirements.

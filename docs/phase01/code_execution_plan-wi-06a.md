@@ -1,16 +1,17 @@
 # Code Execution Plan: ground-up-wall
 
-| Field | Value |
-|-------|-------|
-| Document Type | Code Execution Plan |
-| Epic Work Item | `WI-06a` |
-| Tech Spec | `ground-up-wall/docs/phase01/epic_plan-phase01.md` |
-| Version | 1.0 |
-| Author | Developer |
+| Field          | Value                                              |
+| -------------- | -------------------------------------------------- |
+| Document Type  | Code Execution Plan                                |
+| Epic Work Item | `WI-06a`                                           |
+| Tech Spec      | `ground-up-wall/docs/phase01/epic_plan-phase01.md` |
+| Version        | 1.0                                                |
+| Author         | Developer                                          |
 
 ---
 
-> This document is the **single source of truth** for implementation sequencing of WI-06a (Admin: User Management).
+> This document is the **single source of truth** for implementation sequencing of WI-06a (Admin:
+> User Management).
 
 ---
 
@@ -36,10 +37,10 @@
 
 #### Files Changed
 
-| File | Change | Description |
-|------|--------|-------------|
-| `routes/admin/index.tsx` | New | Admin panel main page — navigation hub for admin features |
-| `routes/admin/_middleware.ts` | New | Admin route middleware — requires admin role |
+| File                          | Change | Description                                               |
+| ----------------------------- | ------ | --------------------------------------------------------- |
+| `routes/admin/index.tsx`      | New    | Admin panel main page — navigation hub for admin features |
+| `routes/admin/_middleware.ts` | New    | Admin route middleware — requires admin role              |
 
 #### Implementation Details
 
@@ -50,7 +51,7 @@
    import { requireRole } from "../../lib/middleware/auth_guard.ts";
 
    // Admin-only access for all /admin/* routes
-   export const handler = [requireRole('admin')];
+   export const handler = [requireRole("admin")];
    ```
 
 2. **Create `routes/admin/index.tsx`:**
@@ -62,10 +63,10 @@
 
 #### Unit Tests
 
-| Test File | Test Method | Verifies |
-|-----------|-------------|----------|
+| Test File                    | Test Method                     | Verifies                           |
+| ---------------------------- | ------------------------------- | ---------------------------------- |
 | `routes/admin/index_test.ts` | `testAdminRouteBlocksModerator` | Moderator gets 403 on /admin route |
-| `routes/admin/index_test.ts` | `testAdminRouteAllowsAdmin` | Admin can access /admin route |
+| `routes/admin/index_test.ts` | `testAdminRouteAllowsAdmin`     | Admin can access /admin route      |
 
 #### Verification
 
@@ -80,15 +81,16 @@
 
 ### 1.2 User Management Page — List All Accounts
 
-**Commit message:** `WI-06a: implement user management page listing Photo Moderator and Display Wall accounts`
+**Commit message:**
+`WI-06a: implement user management page listing Photo Moderator and Display Wall accounts`
 
 #### Files Changed
 
-| File | Change | Description |
-|------|--------|-------------|
-| `routes/admin/users.tsx` | New | User management page — list all accounts with status |
-| `islands/UserManagement.tsx` | New | Client island — user table with actions |
-| `routes/api/admin/users/index.ts` | New | GET /api/admin/users — list all moderator + display wall users |
+| File                              | Change | Description                                                    |
+| --------------------------------- | ------ | -------------------------------------------------------------- |
+| `routes/admin/users.tsx`          | New    | User management page — list all accounts with status           |
+| `islands/UserManagement.tsx`      | New    | Client island — user table with actions                        |
+| `routes/api/admin/users/index.ts` | New    | GET /api/admin/users — list all moderator + display wall users |
 
 #### Implementation Details
 
@@ -102,17 +104,18 @@
 
 3. **Create `islands/UserManagement.tsx`:**
    - Fetches user list from `/api/admin/users`
-   - Table with columns: Username, Role (Photo Moderator / Display Wall), Status (Active/Disabled), Created, Actions
+   - Table with columns: Username, Role (Photo Moderator / Display Wall), Status (Active/Disabled),
+     Created, Actions
    - Actions per row: Reset Password, Disable/Enable, Delete
    - Role shown as badge/tag for visual clarity
    - Status shown with active/green or disabled/red indicator
 
 #### Unit Tests
 
-| Test File | Test Method | Verifies |
-|-----------|-------------|----------|
-| `islands/UserManagement_test.tsx` | `testShowsUserList` | Users render in table with correct columns |
-| `islands/UserManagement_test.tsx` | `testShowsRoleAndStatus` | Role and status badges render correctly |
+| Test File                         | Test Method              | Verifies                                   |
+| --------------------------------- | ------------------------ | ------------------------------------------ |
+| `islands/UserManagement_test.tsx` | `testShowsUserList`      | Users render in table with correct columns |
+| `islands/UserManagement_test.tsx` | `testShowsRoleAndStatus` | Role and status badges render correctly    |
 
 #### Verification
 
@@ -127,15 +130,16 @@
 
 ### 1.3 Create and Disable/Enable Accounts
 
-**Commit message:** `WI-06a: implement create, disable, and enable for moderator and Display Wall accounts`
+**Commit message:**
+`WI-06a: implement create, disable, and enable for moderator and Display Wall accounts`
 
 #### Files Changed
 
-| File | Change | Description |
-|------|--------|-------------|
-| `routes/api/admin/users/create.ts` | New | POST /api/admin/users/create — create moderator or Display Wall account |
-| `routes/api/admin/users/toggle-status.ts` | New | POST /api/admin/users/toggle-status — disable or enable an account |
-| `islands/UserManagement.tsx` | Modified | Add create account form, disable/enable buttons |
+| File                                      | Change   | Description                                                             |
+| ----------------------------------------- | -------- | ----------------------------------------------------------------------- |
+| `routes/api/admin/users/create.ts`        | New      | POST /api/admin/users/create — create moderator or Display Wall account |
+| `routes/api/admin/users/toggle-status.ts` | New      | POST /api/admin/users/toggle-status — disable or enable an account      |
+| `islands/UserManagement.tsx`              | Modified | Add create account form, disable/enable buttons                         |
 
 #### Implementation Details
 
@@ -150,7 +154,8 @@
 2. **Create `routes/api/admin/users/toggle-status.ts`:**
    - POST handler, requires admin role
    - Accepts `{ userId, action: 'disable' | 'enable', role: 'moderator' | 'display_wall' }`
-   - Calls appropriate service method (`disableModerator`/`enableModerator` or `disableDisplayWallUser`)
+   - Calls appropriate service method (`disableModerator`/`enableModerator` or
+     `disableDisplayWallUser`)
    - Logs action in audit log
 
 3. **Modify `islands/UserManagement.tsx`:**
@@ -161,13 +166,13 @@
 
 #### Unit Tests
 
-| Test File | Test Method | Verifies |
-|-----------|-------------|----------|
-| `routes/api/admin/users/create_test.ts` | `testCreateModerator` | Creating a moderator account returns 201 |
-| `routes/api/admin/users/create_test.ts` | `testCreateDuplicateUsername` | Duplicate username returns 409 |
-| `routes/api/admin/users/create_test.ts` | `testCreateDisplayWallUser` | Creating a Display Wall User returns 201 |
-| `routes/api/admin/users/toggle-status_test.ts` | `testDisableModerator` | Disabling a moderator prevents login |
-| `routes/api/admin/users/toggle-status_test.ts` | `testEnableModerator` | Enabling a moderator restores login |
+| Test File                                      | Test Method                   | Verifies                                 |
+| ---------------------------------------------- | ----------------------------- | ---------------------------------------- |
+| `routes/api/admin/users/create_test.ts`        | `testCreateModerator`         | Creating a moderator account returns 201 |
+| `routes/api/admin/users/create_test.ts`        | `testCreateDuplicateUsername` | Duplicate username returns 409           |
+| `routes/api/admin/users/create_test.ts`        | `testCreateDisplayWallUser`   | Creating a Display Wall User returns 201 |
+| `routes/api/admin/users/toggle-status_test.ts` | `testDisableModerator`        | Disabling a moderator prevents login     |
+| `routes/api/admin/users/toggle-status_test.ts` | `testEnableModerator`         | Enabling a moderator restores login      |
 
 #### Verification
 
@@ -186,15 +191,16 @@
 
 ### 1.4 Reset Password and Delete Account
 
-**Commit message:** `WI-06a: implement reset password and delete account for moderator and Display Wall accounts`
+**Commit message:**
+`WI-06a: implement reset password and delete account for moderator and Display Wall accounts`
 
 #### Files Changed
 
-| File | Change | Description |
-|------|--------|-------------|
-| `routes/api/admin/users/reset-password.ts` | New | POST /api/admin/users/reset-password — reset account password |
-| `routes/api/admin/users/delete.ts` | New | POST /api/admin/users/delete — delete an account |
-| `islands/UserManagement.tsx` | Modified | Add reset password dialog, delete with confirmation |
+| File                                       | Change   | Description                                                   |
+| ------------------------------------------ | -------- | ------------------------------------------------------------- |
+| `routes/api/admin/users/reset-password.ts` | New      | POST /api/admin/users/reset-password — reset account password |
+| `routes/api/admin/users/delete.ts`         | New      | POST /api/admin/users/delete — delete an account              |
+| `islands/UserManagement.tsx`               | Modified | Add reset password dialog, delete with confirmation           |
 
 #### Implementation Details
 
@@ -219,10 +225,10 @@
 
 #### Unit Tests
 
-| Test File | Test Method | Verifies |
-|-----------|-------------|----------|
-| `routes/api/admin/users/reset-password_test.ts` | `testResetModeratorPassword` | Password reset updates password and logs audit |
-| `routes/api/admin/users/delete_test.ts` | `testDeleteModerator` | Deleting moderator removes account but preserves audit entries |
+| Test File                                       | Test Method                  | Verifies                                                       |
+| ----------------------------------------------- | ---------------------------- | -------------------------------------------------------------- |
+| `routes/api/admin/users/reset-password_test.ts` | `testResetModeratorPassword` | Password reset updates password and logs audit                 |
+| `routes/api/admin/users/delete_test.ts`         | `testDeleteModerator`        | Deleting moderator removes account but preserves audit entries |
 
 #### Verification
 

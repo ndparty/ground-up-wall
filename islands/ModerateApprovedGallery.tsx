@@ -79,28 +79,26 @@ export default function ModerateApprovedGallery() {
     <>
       <ConnectionBanner status={connectionStatus} />
       {error && <p class="text-error--block">{error}</p>}
-      {!loaded
-        ? <p class="text-loading">Loading approved…</p>
-        : (
-          <ApprovedWallList
-            approved={approved}
-            onEdit={async (sub, data) => {
-              const res = await fetch(`/api/semak/edit/${sub.id}`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(data),
-              });
-              const updated = await res.json();
-              if (!res.ok) throw new Error(updated.error ?? "Edit failed");
-              setApproved((prev) => prev.map((s) => (s.id === sub.id ? updated : s)));
-            }}
-            onDelete={async (sub) => {
-              await apiAction(`/api/semak/delete/${sub.id}`, "POST");
-              setApproved((prev) => prev.filter((s) => s.id !== sub.id));
-            }}
-            onShowOnDisplay={showOnDisplay}
-          />
-        )}
+      {!loaded ? <p class="text-loading">Loading approved…</p> : (
+        <ApprovedWallList
+          approved={approved}
+          onEdit={async (sub, data) => {
+            const res = await fetch(`/api/semak/edit/${sub.id}`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(data),
+            });
+            const updated = await res.json();
+            if (!res.ok) throw new Error(updated.error ?? "Edit failed");
+            setApproved((prev) => prev.map((s) => (s.id === sub.id ? updated : s)));
+          }}
+          onDelete={async (sub) => {
+            await apiAction(`/api/semak/delete/${sub.id}`, "POST");
+            setApproved((prev) => prev.filter((s) => s.id !== sub.id));
+          }}
+          onShowOnDisplay={showOnDisplay}
+        />
+      )}
     </>
   );
 }

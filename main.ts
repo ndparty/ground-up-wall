@@ -1,6 +1,6 @@
 import { App, staticFiles } from "fresh";
 import { loadConfig } from "./lib/config.ts";
-import { closeAppState, createAppState, type AppState } from "./lib/di.ts";
+import { type AppState, closeAppState, createAppState } from "./lib/di.ts";
 import { loadEnvFile } from "./lib/load_env.ts";
 import { accessGateMiddleware } from "./lib/middleware/access_gate.ts";
 import { csrfOriginMiddleware } from "./lib/middleware/csrf_origin.ts";

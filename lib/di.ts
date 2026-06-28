@@ -31,7 +31,7 @@ export interface PhotoWallServiceDeps {
 export async function createServices(config: AppConfig): Promise<PhotoWallServiceDeps> {
   const useMock = Deno.env.get("USE_MOCK_DB") === "true";
   let repository: Repository;
-  
+
   if (useMock) {
     // Use singleton instance for mock DB so tests and app share the same data
     const mockModule = await import("./repositories/mock_repository.ts");
@@ -44,7 +44,7 @@ export async function createServices(config: AppConfig): Promise<PhotoWallServic
   } else {
     repository = new PostgresRepository(config.database.url);
   }
-  
+
   const storage = new FileStorageService(config.storage.path);
   const realtime = new MemoryRealtimeService();
   const audit = new AuditServiceImpl(repository);

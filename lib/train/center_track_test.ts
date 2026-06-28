@@ -1,8 +1,5 @@
 import { assertEquals } from "@std/assert";
-import {
-  centerSlotDelta,
-  computeAbsoluteTrackTranslate,
-} from "./center_track.ts";
+import { centerSlotDelta, computeAbsoluteTrackTranslate } from "./center_track.ts";
 import type { RenderCabin } from "./train_view.ts";
 import { LEFT_RENDER } from "./train_view_constants.ts";
 

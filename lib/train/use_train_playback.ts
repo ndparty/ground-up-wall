@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import { fetchWithRetry } from "../client/fetch_with_retry.ts";
-import { redirectToLogin, useDisplaySessionKeepalive } from "../client/use_display_session_keepalive.ts";
+import {
+  redirectToLogin,
+  useDisplaySessionKeepalive,
+} from "../client/use_display_session_keepalive.ts";
 import { useReconnectingEventSource } from "../client/use_reconnecting_event_source.ts";
 import type { ConnectionStatus } from "../client/use_reconnecting_event_source.ts";
 import type {
@@ -15,11 +18,11 @@ import {
   resolvePublicParticipantUrl,
 } from "../display/public_participant_url.ts";
 import {
+  addApproved,
   applyServerWindow,
   getCanonicalCount,
   getCurrentCabin,
   initTrainView,
-  addApproved,
   removeSubmissionFromView,
   type TrainViewState,
   updateSubmissionInView,

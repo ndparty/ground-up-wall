@@ -10,6 +10,7 @@ This project supports two testing modes:
 ## CI Pipeline (GitHub Actions)
 
 The CI pipeline uses the **mock database** by default:
+
 - No PostgreSQL service required
 - Tests run faster (~2-3 minutes vs ~5-7 minutes)
 - Set via `USE_MOCK_DB=true` environment variable
@@ -59,7 +60,7 @@ docker rm ground-up-wall-db
 Create a `docker-compose.test.yml`:
 
 ```yaml
-version: '3.8'
+version: "3.8"
 services:
   postgres:
     image: postgres:17-alpine
@@ -114,12 +115,14 @@ USE_MOCK_DB=true deno task test
 ## When to Use Each Mode
 
 ### Use Mock Database When:
+
 - ✅ Running quick tests during development
 - ✅ Testing business logic without database concerns
 - ✅ CI/CD pipelines (already configured)
 - ✅ Testing edge cases that are hard to reproduce in PostgreSQL
 
 ### Use PostgreSQL When:
+
 - ✅ Testing database migrations
 - ✅ Testing PostgreSQL-specific features (JSON operators, constraints, etc.)
 - ✅ Performance testing with real database
@@ -131,6 +134,7 @@ USE_MOCK_DB=true deno task test
 ### MockRepository
 
 Located in `lib/repositories/mock_repository.ts`:
+
 - In-memory implementation of the `Repository` interface
 - No external dependencies
 - Fast test execution
@@ -139,6 +143,7 @@ Located in `lib/repositories/mock_repository.ts`:
 ### PostgresRepository
 
 Located in `lib/repositories/postgres_repository.ts`:
+
 - Real PostgreSQL implementation
 - Tests actual SQL queries and constraints
 - Required for migration testing
@@ -146,12 +151,12 @@ Located in `lib/repositories/postgres_repository.ts`:
 
 ## Environment Variables
 
-| Variable | Purpose | Default |
-|----------|---------|---------|
-| `USE_MOCK_DB` | Use mock repository instead of PostgreSQL | `false` |
-| `DATABASE_URL` | PostgreSQL connection URL | `postgres://localhost:5432/ground_up_wall_test` |
-| `DATABASE_URL_TEST` | Test database URL | Same as `DATABASE_URL` |
-| `SECURITY_GATES_DISABLED` | Disable rate limits in tests | `1` (set automatically) |
+| Variable                  | Purpose                                   | Default                                         |
+| ------------------------- | ----------------------------------------- | ----------------------------------------------- |
+| `USE_MOCK_DB`             | Use mock repository instead of PostgreSQL | `false`                                         |
+| `DATABASE_URL`            | PostgreSQL connection URL                 | `postgres://localhost:5432/ground_up_wall_test` |
+| `DATABASE_URL_TEST`       | Test database URL                         | Same as `DATABASE_URL`                          |
+| `SECURITY_GATES_DISABLED` | Disable rate limits in tests              | `1` (set automatically)                         |
 
 ## Troubleshooting
 
@@ -171,7 +176,8 @@ This error occurs when PostgreSQL isn't running. Solutions:
 
 ### TypeScript Errors in IDE
 
-The IDE may show `Cannot find name 'Deno'` errors. These are false positives - the code works correctly when run with Deno. To suppress:
+The IDE may show `Cannot find name 'Deno'` errors. These are false positives - the code works
+correctly when run with Deno. To suppress:
 
 1. Install Deno VS Code extension
 2. Or ignore these specific errors
@@ -197,10 +203,10 @@ When adding new tests:
 
 ## Performance Comparison
 
-| Mode | Test Suite Time | PostgreSQL Required |
-|------|----------------|---------------------|
-| Mock | ~2-3 minutes | ❌ No |
-| PostgreSQL | ~5-7 minutes | ✅ Yes |
+| Mode       | Test Suite Time | PostgreSQL Required |
+| ---------- | --------------- | ------------------- |
+| Mock       | ~2-3 minutes    | ❌ No               |
+| PostgreSQL | ~5-7 minutes    | ✅ Yes              |
 
 The mock database significantly speeds up CI while maintaining test coverage for business logic.
 

@@ -37,7 +37,13 @@ Deno.test("uploads-disabled blocks only upload paths", () => {
 
 Deno.test("everything allowed when both toggles are healthy", () => {
   for (
-    const path of ["/concourse", "/muatnaik", "/semak", "/api/muatnaik/submit", "/api/concourse/events"]
+    const path of [
+      "/concourse",
+      "/muatnaik",
+      "/semak",
+      "/api/muatnaik/submit",
+      "/api/concourse/events",
+    ]
   ) {
     assertEquals(accessDecision(path, ALL_OK), "allow");
   }

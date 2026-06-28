@@ -47,12 +47,12 @@ OS-specific tool install: **[docs/phase01/dev_setup.md](docs/phase01/dev_setup.m
 
 ## Tech stack
 
-| Layer               | Technology                        |
-| ------------------- | --------------------------------- |
-| Runtime / framework | Deno 2.x + Fresh 2.x              |
-| UI                  | Preact + Signals                  |
-| Database            | PostgreSQL 17+                    |
-| File storage        | Local filesystem (`STORAGE_PATH`) |
+| Layer               | Technology                          |
+| ------------------- | ----------------------------------- |
+| Runtime / framework | Deno 2.x + Fresh 2.x                |
+| UI                  | Preact + Signals                    |
+| Database            | PostgreSQL 17+                      |
+| File storage        | Local filesystem (`STORAGE_PATH`)   |
 | Real-time           | In-memory SSE (single VPS instance) |
 
 ## Architecture
@@ -69,7 +69,8 @@ Browser  →  Fresh routes (pages + API)
 - **Moderator:** `/semak` — approve, reject, edit, display override; gallery at `/semak/pamer`
 - **Display wall:** `/concourse` — train animation (display-wall, moderator, or admin login)
 - **Admin:** `/towkay` — users, parameters, audit log, display override
-- **Login:** `/masuk` — staff sign-in (legacy paths like `/login`, `/upload`, `/moderate` return 404)
+- **Login:** `/masuk` — staff sign-in (legacy paths like `/login`, `/upload`, `/moderate`
+  return 404)
 
 ## Tests
 
@@ -86,31 +87,34 @@ deno task test:e2e          # full E2E suite including seed tests
 deno task check             # format, lint, type-check
 ```
 
-**CI uses mock database** — no PostgreSQL required for pull requests.  
-**Local full testing** requires PostgreSQL and `ground_up_wall_test` (or set `DATABASE_URL_TEST`).  
+**CI uses mock database** — no PostgreSQL required for pull requests.\
+**Local full testing** requires PostgreSQL and `ground_up_wall_test` (or set `DATABASE_URL_TEST`).\
 For serial runs on Windows: `$env:DENO_JOBS="1"; deno task test`
 
 See [TESTING.md](TESTING.md) for detailed testing guide and Docker Compose setup.
 
 ## Documentation
 
-| Document                                                               | Description                              |
-| ---------------------------------------------------------------------- | ---------------------------------------- |
-| [DEMO.md](DEMO.md)                                                     | Start, run, and demonstrate the system   |
-| [SETUP.md](SETUP.md)                                                   | Developer setup and NFR sign-off         |
-| [TESTING.md](TESTING.md)                                               | Testing guide (mock DB + PostgreSQL)     |
-| [docs/phase01/epic_plan-phase01.md](docs/phase01/epic_plan-phase01.md) | Phase 01 work items WI-01–WI-07          |
-| [docs/phase02/oracle_vps_deploy.md](docs/phase02/oracle_vps_deploy.md) | Production deploy (Oracle VPS)           |
-| [docs/phase03/instagram_feasibility.md](docs/phase03/instagram_feasibility.md) | Phase 03 Instagram research      |
-| [docs/ai-dlc/](docs/ai-dlc/)                                           | Requirements, user stories, architecture |
+| Document                                                                       | Description                              |
+| ------------------------------------------------------------------------------ | ---------------------------------------- |
+| [DEMO.md](DEMO.md)                                                             | Start, run, and demonstrate the system   |
+| [SETUP.md](SETUP.md)                                                           | Developer setup and NFR sign-off         |
+| [TESTING.md](TESTING.md)                                                       | Testing guide (mock DB + PostgreSQL)     |
+| [docs/phase01/epic_plan-phase01.md](docs/phase01/epic_plan-phase01.md)         | Phase 01 work items WI-01–WI-07          |
+| [docs/phase02/oracle_vps_deploy.md](docs/phase02/oracle_vps_deploy.md)         | Production deploy (Oracle VPS)           |
+| [docs/phase03/instagram_feasibility.md](docs/phase03/instagram_feasibility.md) | Phase 03 Instagram research              |
+| [docs/ai-dlc/](docs/ai-dlc/)                                                   | Requirements, user stories, architecture |
 
 ## Phase roadmap
 
 1. **Phase 1** — Local MVP (**complete**, v1.0.1)
-2. **Phase 2** — Production on **Oracle VPS** (Caddy, LE, Cloudflare) — [deploy guide](docs/phase02/oracle_vps_deploy.md)
-3. **Phase 3** — Instagram integration — [feasibility research](docs/phase03/instagram_feasibility.md)
+2. **Phase 2** — Production on **Oracle VPS** (Caddy, LE, Cloudflare) —
+   [deploy guide](docs/phase02/oracle_vps_deploy.md)
+3. **Phase 3** — Instagram integration —
+   [feasibility research](docs/phase03/instagram_feasibility.md)
 
-> **Superseded:** The original Phase 2 plan (Deno Deploy + Supabase) was dropped in favour of a single Oracle VPS running the same local stack.
+> **Superseded:** The original Phase 2 plan (Deno Deploy + Supabase) was dropped in favour of a
+> single Oracle VPS running the same local stack.
 
 ## Contributing
 
