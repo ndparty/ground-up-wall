@@ -9,9 +9,6 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    env:
-      PGPASSWORD: postgres
-      PGUSER: postgres
     steps:
       - uses: actions/checkout@v4
 
