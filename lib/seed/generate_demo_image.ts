@@ -106,7 +106,7 @@ function fillBackground(
 function drawScaledGlyph(
   data: Uint8ClampedArray,
   width: number,
-  height: number,
+  _height: number,
   glyph: string[],
   originX: number,
   originY: number,

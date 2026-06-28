@@ -30,6 +30,7 @@ function requestOrigin(req: Request): string | null {
 }
 
 /** Reject cross-site mutating API requests that carry a session cookie (CSRF). */
+// deno-lint-ignore require-await
 export const csrfOriginMiddleware: Middleware<AuthState> = async (ctx) => {
   if (SAFE_METHODS.has(ctx.req.method)) {
     return ctx.next();

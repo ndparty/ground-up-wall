@@ -3,6 +3,8 @@ import { Client } from "@db/postgres";
 import { runMigrations } from "./migrate.ts";
 import { getTestDatabaseUrl } from "../lib/test_helpers.ts";
 
+const useMock = Deno.env.get("USE_MOCK_DB") === "true";
+
 async function tableExists(client: Client, table: string): Promise<boolean> {
   const result = await client.queryObject<{ exists: boolean }>(
     `SELECT EXISTS (
@@ -16,6 +18,7 @@ async function tableExists(client: Client, table: string): Promise<boolean> {
 
 Deno.test({
   name: "testMigrationCreatesTables",
+  ignore: useMock,
   async fn() {
     const url = getTestDatabaseUrl();
     await runMigrations(url);
@@ -35,6 +38,7 @@ Deno.test({
 
 Deno.test({
   name: "testMigrationIdempotent",
+  ignore: useMock,
   async fn() {
     const url = getTestDatabaseUrl();
     await runMigrations(url);

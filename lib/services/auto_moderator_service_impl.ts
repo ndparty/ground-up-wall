@@ -29,7 +29,7 @@ export const SUBSTITUTIONS: Record<string, string> = {
 };
 
 function normalizeForMatching(text: string): string {
-  let normalized = text.toLowerCase().normalize("NFKC");
+  const normalized = text.toLowerCase().normalize("NFKC");
   let result = "";
   for (const char of normalized) {
     result += SUBSTITUTIONS[char] ?? char;

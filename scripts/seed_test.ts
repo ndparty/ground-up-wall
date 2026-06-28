@@ -1,15 +1,13 @@
 import { assertEquals } from "@std/assert";
 import { Client } from "@db/postgres";
-import {
-  ADMIN_USERNAME,
-  DISPLAY_USERNAME,
-  MODERATOR_USERNAME,
-  runSeed,
-} from "./seed.ts";
+import { ADMIN_USERNAME, DISPLAY_USERNAME, MODERATOR_USERNAME, runSeed } from "./seed.ts";
 import { cleanupTestData, createTestRepository, getTestDatabaseUrl } from "../lib/test_helpers.ts";
+
+const useMock = Deno.env.get("USE_MOCK_DB") === "true";
 
 Deno.test({
   name: "testSeedCreatesAdmin",
+  ignore: useMock,
   async fn() {
     await cleanupTestData();
     const result = await runSeed(getTestDatabaseUrl());
@@ -30,6 +28,7 @@ Deno.test({
 
 Deno.test({
   name: "testSeedIdempotent",
+  ignore: useMock,
   async fn() {
     await cleanupTestData();
     await runSeed(getTestDatabaseUrl());
@@ -58,6 +57,7 @@ Deno.test({
 
 Deno.test({
   name: "testSeedCreatesDemoAccounts",
+  ignore: useMock,
   async fn() {
     await cleanupTestData();
     const result = await runSeed(getTestDatabaseUrl());
@@ -79,6 +79,7 @@ Deno.test({
 
 Deno.test({
   name: "testSeedDemoAccountsIdempotent",
+  ignore: useMock,
   async fn() {
     await cleanupTestData();
     await runSeed(getTestDatabaseUrl());
@@ -108,6 +109,7 @@ Deno.test({
 
 Deno.test({
   name: "testSeedMigratesPowDefaultToTrue",
+  ignore: useMock,
   async fn() {
     await cleanupTestData();
     await runSeed(getTestDatabaseUrl());

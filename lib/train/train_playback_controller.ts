@@ -2,12 +2,7 @@ import type { TrainCommand, TrainStep } from "../interfaces/realtime_service.ts"
 import { clampDwellSeconds } from "./display_helpers.ts";
 import { QR_CABIN_DESTINATION } from "../defaults/app_defaults.ts";
 import { pickRandomStation } from "../copy/mrt_stations.ts";
-import {
-  CENTER_SLOT,
-  LEFT_RENDER,
-  RIGHT_RENDER,
-  WINDOW_LENGTH,
-} from "./train_view_constants.ts";
+import { CENTER_SLOT, LEFT_RENDER, RIGHT_RENDER, WINDOW_LENGTH } from "./train_view_constants.ts";
 import {
   buildAppendOnlyJump,
   isCanonicalAtCenter,
@@ -372,7 +367,7 @@ export class TrainPlaybackController {
       return;
     }
 
-    const { animationWindow, committedTape, stepsToTarget } = buildAppendOnlyJump(
+    const { animationWindow, committedTape } = buildAppendOnlyJump(
       startTape,
       fromCabin,
       targetCabin,

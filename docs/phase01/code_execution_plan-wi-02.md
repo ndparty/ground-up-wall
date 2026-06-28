@@ -1,25 +1,26 @@
 # Code Execution Plan: ground-up-wall
 
-| Field | Value |
-|-------|-------|
-| Document Type | Code Execution Plan |
-| Epic Work Item | `WI-02` |
-| Tech Spec | `ground-up-wall/docs/phase01/epic_plan-phase01.md` |
-| Version | 1.0 |
-| Author | Developer |
+| Field          | Value                                              |
+| -------------- | -------------------------------------------------- |
+| Document Type  | Code Execution Plan                                |
+| Epic Work Item | `WI-02`                                            |
+| Tech Spec      | `ground-up-wall/docs/phase01/epic_plan-phase01.md` |
+| Version        | 1.0                                                |
+| Author         | Developer                                          |
 
 ---
 
-A Code Execution Plan describes *how to implement* the changes defined in a work item.
+A Code Execution Plan describes _how to implement_ the changes defined in a work item.
 
-> This document is the **single source of truth** for implementation sequencing of WI-02 (Auth System).
-> Do not duplicate content from the epic plan — reference it via `epic_plan-phase01.md`.
+> This document is the **single source of truth** for implementation sequencing of WI-02 (Auth
+> System). Do not duplicate content from the epic plan — reference it via `epic_plan-phase01.md`.
 
 ---
 
 ## Pre-Conditions
 
-- [ ] WI-01 merged to `main` (Foundation — project scaffold, DB schema, Repository interface, PostgresRepository)
+- [ ] WI-01 merged to `main` (Foundation — project scaffold, DB schema, Repository interface,
+      PostgresRepository)
 - [ ] PostgreSQL running on `localhost:5432` with `ground_up_wall_dev` database created
 - [ ] Migration from WI-01 has been run (tables exist)
 - [ ] Branch created from `main`: `wi-02-auth`
@@ -34,22 +35,25 @@ A Code Execution Plan describes *how to implement* the changes defined in a work
 
 ### 1.1 Login Routes and Auth API Endpoint
 
-**Commit message:** `WI-02: implement login routes with password verification and session token generation`
+**Commit message:**
+`WI-02: implement login routes with password verification and session token generation`
 
 #### Files Changed
 
-| File | Change | Description |
-|------|--------|-------------|
-| `routes/api/auth/login.ts` | New | POST /api/auth/login — authenticate user, create session, return token |
-| `routes/api/auth/logout.ts` | New | POST /api/auth/logout — invalidate session |
-| `routes/login.tsx` | New | Login page UI (username + password form) |
-| `lib/services/auth_service.ts` | New | AuthService — password verification, session management, token generation |
-| `lib/services/auth_service_test.ts` | New | Tests for AuthService |
+| File                                | Change | Description                                                               |
+| ----------------------------------- | ------ | ------------------------------------------------------------------------- |
+| `routes/api/auth/login.ts`          | New    | POST /api/auth/login — authenticate user, create session, return token    |
+| `routes/api/auth/logout.ts`         | New    | POST /api/auth/logout — invalidate session                                |
+| `routes/login.tsx`                  | New    | Login page UI (username + password form)                                  |
+| `lib/services/auth_service.ts`      | New    | AuthService — password verification, session management, token generation |
+| `lib/services/auth_service_test.ts` | New    | Tests for AuthService                                                     |
 
 #### Implementation Details
 
 1. **Create `lib/services/auth_service.ts`:**
-   - `login(username, password)`: fetch user from Repository by username, verify password with bcrypt, check `disabled` flag, generate opaque session token, return AuthResult with user info and token
+   - `login(username, password)`: fetch user from Repository by username, verify password with
+     bcrypt, check `disabled` flag, generate opaque session token, return AuthResult with user info
+     and token
    - `logout(token)`: remove session from store
    - `getCurrentUser(token)`: lookup token in session store, return user or null
    - `isAuthenticated(token)`: check if token exists and is not expired
@@ -78,20 +82,21 @@ A Code Execution Plan describes *how to implement* the changes defined in a work
    };
    ```
 
-3. **Create `routes/login.tsx`** — simple login form with username/password fields, submit to `/api/auth/login`, handle error display, redirect on success.
+3. **Create `routes/login.tsx`** — simple login form with username/password fields, submit to
+   `/api/auth/login`, handle error display, redirect on success.
 
 4. **Create `routes/api/auth/logout.ts`** — clear session cookie, call `authService.logout()`.
 
 #### Unit Tests
 
-| Test File | Test Method | Verifies |
-|-----------|-------------|----------|
-| `lib/services/auth_service_test.ts` | `testSuccessfulLogin` | Valid username+password returns AuthResult with user and token |
-| `lib/services/auth_service_test.ts` | `testFailedLoginWrongPassword` | Wrong password returns error with "Invalid credentials" |
-| `lib/services/auth_service_test.ts` | `testFailedLoginNonexistentUser` | Non-existent username returns error |
-| `lib/services/auth_service_test.ts` | `testLoginDisabledAccount` | Disabled account login returns "Account disabled" error |
-| `lib/services/auth_service_test.ts` | `testLogoutInvalidatesToken` | After logout, the token is no longer valid |
-| `lib/services/auth_service_test.ts` | `testHasRole` | `hasRole` checks the user's role from the session |
+| Test File                           | Test Method                      | Verifies                                                       |
+| ----------------------------------- | -------------------------------- | -------------------------------------------------------------- |
+| `lib/services/auth_service_test.ts` | `testSuccessfulLogin`            | Valid username+password returns AuthResult with user and token |
+| `lib/services/auth_service_test.ts` | `testFailedLoginWrongPassword`   | Wrong password returns error with "Invalid credentials"        |
+| `lib/services/auth_service_test.ts` | `testFailedLoginNonexistentUser` | Non-existent username returns error                            |
+| `lib/services/auth_service_test.ts` | `testLoginDisabledAccount`       | Disabled account login returns "Account disabled" error        |
+| `lib/services/auth_service_test.ts` | `testLogoutInvalidatesToken`     | After logout, the token is no longer valid                     |
+| `lib/services/auth_service_test.ts` | `testHasRole`                    | `hasRole` checks the user's role from the session              |
 
 #### Verification
 
@@ -108,15 +113,16 @@ A Code Execution Plan describes *how to implement* the changes defined in a work
 
 ### 1.2 Role-Based Access Control and Protected Route Guards
 
-**Commit message:** `WI-02: implement role-based access control with protected route guards and middleware`
+**Commit message:**
+`WI-02: implement role-based access control with protected route guards and middleware`
 
 #### Files Changed
 
-| File | Change | Description |
-|------|--------|-------------|
-| `lib/middleware/auth_guard.ts` | New | Middleware/guard function for protecting routes by role |
-| `routes/api/_middleware.ts` | New | API route middleware — extracts session, attaches user to context |
-| `lib/middleware/auth_guard_test.ts` | New | Tests for auth guard logic |
+| File                                | Change | Description                                                       |
+| ----------------------------------- | ------ | ----------------------------------------------------------------- |
+| `lib/middleware/auth_guard.ts`      | New    | Middleware/guard function for protecting routes by role           |
+| `routes/api/_middleware.ts`         | New    | API route middleware — extracts session, attaches user to context |
+| `lib/middleware/auth_guard_test.ts` | New    | Tests for auth guard logic                                        |
 
 #### Implementation Details
 
@@ -153,21 +159,23 @@ A Code Execution Plan describes *how to implement* the changes defined in a work
    - Parse `Cookie` header for `session` token
    - Call `authService.getCurrentUser(token)` to validate
    - Attach user to `ctx.state` if valid
-   - If no valid session, set `ctx.state.user = null` (API handlers decide auth requirements per-route)
+   - If no valid session, set `ctx.state.user = null` (API handlers decide auth requirements
+     per-route)
 
 3. **Route guard patterns** (to be used in subsequent WIs):
    - Admin-only: `requireRole('admin')`
    - Moderator+Admin: `requireRole('moderator', 'admin')`
-   - Any authenticated (including Display Wall User): `requireRole('moderator', 'admin', 'display_wall')`
+   - Any authenticated (including Display Wall User):
+     `requireRole('moderator', 'admin', 'display_wall')`
 
 #### Unit Tests
 
-| Test File | Test Method | Verifies |
-|-----------|-------------|----------|
-| `lib/middleware/auth_guard_test.ts` | `testRequireAdminAllowsAdmin` | Admin role passes admin-only guard |
-| `lib/middleware/auth_guard_test.ts` | `testRequireAdminBlocksModerator` | Moderator role is blocked by admin-only guard |
-| `lib/middleware/auth_guard_test.ts` | `testRequireAnyAuthAllowsDisplayWall` | Display Wall User passes any-auth guard |
-| `lib/middleware/auth_guard_test.ts` | `testNoSessionReturnsUnauthorized` | Missing cookie returns 401 |
+| Test File                           | Test Method                           | Verifies                                      |
+| ----------------------------------- | ------------------------------------- | --------------------------------------------- |
+| `lib/middleware/auth_guard_test.ts` | `testRequireAdminAllowsAdmin`         | Admin role passes admin-only guard            |
+| `lib/middleware/auth_guard_test.ts` | `testRequireAdminBlocksModerator`     | Moderator role is blocked by admin-only guard |
+| `lib/middleware/auth_guard_test.ts` | `testRequireAnyAuthAllowsDisplayWall` | Display Wall User passes any-auth guard       |
+| `lib/middleware/auth_guard_test.ts` | `testNoSessionReturnsUnauthorized`    | Missing cookie returns 401                    |
 
 #### Verification
 
@@ -183,15 +191,16 @@ A Code Execution Plan describes *how to implement* the changes defined in a work
 
 ### 1.3 Password Change Functionality
 
-**Commit message:** `WI-02: implement password change with current password verification and audit logging`
+**Commit message:**
+`WI-02: implement password change with current password verification and audit logging`
 
 #### Files Changed
 
-| File | Change | Description |
-|------|--------|-------------|
-| `routes/api/auth/change-password.ts` | New | POST /api/auth/change-password — change own password |
-| `routes/change-password.tsx` | New | Change password page (current password, new password, confirm) |
-| `lib/services/auth_service.ts` | Modified | Add `changePassword` method |
+| File                                 | Change   | Description                                                    |
+| ------------------------------------ | -------- | -------------------------------------------------------------- |
+| `routes/api/auth/change-password.ts` | New      | POST /api/auth/change-password — change own password           |
+| `routes/change-password.tsx`         | New      | Change password page (current password, new password, confirm) |
+| `lib/services/auth_service.ts`       | Modified | Add `changePassword` method                                    |
 
 #### Implementation Details
 
@@ -226,11 +235,11 @@ A Code Execution Plan describes *how to implement* the changes defined in a work
 
 #### Unit Tests
 
-| Test File | Test Method | Verifies |
-|-----------|-------------|----------|
-| `lib/services/auth_service_test.ts` | `testChangePasswordSuccess` | Correct current password updates to new password |
-| `lib/services/auth_service_test.ts` | `testChangePasswordWrongCurrent` | Wrong current password throws error |
-| `lib/services/auth_service_test.ts` | `testChangePasswordAuditLogged` | Password change is logged in audit log |
+| Test File                           | Test Method                      | Verifies                                         |
+| ----------------------------------- | -------------------------------- | ------------------------------------------------ |
+| `lib/services/auth_service_test.ts` | `testChangePasswordSuccess`      | Correct current password updates to new password |
+| `lib/services/auth_service_test.ts` | `testChangePasswordWrongCurrent` | Wrong current password throws error              |
+| `lib/services/auth_service_test.ts` | `testChangePasswordAuditLogged`  | Password change is logged in audit log           |
 
 #### Verification
 
@@ -250,12 +259,12 @@ A Code Execution Plan describes *how to implement* the changes defined in a work
 
 #### Files Changed
 
-| File | Change | Description |
-|------|--------|-------------|
-| `routes/_app.tsx` | Modified | Add auth state provider, inject AuthContext for all routes |
-| `lib/context/auth_context.ts` | New | Preact context for auth state — current user, login/logout methods |
-| `islands/AuthStatus.tsx` | New | Island component showing logged-in user + logout button in header |
-| `routes/index.tsx` | Modified | Redirect root `/` to `/upload` (home is upload page) |
+| File                          | Change   | Description                                                        |
+| ----------------------------- | -------- | ------------------------------------------------------------------ |
+| `routes/_app.tsx`             | Modified | Add auth state provider, inject AuthContext for all routes         |
+| `lib/context/auth_context.ts` | New      | Preact context for auth state — current user, login/logout methods |
+| `islands/AuthStatus.tsx`      | New      | Island component showing logged-in user + logout button in header  |
+| `routes/index.tsx`            | Modified | Redirect root `/` to `/upload` (home is upload page)               |
 
 #### Implementation Details
 
@@ -273,7 +282,9 @@ A Code Execution Plan describes *how to implement* the changes defined in a work
    }
 
    export const AuthContext = createContext<AuthContextType | null>(null);
-   export function useAuth() { return useContext(AuthContext)!; }
+   export function useAuth() {
+     return useContext(AuthContext)!;
+   }
    ```
 
 2. **Modify `routes/_app.tsx`** to wrap content with AuthProvider that:
@@ -287,10 +298,10 @@ A Code Execution Plan describes *how to implement* the changes defined in a work
 
 #### Unit Tests
 
-| Test File | Test Method | Verifies |
-|-----------|-------------|----------|
-| `islands/AuthStatus_test.tsx` | `testShowsLoginWhenUnauthenticated` | Logged-out state shows login link |
-| `islands/AuthStatus_test.tsx` | `testShowsUserWhenAuthenticated` | Logged-in state shows username and logout button |
+| Test File                     | Test Method                         | Verifies                                         |
+| ----------------------------- | ----------------------------------- | ------------------------------------------------ |
+| `islands/AuthStatus_test.tsx` | `testShowsLoginWhenUnauthenticated` | Logged-out state shows login link                |
+| `islands/AuthStatus_test.tsx` | `testShowsUserWhenAuthenticated`    | Logged-in state shows username and logout button |
 
 #### Verification
 

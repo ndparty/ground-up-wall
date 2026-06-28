@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -11,7 +12,11 @@
       --mrt-teal: #004b50;
       --mrt-black: #0a0a0a;
     }
-    * { box-sizing: border-box; }
+
+    * {
+      box-sizing: border-box;
+    }
+
     body {
       margin: 0;
       font-family: system-ui, -apple-system, sans-serif;
@@ -19,17 +24,44 @@
       color: #fff;
       padding: 2rem 1.5rem 3rem;
     }
-    h1 { font-size: 1.35rem; margin: 0 0 0.5rem; }
-    p.lead { opacity: 0.85; max-width: 52ch; margin: 0 0 2rem; line-height: 1.5; }
+
+    h1 {
+      font-size: 1.35rem;
+      margin: 0 0 0.5rem;
+    }
+
+    p.lead {
+      opacity: 0.85;
+      max-width: 52ch;
+      margin: 0 0 2rem;
+      line-height: 1.5;
+    }
+
     .grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
       gap: 2rem;
       max-width: 1200px;
     }
-    .sample { display: flex; flex-direction: column; gap: 0.75rem; }
-    .sample h2 { margin: 0; font-size: 1rem; font-weight: 600; color: #ffd7db; }
-    .sample p.hint { margin: 0; font-size: 0.85rem; opacity: 0.7; }
+
+    .sample {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .sample h2 {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 600;
+      color: #ffd7db;
+    }
+
+    .sample p.hint {
+      margin: 0;
+      font-size: 0.85rem;
+      opacity: 0.7;
+    }
 
     /* Shared sign primitives */
     .sign {
@@ -41,6 +73,7 @@
       padding: 0.35rem 0.6rem;
       border-radius: 4px;
     }
+
     .sign-logo {
       flex: 0 0 auto;
       width: 28px;
@@ -49,6 +82,7 @@
       border-radius: 50%;
       position: relative;
     }
+
     .sign-logo::after {
       content: "S";
       position: absolute;
@@ -60,6 +94,7 @@
       font-size: 0.85rem;
       color: #1a1a1a;
     }
+
     .sign-name {
       flex: 1;
       min-width: 0;
@@ -72,6 +107,7 @@
       text-overflow: ellipsis;
       white-space: nowrap;
     }
+
     .line-badge {
       flex: 0 0 auto;
       font-size: 0.65rem;
@@ -81,6 +117,7 @@
       color: #fff;
       letter-spacing: 0.05em;
     }
+
     .line-pill {
       display: flex;
       overflow: hidden;
@@ -89,12 +126,20 @@
       font-weight: 800;
       letter-spacing: 0.04em;
     }
+
     .line-pill span {
       padding: 0.2rem 0.4rem;
       color: #fff;
     }
-    .line-pill .ns { background: var(--sg-red); }
-    .line-pill .te { background: #7a4a2e; }
+
+    .line-pill .ns {
+      background: var(--sg-red);
+    }
+
+    .line-pill .te {
+      background: #7a4a2e;
+    }
+
     .exit-box {
       flex: 0 0 auto;
       width: 28px;
@@ -108,11 +153,13 @@
       justify-content: center;
       border-radius: 2px;
     }
+
     .transit-icons {
       display: flex;
       gap: 0.25rem;
       flex: 0 0 auto;
     }
+
     .transit-icons span {
       width: 18px;
       height: 18px;
@@ -124,21 +171,31 @@
       justify-content: center;
       color: #fff;
     }
-    .transit-icons .mrt { background: var(--sg-red); }
-    .transit-icons .bus { background: #0066b3; }
+
+    .transit-icons .mrt {
+      background: var(--sg-red);
+    }
+
+    .transit-icons .bus {
+      background: #0066b3;
+    }
 
     /* Option A — black board */
     .sign--a {
       background: var(--mrt-black);
       border: 1px solid #333;
     }
-    .sign--a .line-badge { background: var(--sg-red); }
+
+    .sign--a .line-badge {
+      background: var(--sg-red);
+    }
 
     /* Option B — dark teal */
     .sign--b {
       background: var(--mrt-teal);
       border: 1px solid #006870;
     }
+
     .sign--b .bus-icon {
       width: 20px;
       height: 20px;
@@ -147,6 +204,7 @@
       flex: 0 0 auto;
       position: relative;
     }
+
     .sign--b .bus-icon::after {
       content: "B";
       position: absolute;
@@ -164,6 +222,7 @@
       background: var(--mrt-teal);
       border: 1px solid #006870;
     }
+
     .sign--c .logo-frame {
       flex: 0 0 auto;
       padding: 2px;
@@ -173,7 +232,12 @@
       align-items: center;
       gap: 0.25rem;
     }
-    .sign--c .logo-frame .sign-logo { width: 22px; height: 22px; }
+
+    .sign--c .logo-frame .sign-logo {
+      width: 22px;
+      height: 22px;
+    }
+
     .sign--c .logo-frame .mrt-label {
       font-size: 0.5rem;
       font-weight: 800;
@@ -195,6 +259,7 @@
     }
   </style>
 </head>
+
 <body>
   <h1>MRT station roof badge — pick a style</h1>
   <p class="lead">
@@ -267,4 +332,5 @@
     </div>
   </div>
 </body>
+
 </html>

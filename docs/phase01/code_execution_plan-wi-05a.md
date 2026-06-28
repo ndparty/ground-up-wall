@@ -1,16 +1,17 @@
 # Code Execution Plan: ground-up-wall
 
-| Field | Value |
-|-------|-------|
-| Document Type | Code Execution Plan |
-| Epic Work Item | `WI-05a` |
-| Tech Spec | `ground-up-wall/docs/phase01/epic_plan-phase01.md` |
-| Version | 1.0 |
-| Author | Developer |
+| Field          | Value                                              |
+| -------------- | -------------------------------------------------- |
+| Document Type  | Code Execution Plan                                |
+| Epic Work Item | `WI-05a`                                           |
+| Tech Spec      | `ground-up-wall/docs/phase01/epic_plan-phase01.md` |
+| Version        | 1.0                                                |
+| Author         | Developer                                          |
 
 ---
 
-> This document is the **single source of truth** for implementation sequencing of WI-05a (Display Wall Core).
+> This document is the **single source of truth** for implementation sequencing of WI-05a (Display
+> Wall Core).
 
 ---
 
@@ -33,32 +34,37 @@
 
 ### 1.1 Display Wall Route with Auth Gate
 
-**Commit message:** `WI-05a: create display wall route with authentication gate (Display Wall User / Moderator / Admin only)`
+**Commit message:**
+`WI-05a: create display wall route with authentication gate (Display Wall User / Moderator / Admin only)`
 
 #### Files Changed
 
-| File | Change | Description |
-|------|--------|-------------|
-| `routes/display.tsx` | New | Display wall page — auth-gated route for display wall |
-| `routes/api/display/check-access.ts` | New | GET /api/display/check-access — check if current user can view display |
-| `routes/api/_middleware.ts` | Modified | Add display wall auth middleware patterns |
+| File                                 | Change   | Description                                                            |
+| ------------------------------------ | -------- | ---------------------------------------------------------------------- |
+| `routes/display.tsx`                 | New      | Display wall page — auth-gated route for display wall                  |
+| `routes/api/display/check-access.ts` | New      | GET /api/display/check-access — check if current user can view display |
+| `routes/api/_middleware.ts`          | Modified | Add display wall auth middleware patterns                              |
 
 #### Implementation Details
 
-  1. **Create `routes/display.tsx`:**
-     - Route handler checks authentication via middleware
-     - If not authenticated or Participant role: return 403 with message:
-       ```
-       "Access not allowed. Please refer to the organiser's screen instead."
-       ```
-     - If Display Wall User / Moderator / Admin: render the DisplayComponent island
-     - Full-screen layout (no header, no nav — just the train)
-     - **Fullscreen handling (do NOT auto-call `requestFullscreen()` on mount)** — the Fullscreen API requires a user gesture and will throw `NotAllowedError` if invoked from script on page load. Instead:
-       - Render a "Click to go fullscreen" overlay button on first load (one-time, dismissable)
-       - The button's click handler calls `document.documentElement.requestFullscreen()`
-       - Persist a `display_wall_fullscreen_dismissed` flag in `localStorage` so the overlay only shows once per browser
-       - Document in SETUP.md that the organiser can also press **F11** on the TV keyboard after first load to toggle fullscreen
-       - For dev/QA, the same F11 path works without the overlay
+1. **Create `routes/display.tsx`:**
+   - Route handler checks authentication via middleware
+   - If not authenticated or Participant role: return 403 with message:
+     ```
+     "Access not allowed. Please refer to the organiser's screen instead."
+     ```
+   - If Display Wall User / Moderator / Admin: render the DisplayComponent island
+   - Full-screen layout (no header, no nav — just the train)
+   - **Fullscreen handling (do NOT auto-call `requestFullscreen()` on mount)** — the Fullscreen API
+     requires a user gesture and will throw `NotAllowedError` if invoked from script on page load.
+     Instead:
+     - Render a "Click to go fullscreen" overlay button on first load (one-time, dismissable)
+     - The button's click handler calls `document.documentElement.requestFullscreen()`
+     - Persist a `display_wall_fullscreen_dismissed` flag in `localStorage` so the overlay only
+       shows once per browser
+     - Document in SETUP.md that the organiser can also press **F11** on the TV keyboard after first
+       load to toggle fullscreen
+     - For dev/QA, the same F11 path works without the overlay
 
 2. **Create `routes/api/display/check-access.ts`:**
    - GET endpoint that checks session and role
@@ -66,12 +72,12 @@
 
 #### Unit Tests
 
-| Test File | Test Method | Verifies |
-|-----------|-------------|----------|
+| Test File                | Test Method                  | Verifies                                               |
+| ------------------------ | ---------------------------- | ------------------------------------------------------ |
 | `routes/display_test.ts` | `testUnauthenticatedGets403` | Unauthenticated user receives 403 with correct message |
-| `routes/display_test.ts` | `testDisplayWallUserAllowed` | Display Wall User can access the route |
-| `routes/display_test.ts` | `testModeratorAllowed` | Moderator can access the route |
-| `routes/display_test.ts` | `testAdminAllowed` | Admin can access the route |
+| `routes/display_test.ts` | `testDisplayWallUserAllowed` | Display Wall User can access the route                 |
+| `routes/display_test.ts` | `testModeratorAllowed`       | Moderator can access the route                         |
+| `routes/display_test.ts` | `testAdminAllowed`           | Admin can access the route                             |
 
 #### Verification
 
@@ -88,25 +94,28 @@
 
 ### 1.2 MRT-Style Metro Train Rendering (Static)
 
-**Commit message:** `WI-05a: implement MRT-style metro train visual rendering with CSS animation and cabin layout`
+**Commit message:**
+`WI-05a: implement MRT-style metro train visual rendering with CSS animation and cabin layout`
 
 #### Files Changed
 
-| File | Change | Description |
-|------|--------|-------------|
-| `static/train.css` | New | Train animation CSS — red/white metro styling, cabin layout, scroll animation |
-| `islands/TrainDisplay.tsx` | New | Main train display island — orchestrates rendering and animation |
-| `islands/TrainCabin.tsx` | New | Individual cabin component — photo, message, name display |
+| File                       | Change | Description                                                                   |
+| -------------------------- | ------ | ----------------------------------------------------------------------------- |
+| `static/train.css`         | New    | Train animation CSS — red/white metro styling, cabin layout, scroll animation |
+| `islands/TrainDisplay.tsx` | New    | Main train display island — orchestrates rendering and animation              |
+| `islands/TrainCabin.tsx`   | New    | Individual cabin component — photo, message, name display                     |
 
 #### Implementation Details
 
 1. **Create `static/train.css`:**
    - Red-and-white MRT-style metro train visual style (Singapore metro aesthetic per DR-01)
    - Train container: horizontal scroll container, overflow hidden
-   - Cabin cards: fixed width/height suitable for TV viewing, large fonts (name ≥24px, message ≥18px per NFR-08)
+   - Cabin cards: fixed width/height suitable for TV viewing, large fonts (name ≥24px, message ≥18px
+     per NFR-08)
    - Photo takes ≥60% of cabin area
    - Active cabin: centered in viewport with slight scale emphasis
-   - Transition: CSS `transform: translateX()` with `transition: transform 0.8s ease-in-out` for cabin-to-cabin scroll
+   - Transition: CSS `transform: translateX()` with `transition: transform 0.8s ease-in-out` for
+     cabin-to-cabin scroll
    - Right-to-left movement direction
    - National Day branding accents (subtle red/white theme, not overpowering per DR-02/DR-03)
    - Empty state: branded waiting screen with "Submissions coming soon!" message
@@ -120,17 +129,18 @@
    - Maintains state: `submissions[]`, `currentIndex`, `isPlaying`, `dwellTime`
    - On mount: fetch approved submissions and render initial train
    - Render cabins in a horizontal flex container
-   - `transitionToNextCabin()`: increment `currentIndex` (loop to 0 at end), apply CSS transform to scroll train container so the target cabin is centered
+   - `transitionToNextCabin()`: increment `currentIndex` (loop to 0 at end), apply CSS transform to
+     scroll train container so the target cabin is centered
    - Use `requestAnimationFrame` for smooth timing
    - Apply dwell time from system_config (default 15s, range 3-60s)
 
 #### Unit Tests
 
-| Test File | Test Method | Verifies |
-|-----------|-------------|----------|
-| `islands/TrainDisplay_test.tsx` | `testRendersSubmittedCabins` | Approved submissions render as cabins |
+| Test File                       | Test Method                  | Verifies                                    |
+| ------------------------------- | ---------------------------- | ------------------------------------------- |
+| `islands/TrainDisplay_test.tsx` | `testRendersSubmittedCabins` | Approved submissions render as cabins       |
 | `islands/TrainDisplay_test.tsx` | `testEmptyStateShowsWaiting` | No submissions shows branded waiting screen |
-| `islands/TrainDisplay_test.tsx` | `testTransitionToNextCabin` | Transition advances to next cabin index |
+| `islands/TrainDisplay_test.tsx` | `testTransitionToNextCabin`  | Transition advances to next cabin index     |
 
 #### Verification
 
@@ -148,14 +158,15 @@
 
 ### 1.3 Circular Doubly-Linked Chain Data Structure
 
-**Commit message:** `WI-05a: implement circular doubly-linked chain data structure for cabin management`
+**Commit message:**
+`WI-05a: implement circular doubly-linked chain data structure for cabin management`
 
 #### Files Changed
 
-| File | Change | Description |
-|------|--------|-------------|
-| `lib/train/chain.ts` | New | Circular doubly-linked chain implementation with init, lookup, rebuild |
-| `lib/train/chain_test.ts` | New | Property-based tests for chain correctness |
+| File                      | Change | Description                                                            |
+| ------------------------- | ------ | ---------------------------------------------------------------------- |
+| `lib/train/chain.ts`      | New    | Circular doubly-linked chain implementation with init, lookup, rebuild |
+| `lib/train/chain_test.ts` | New    | Property-based tests for chain correctness                             |
 
 #### Implementation Details
 
@@ -163,14 +174,14 @@
    ```typescript
    export interface TrainCabinNode {
      submission: Submission;
-     index: number;           // 0-based logical index
+     index: number; // 0-based logical index
      next: TrainCabinNode | null;
      prev: TrainCabinNode | null;
    }
 
    export interface TrainChain {
-     nodes: TrainCabinNode[];       // Flat array for O(1) index lookups
-     head: TrainCabinNode | null;   // First cabin (index 0)
+     nodes: TrainCabinNode[]; // Flat array for O(1) index lookups
+     head: TrainCabinNode | null; // First cabin (index 0)
      current: TrainCabinNode | null; // Currently focused cabin
    }
 
@@ -180,7 +191,10 @@
      // Set head to first node, current to head
    }
 
-   export function getNodeByCabinNumber(chain: TrainChain, cabinNumber: number): TrainCabinNode | null {
+   export function getNodeByCabinNumber(
+     chain: TrainChain,
+     cabinNumber: number,
+   ): TrainCabinNode | null {
      // Convert 1-based input to 0-based index
      // Clamp to [0, chain.nodes.length - 1]
      // O(1) lookup via chain.nodes[index]
@@ -207,14 +221,14 @@
 
 #### Unit Tests
 
-| Test File | Test Method | Verifies |
-|-----------|-------------|----------|
-| `lib/train/chain_test.ts` | `testInitCreatesCircularChain` | Chain is circular after init |
-| `lib/train/chain_test.ts` | `testGetNodeByCabinNumber` | Lookup returns correct node |
-| `lib/train/chain_test.ts` | `testGetNodeClampsOutOfRange` | Out-of-range values clamp to first/last |
-| `lib/train/chain_test.ts` | `testRebuildPreservesOrder` | Rebuild preserves chronological order |
-| `lib/train/chain_test.ts` | `testEmptyChain` | Empty submissions create empty chain |
-| `lib/train/chain_test.ts` | `testSingleCabinChain` | Single cabin chain: next and prev point to itself |
+| Test File                 | Test Method                    | Verifies                                          |
+| ------------------------- | ------------------------------ | ------------------------------------------------- |
+| `lib/train/chain_test.ts` | `testInitCreatesCircularChain` | Chain is circular after init                      |
+| `lib/train/chain_test.ts` | `testGetNodeByCabinNumber`     | Lookup returns correct node                       |
+| `lib/train/chain_test.ts` | `testGetNodeClampsOutOfRange`  | Out-of-range values clamp to first/last           |
+| `lib/train/chain_test.ts` | `testRebuildPreservesOrder`    | Rebuild preserves chronological order             |
+| `lib/train/chain_test.ts` | `testEmptyChain`               | Empty submissions create empty chain              |
+| `lib/train/chain_test.ts` | `testSingleCabinChain`         | Single cabin chain: next and prev point to itself |
 
 #### Verification
 
@@ -230,15 +244,16 @@
 
 ### 1.4 Real-Time Subscriptions and Dynamic Updates
 
-**Commit message:** `WI-05a: integrate real-time subscriptions for approved, edited, and deleted submissions`
+**Commit message:**
+`WI-05a: integrate real-time subscriptions for approved, edited, and deleted submissions`
 
 #### Files Changed
 
-| File | Change | Description |
-|------|--------|-------------|
-| `islands/TrainDisplay.tsx` | Modified | Add RealtimeService subscriptions for live updates |
-| `routes/api/display/submissions.ts` | New | GET /api/display/submissions — fetch all approved submissions |
-| `lib/train/chain.ts` | Modified | Add `addSubmission`, `updateSubmission`, `removeSubmission` methods |
+| File                                | Change   | Description                                                         |
+| ----------------------------------- | -------- | ------------------------------------------------------------------- |
+| `islands/TrainDisplay.tsx`          | Modified | Add RealtimeService subscriptions for live updates                  |
+| `routes/api/display/submissions.ts` | New      | GET /api/display/submissions — fetch all approved submissions       |
+| `lib/train/chain.ts`                | Modified | Add `addSubmission`, `updateSubmission`, `removeSubmission` methods |
 
 #### Implementation Details
 
@@ -272,18 +287,18 @@
    ```typescript
    // On mount:
    const realtime = /* get RealtimeService */;
-   
+
    // Subscribe to new approvals
    realtime.onSubmissionApproved((submission) => {
      addSubmission(chain, submission);
      // If paused, submission is appended but not shown until resume
    });
-   
+
    // Subscribe to edits
    realtime.onSubmissionEdited((submission) => {
      updateSubmission(chain, submission);
    });
-   
+
    // Subscribe to deletions
    realtime.subscribe('submission_deleted', (payload) => {
      removeSubmission(chain, payload.id);
@@ -292,9 +307,9 @@
 
 #### Unit Tests
 
-| Test File | Test Method | Verifies |
-|-----------|-------------|----------|
-| `lib/train/chain_test.ts` | `testAddSubmission` | Adding submission appends to end of chain |
+| Test File                 | Test Method            | Verifies                                     |
+| ------------------------- | ---------------------- | -------------------------------------------- |
+| `lib/train/chain_test.ts` | `testAddSubmission`    | Adding submission appends to end of chain    |
 | `lib/train/chain_test.ts` | `testUpdateSubmission` | Updating submission changes content in place |
 | `lib/train/chain_test.ts` | `testRemoveSubmission` | Removing submission re-links chain correctly |
 

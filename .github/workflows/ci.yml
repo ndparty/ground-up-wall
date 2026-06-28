@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Run unit tests with mock database (PR)
+        if: github.event_name == 'pull_request'
+        env:
+          USE_MOCK_DB: "true"
+        run: deno task test:unit
+
+      - name: Run smoke tests with mock database (PR)
+        if: github.event_name == 'pull_request'
+        env:
+          USE_MOCK_DB: "true"
+        run: deno task test:e2e:smoke
+
+      - name: Run unit tests with mock database (main)
+        if: github.event_name == 'push'
+        env:
+          USE_MOCK_DB: "true"
+        run: deno task test:unit
+
+      - name: Run smoke tests with mock database (main)
+        if: github.event_name == 'push'
+        env:
+          USE_MOCK_DB: "true"
+        run: deno task test:e2e:smoke
+
+      - name: Run lint and format check
+        run: deno task check

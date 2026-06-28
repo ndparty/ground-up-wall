@@ -1,5 +1,6 @@
 import { assertEquals } from "@std/assert";
 import type { Repository } from "../../lib/interfaces/repository.ts";
+import type { AuditEntry } from "../../lib/types.ts";
 import { PostgresRepository } from "../../lib/repositories/postgres_repository.ts";
 import {
   authedRequest,
@@ -12,7 +13,6 @@ import {
   serveInfo,
   submitViaApi,
   teardownTestDb,
-  testPhoto,
 } from "../helpers.ts";
 
 const FORBIDDEN_AUDIT_METHODS = ["updateAuditEntry", "deleteAuditEntry"] as const;
@@ -27,10 +27,10 @@ Deno.test({
     }
 
     const _typeCheck: Pick<Repository, "createAuditEntry" | "getAuditLog"> = {
-      createAuditEntry: async () => {
+      createAuditEntry: (): Promise<AuditEntry> => {
         throw new Error("not implemented");
       },
-      getAuditLog: async () => [],
+      getAuditLog: (): Promise<AuditEntry[]> => Promise.resolve([]),
     };
     void _typeCheck;
   },

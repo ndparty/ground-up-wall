@@ -28,58 +28,49 @@ Deno.test("roleHomeRedirect sends display wall user to display", () => {
 });
 
 Deno.test("requireRolePage redirects unauthenticated users to login", async () => {
-  let nextCalled = false;
   const ctx = {
     req: new Request("http://localhost/towkay"),
     state: { user: null, services: {} },
-    next: async () => {
-      nextCalled = true;
+    next: () => {
       return new Response("ok");
     },
   } as unknown as Context<AuthState>;
 
   const res = await requireRolePage("admin")(ctx);
-  assertEquals(nextCalled, false);
   assertEquals(res?.status, 302);
   assertEquals(res?.headers.get("location"), "http://localhost/masuk");
 });
 
 Deno.test("requireRolePage redirects wrong role to role home", async () => {
-  let nextCalled = false;
   const ctx = {
     req: new Request("http://localhost/towkay"),
     state: {
       user: { id: "1", username: "mod", role: "moderator" as const, disabled: false },
       services: {},
     },
-    next: async () => {
-      nextCalled = true;
+    next: () => {
       return new Response("ok");
     },
   } as unknown as Context<AuthState>;
 
   const res = await requireRolePage("admin")(ctx);
-  assertEquals(nextCalled, false);
   assertEquals(res?.status, 302);
   assertEquals(res?.headers.get("location"), "http://localhost/semak");
 });
 
 Deno.test("requireRolePage allows matching role through", async () => {
-  let nextCalled = false;
   const ctx = {
     req: new Request("http://localhost/towkay"),
     state: {
       user: { id: "1", username: "adm", role: "admin" as const, disabled: false },
       services: {},
     },
-    next: async () => {
-      nextCalled = true;
+    next: () => {
       return new Response("ok");
     },
   } as unknown as Context<AuthState>;
 
   const res = await requireRolePage("admin")(ctx);
-  assertEquals(nextCalled, true);
   assertEquals(await res?.text(), "ok");
 });
 

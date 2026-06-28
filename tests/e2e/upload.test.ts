@@ -7,8 +7,8 @@ import {
   makePhotoForm,
   serveInfo,
   submitViaApi,
-  testPhoto,
   teardownTestDb,
+  testPhoto,
 } from "../helpers.ts";
 
 Deno.test({

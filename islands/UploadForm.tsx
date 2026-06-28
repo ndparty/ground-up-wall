@@ -439,7 +439,7 @@ export default function UploadForm({
                 kind="post"
                 submission={previewSubmission}
                 destination={previewDestination}
-                isActive={true}
+                isActive
                 onPhotoError={() => void handlePreviewError()}
               />
             </div>

@@ -1,8 +1,5 @@
 import { assertEquals } from "@std/assert";
-import {
-  centerSlotDelta,
-  computeAbsoluteTrackTranslate,
-} from "./center_track.ts";
+import { centerSlotDelta, computeAbsoluteTrackTranslate } from "./center_track.ts";
 import type { RenderCabin } from "./train_view.ts";
 import { LEFT_RENDER } from "./train_view_constants.ts";
 
@@ -13,7 +10,7 @@ Deno.test("computeAbsoluteTrackTranslate centers cabin in stage", () => {
 });
 
 Deno.test("computeAbsoluteTrackTranslate zero when already centered", () => {
-  const cabinCenter = 300;
+  const _cabinCenter = 300;
   const stageCenter = 300;
   const trackOrigin = 0;
   const offsetLeft = 200;

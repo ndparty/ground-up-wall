@@ -1,10 +1,6 @@
 import type { TrainStep } from "../interfaces/realtime_service.ts";
 import { computeJumpAnimationPath, computeJumpStepCount, forwardDistance } from "./train_view.ts";
-import {
-  CENTER_SLOT,
-  LEFT_RENDER,
-  RIGHT_RENDER,
-} from "./train_view_constants.ts";
+import { CENTER_SLOT, LEFT_RENDER, RIGHT_RENDER } from "./train_view_constants.ts";
 
 export interface AppendOnlyJumpResult {
   animationWindow: TrainStep[];
@@ -337,7 +333,7 @@ export function hasEphemeralOnPathToSlot(tape: TrainStep[], targetSlot: number):
 }
 
 /** Forward slot distance from center to target (in-tape jump). */
-export function forwardSlotSteps(tape: TrainStep[], targetSlot: number): number {
+export function forwardSlotSteps(_tape: TrainStep[], targetSlot: number): number {
   return Math.max(0, targetSlot - CENTER_SLOT);
 }
 
@@ -520,9 +516,7 @@ export function mergePreJumpEphemerals(
       }
     }
 
-    const insertAfter = anchorId
-      ? result.findLastIndex((s) => s.submissionId === anchorId)
-      : -1;
+    const insertAfter = anchorId ? result.findLastIndex((s) => s.submissionId === anchorId) : -1;
     if (insertAfter >= 0) {
       result.splice(insertAfter + 1, 0, step);
     } else {

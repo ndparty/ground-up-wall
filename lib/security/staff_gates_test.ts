@@ -1,9 +1,5 @@
 import { assertEquals } from "@std/assert";
-import {
-  isStaffRequest,
-  isStaffUser,
-  maxSseConnectionsForUser,
-} from "./staff_gates.ts";
+import { isStaffRequest, isStaffUser, maxSseConnectionsForUser } from "./staff_gates.ts";
 import type { AuthUser } from "../services/auth_service.ts";
 
 function user(role: AuthUser["role"]): AuthUser {
