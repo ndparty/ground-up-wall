@@ -10,7 +10,7 @@ Deno.test("computeAbsoluteTrackTranslate centers cabin in stage", () => {
 });
 
 Deno.test("computeAbsoluteTrackTranslate zero when already centered", () => {
-  const cabinCenter = 300;
+  const _cabinCenter = 300;
   const stageCenter = 300;
   const trackOrigin = 0;
   const offsetLeft = 200;

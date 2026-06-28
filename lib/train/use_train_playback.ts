@@ -418,7 +418,7 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
     return ok;
   }
 
-  async function jumpTrain(cabinNumber: number): Promise<boolean> {
+  function jumpTrain(cabinNumber: number): Promise<boolean> {
     return publishTrainCommand({ type: "jump", cabinNumber });
   }
 

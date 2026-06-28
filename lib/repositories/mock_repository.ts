@@ -1,3 +1,4 @@
+// deno-lint-ignore-file require-await
 import type { Repository, StoredSession } from "../interfaces/repository.ts";
 import type {
   AuditEntry,
@@ -17,12 +18,12 @@ import type {
 import type { AuthUser } from "../services/auth_service.ts";
 
 // Helper to convert Date to ISO string
-function toIso(date: Date | null | undefined): string | undefined {
+function _toIso(date: Date | null | undefined): string | undefined {
   return date ? date.toISOString() : undefined;
 }
 
 // Helper to parse ISO string to Date
-function toDate(iso: string | undefined): Date | undefined {
+function _toDate(iso: string | undefined): Date | undefined {
   return iso ? new Date(iso) : undefined;
 }
 
@@ -402,7 +403,7 @@ export class MockRepository implements Repository {
 
   async upsertSession(
     token: string,
-    userId: string,
+    _userId: string,
     userSnapshot: AuthUser,
     expiresAt: Date,
   ): Promise<void> {

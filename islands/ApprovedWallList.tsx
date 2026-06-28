@@ -121,9 +121,9 @@ export default function ApprovedWallList({
             showDelete
             cabinNumber={cabin}
             lazyImage
-            onEdit={async (data) => onEdit(sub, data)}
-            onDelete={async () => onDelete(sub)}
-            onShowOnDisplay={async () => onShowOnDisplay(cabin)}
+            onEdit={(data) => onEdit(sub, data)}
+            onDelete={() => onDelete(sub)}
+            onShowOnDisplay={() => onShowOnDisplay(cabin)}
           />
         );
       })}

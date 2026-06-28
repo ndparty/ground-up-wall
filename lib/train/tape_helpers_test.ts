@@ -3,7 +3,6 @@ import type { TrainStep } from "../interfaces/realtime_service.ts";
 import { computeJumpAnimationPath } from "./train_view.ts";
 import { CENTER_SLOT, LEFT_RENDER, RIGHT_RENDER } from "./train_view_constants.ts";
 import {
-  appendEndStateTail,
   appendFullEndStateBlock,
   appendRightBufferFromSnapshot,
   appendRightBufferOnly,
@@ -23,7 +22,6 @@ import {
   hasForwardEphemeralPostInTape,
   identityKey,
   isCanonicalAtCenter,
-  linearizeCenterShiftSequence,
   linearizeShiftSequence,
   longestIdentityOverlap,
   preserveDestinationsFromPreJumpTape,

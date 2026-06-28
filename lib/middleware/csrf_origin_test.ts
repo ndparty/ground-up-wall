@@ -20,7 +20,7 @@ async function runMiddleware(req: Request): Promise<{ status: number; nextCalled
   const ctx = {
     req,
     state: { services: {} },
-    next: async () => {
+    next: () => {
       nextCalled = true;
       return new Response("ok");
     },

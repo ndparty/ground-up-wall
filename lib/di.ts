@@ -5,7 +5,6 @@ import type { RealtimeService } from "./interfaces/realtime_service.ts";
 import type { Repository } from "./interfaces/repository.ts";
 import type { StorageService } from "./interfaces/storage_service.ts";
 import { PostgresRepository } from "./repositories/postgres_repository.ts";
-import { MockRepository } from "./repositories/mock_repository.ts";
 import { FileStorageService } from "./repositories/file_storage_service.ts";
 import { MemoryRealtimeService } from "./repositories/memory_realtime_service.ts";
 import { AuditServiceImpl } from "./services/audit_service_impl.ts";

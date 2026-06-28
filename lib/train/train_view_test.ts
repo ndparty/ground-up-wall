@@ -9,7 +9,6 @@ import {
   forwardDistance,
   getCanonicalCount,
   getCenterKey,
-  getCenterKeyFromSteps,
   getCurrentCabin,
   getRenderWindow,
   hasCabins,

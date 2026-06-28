@@ -45,6 +45,6 @@ export async function compressImage(
 }
 
 /** Crop + compress for live upload preview (same pipeline as submit). */
-export async function prepareCabinPreviewBlob(file: File | Blob): Promise<Blob> {
+export function prepareCabinPreviewBlob(file: File | Blob): Promise<Blob> {
   return compressImage(file, 960, 0.85);
 }

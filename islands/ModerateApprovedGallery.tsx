@@ -4,8 +4,6 @@ import { useReconnectingEventSource } from "../lib/client/use_reconnecting_event
 import type { Submission } from "../lib/types.ts";
 import ApprovedWallList from "./ApprovedWallList.tsx";
 import ConnectionBanner from "./ConnectionBanner.tsx";
-import DisplayOverrideControls from "./DisplayOverrideControls.tsx";
-import ModeratorTrainPanel from "./ModeratorTrainPanel.tsx";
 
 export default function ModerateApprovedGallery() {
   const [approved, setApproved] = useState<Submission[]>([]);

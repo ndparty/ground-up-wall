@@ -81,7 +81,7 @@ function imagePathFromUrl(imageUrl: string): string {
 
 async function removeDemoSeedData(
   repo: PostgresRepository | MockRepository,
-  storage: FileStorageService,
+  _storage: FileStorageService,
   storagePath: string,
 ): Promise<number> {
   const rows = await listDemoSeedRows(repo);

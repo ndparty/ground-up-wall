@@ -333,7 +333,7 @@ export function hasEphemeralOnPathToSlot(tape: TrainStep[], targetSlot: number):
 }
 
 /** Forward slot distance from center to target (in-tape jump). */
-export function forwardSlotSteps(tape: TrainStep[], targetSlot: number): number {
+export function forwardSlotSteps(_tape: TrainStep[], targetSlot: number): number {
   return Math.max(0, targetSlot - CENTER_SLOT);
 }
 

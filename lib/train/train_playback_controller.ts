@@ -367,7 +367,7 @@ export class TrainPlaybackController {
       return;
     }
 
-    const { animationWindow, committedTape, stepsToTarget } = buildAppendOnlyJump(
+    const { animationWindow, committedTape } = buildAppendOnlyJump(
       startTape,
       fromCabin,
       targetCabin,

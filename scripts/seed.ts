@@ -1,5 +1,4 @@
 import * as bcrypt from "bcrypt";
-import { Client } from "@db/postgres";
 import { normalizeDatabaseUrl } from "../lib/db_url.ts";
 import { loadEnvFile } from "../lib/load_env.ts";
 import { PostgresRepository } from "../lib/repositories/postgres_repository.ts";
