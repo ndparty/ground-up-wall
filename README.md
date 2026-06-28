@@ -75,13 +75,13 @@ Browser  →  Fresh routes (pages + API)
 
 ```bash
 # Quick tests with mock database (no PostgreSQL required)
-USE_MOCK_DB=true deno task test              # all tests except seed/integration (468 scenarios)
+USE_MOCK_DB=true deno task test              # all tests except seed/integration tests
 USE_MOCK_DB=true deno task test:unit         # unit tests only
 USE_MOCK_DB=true deno task test:e2e:smoke    # smoke tests (PR subset)
 USE_MOCK_DB=true deno task test:e2e          # all e2e tests except seed tests
 
 # Full integration tests (requires PostgreSQL)
-deno task test              # all tests including seed/integration (473+ scenarios)
+deno task test              # all tests including seed/integration tests
 deno task test:e2e          # full E2E suite including seed tests
 deno task check             # format, lint, type-check
 ```

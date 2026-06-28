@@ -203,3 +203,9 @@ When adding new tests:
 | PostgreSQL | ~5-7 minutes | ✅ Yes |
 
 The mock database significantly speeds up CI while maintaining test coverage for business logic.
+
+## Notes
+
+- Test counts are not listed in documentation to avoid frequent updates as tests are added/removed
+- All commands work regardless of the number of tests
+- CI automatically runs the appropriate test subsets for each environment
