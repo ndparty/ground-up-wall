@@ -1,6 +1,7 @@
 /// <reference lib="deno.unstable" />
 import { runMigrations } from "../scripts/migrate.ts";
 import { normalizeDatabaseUrl } from "./db_url.ts";
+import type { Repository } from "./interfaces/repository.ts";
 import { PostgresRepository } from "./repositories/postgres_repository.ts";
 import { MockRepository } from "./repositories/mock_repository.ts";
 
@@ -20,7 +21,7 @@ export function getTestDatabaseUrl(): string {
 // Point app DI (main.ts loadConfig) at the test database before main is imported.
 Deno.env.set("DATABASE_URL", getTestDatabaseUrl());
 
-export async function createTestRepository(): Promise<PostgresRepository | MockRepository> {
+export async function createTestRepository(): Promise<Repository> {
   const useMock = Deno.env.get("USE_MOCK_DB") === "true";
   
   if (useMock) {
@@ -46,6 +47,14 @@ export async function cleanupTestData(): Promise<void> {
     // Clear the mock repository singleton
     const { clearMockRepository } = await import("./repositories/mock_repository.ts");
     clearMockRepository();
+    
+    // Clear PhotoWallService caches to prevent stale data between tests
+    try {
+      const { resetPhotoWallCaches } = await import("../main.ts");
+      resetPhotoWallCaches();
+    } catch {
+      // Ignore errors - this is best effort cleanup
+    }
     return;
   }
   

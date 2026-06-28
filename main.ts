@@ -24,6 +24,11 @@ export function resetTestSessionCache(): void {
   appState?.auth.clearSessionCache();
 }
 
+/** Clear PhotoWallService caches between tests to prevent stale data. */
+export function resetPhotoWallCaches(): void {
+  appState?.photoWall.clearAllCaches();
+}
+
 function registerShutdownHandlers(): void {
   let shuttingDown = false;
   const shutdown = () => {
