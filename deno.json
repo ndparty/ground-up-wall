@@ -82,5 +82,5 @@
       "ffi": true
     }
   },
-  "exclude": ["**/_fresh/*"]
+  "exclude": ["**/_fresh/*", "static/roof-badge-preview.html"]
 }
