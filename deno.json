@@ -7,7 +7,7 @@
     "dev": "deno run -A --watch=static/,routes/,lib/,islands/,components/ dev.ts",
     "build": "deno run -A dev.ts build",
     "test": "deno test -P",
-    "test:unit": "deno test -P --ignore=tests/e2e/",
+    "test:unit": "deno test -P --ignore=tests/e2e/ --ignore=scripts/seed_test.ts --ignore=scripts/seed_demo_submissions_test.ts",
     "test:e2e": "deno test -P tests/e2e/",
     "test:e2e:smoke": "deno test -P tests/e2e/ --filter=smoke",
     "db:migrate": "deno run -A scripts/migrate.ts",
