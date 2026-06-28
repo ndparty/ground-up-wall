@@ -34,22 +34,33 @@ jobs:
       - name: Install dependencies
         run: deno install --lock=deno.lock
 
+      - name: Wait for PostgreSQL
+        run: |
+          for i in {1..30}; do
+            if pg_isready -h localhost -p 5432 -U postgres; then
+              echo "PostgreSQL is ready"
+              exit 0
+            fi
+            echo "Waiting for PostgreSQL... ($i/30)"
+            sleep 2
+          done
+          echo "PostgreSQL did not become ready in time"
+          exit 1
+
       - name: Run migrations
         env:
-          DATABASE_URL: postgres://postgres:postgres@localhost:5432/ground_up_wall_test
+          DATABASE_URL_TEST: postgres://postgres:postgres@localhost:5432/ground_up_wall_test
         run: deno run -A scripts/migrate.ts
 
       - name: Run smoke tests (PR)
         if: github.event_name == 'pull_request'
         env:
-          DATABASE_URL: postgres://postgres:postgres@localhost:5432/ground_up_wall_test
           DATABASE_URL_TEST: postgres://postgres:postgres@localhost:5432/ground_up_wall_test
         run: deno task test:e2e:smoke
 
       - name: Run full test suite (main)
         if: github.event_name == 'push'
         env:
-          DATABASE_URL: postgres://postgres:postgres@localhost:5432/ground_up_wall_test
           DATABASE_URL_TEST: postgres://postgres:postgres@localhost:5432/ground_up_wall_test
         run: deno task test
 
