@@ -40,7 +40,7 @@ jobs:
           POSTGRES_DB: ground_up_wall_test
         run: |
           for i in {1..60}; do
-            if pg_isready -h postgres -p 5432 -U "$PGUSER" >/dev/null 2>&1; then
+            if pg_isready -h localhost -p 5432 -U "$PGUSER" >/dev/null 2>&1; then
               echo "PostgreSQL is ready"
               exit 0
             fi
