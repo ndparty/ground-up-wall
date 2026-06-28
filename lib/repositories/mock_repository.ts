@@ -1,4 +1,4 @@
-import type { Repository, StoredSession } from "./interfaces/repository.ts";
+import type { Repository, StoredSession } from "../interfaces/repository.ts";
 import type {
   AuditEntry,
   AuditEntryData,
@@ -183,7 +183,16 @@ export class MockRepository implements Repository {
   }
 
   async createModerator(data: CreateUserData): Promise<User> {
-    return this.createUser({ ...data, role: "moderator" });
+    const user = await this.createUser({ ...data, role: "moderator" });
+    moderators.set(user.id, {
+      id: user.id,
+      username: user.username,
+      disabled: user.disabled,
+      disabled_at: user.disabled_at,
+      created_at: user.created_at,
+      created_by: user.created_by,
+    });
+    return user;
   }
 
   async resetModeratorPassword(id: string, passwordHash: string): Promise<boolean> {
@@ -216,7 +225,11 @@ export class MockRepository implements Repository {
   }
 
   async deleteModerator(id: string): Promise<boolean> {
-    return moderators.delete(id) && users.delete(id);
+    const modExists = moderators.has(id);
+    const userExists = users.has(id);
+    moderators.delete(id);
+    users.delete(id);
+    return modExists && userExists;
   }
 
   // System config operations
@@ -309,7 +322,16 @@ export class MockRepository implements Repository {
 
   // Display Wall operations
   async createDisplayWallUser(data: CreateUserData): Promise<User> {
-    return this.createUser({ ...data, role: "display_wall" });
+    const user = await this.createUser({ ...data, role: "display_wall" });
+    displayWallUsers.set(user.id, {
+      id: user.id,
+      username: user.username,
+      disabled: user.disabled,
+      disabled_at: user.disabled_at,
+      created_at: user.created_at,
+      created_by: user.created_by,
+    });
+    return user;
   }
 
   async listDisplayWallUsers(): Promise<DisplayWallUser[]> {
@@ -335,7 +357,11 @@ export class MockRepository implements Repository {
   }
 
   async deleteDisplayWallUser(id: string): Promise<boolean> {
-    return displayWallUsers.delete(id) && users.delete(id);
+    const userExists = displayWallUsers.has(id);
+    const userInUsersMap = users.has(id);
+    displayWallUsers.delete(id);
+    users.delete(id);
+    return userExists && userInUsersMap;
   }
 
   async getDisplayOverrideState(): Promise<DisplayOverrideState | null> {

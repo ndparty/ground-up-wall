@@ -16,7 +16,7 @@ import { AuditServiceImpl } from "../lib/services/audit_service_impl.ts";
 import { AutoModeratorServiceImpl } from "../lib/services/auto_moderator_service_impl.ts";
 import { PhotoWallService } from "../lib/services/photo_wall_service.ts";
 import type { Submission, SubmissionInput } from "../lib/types.ts";
-import type { PostgresRepository } from "../lib/repositories/postgres_repository.ts";
+import type { Repository } from "../lib/interfaces/repository.ts";
 import { testJpegBlob, testJpegFile } from "../lib/image/test_jpeg.ts";
 import { cleanupTestData, createTestRepository } from "../lib/test_helpers.ts";
 
@@ -32,7 +32,7 @@ export {
 };
 export type { TestHandler };
 
-export async function setupTestDb(): Promise<PostgresRepository> {
+export async function setupTestDb(): Promise<Repository> {
   await cleanupTestData();
   return await createTestRepository();
 }
