@@ -5,6 +5,7 @@ import { normalizeDatabaseUrl } from "../lib/db_url.ts";
 import { loadEnvFile } from "../lib/load_env.ts";
 import { FileStorageService } from "../lib/repositories/file_storage_service.ts";
 import { PostgresRepository } from "../lib/repositories/postgres_repository.ts";
+import { MockRepository } from "../lib/repositories/mock_repository.ts";
 import {
   getDemoSubmissionContent,
   getPendingDemoContent,
@@ -63,12 +64,12 @@ export function parseSeedDemoArgs(
   return { count, pending, force };
 }
 
-async function listDemoSeedRows(client: Client): Promise<DemoSeedRow[]> {
-  const result = await client.queryObject<DemoSeedRow>(
-    `SELECT id, image_url FROM submissions WHERE source = $1 ORDER BY created_at ASC`,
-    [DEMO_SEED_SOURCE],
-  );
-  return result.rows;
+async function listDemoSeedRows(repo: PostgresRepository | MockRepository): Promise<DemoSeedRow[]> {
+  const submissions = await repo.getSubmissionsByStatus("approved");
+  return submissions
+    .filter((s) => s.source === DEMO_SEED_SOURCE)
+    .map((s) => ({ id: s.id, image_url: s.image_url }))
+    .sort((a, b) => new Date(a.id).getTime() - new Date(b.id).getTime());
 }
 
 function imagePathFromUrl(imageUrl: string): string {
@@ -76,11 +77,11 @@ function imagePathFromUrl(imageUrl: string): string {
 }
 
 async function removeDemoSeedData(
-  client: Client,
+  repo: PostgresRepository | MockRepository,
   storage: FileStorageService,
   storagePath: string,
 ): Promise<number> {
-  const rows = await listDemoSeedRows(client);
+  const rows = await listDemoSeedRows(repo);
   for (const row of rows) {
     const relative = imagePathFromUrl(row.image_url);
     try {
@@ -89,7 +90,15 @@ async function removeDemoSeedData(
       if (!(err instanceof Deno.errors.NotFound)) throw err;
     }
   }
-  await client.queryArray(`DELETE FROM submissions WHERE source = $1`, [DEMO_SEED_SOURCE]);
+  
+  // Delete all demo seed submissions
+  const allSubmissions = await repo.getSubmissionsByStatus("approved");
+  for (const submission of allSubmissions) {
+    if (submission.source === DEMO_SEED_SOURCE) {
+      await repo.deleteSubmission(submission.id);
+    }
+  }
+  
   return rows.length;
 }
 
@@ -105,22 +114,33 @@ export async function runSeedDemoSubmissions(
 
   await runSeed(databaseUrl);
 
-  const client = new Client(databaseUrl);
-  await client.connect();
-
-  const repo = new PostgresRepository(databaseUrl);
+  const useMock = Deno.env.get("USE_MOCK_DB") === "true";
+  
+  let client: Client | null = null;
+  let repo;
+  
+  if (useMock) {
+    // Use existing mock repository singleton or create new one
+    const { getMockRepository, setMockRepository } = await import("../lib/repositories/mock_repository.ts");
+    repo = getMockRepository() ?? new MockRepository();
+    setMockRepository(repo);
+  } else {
+    client = new Client(databaseUrl);
+    await client.connect();
+    repo = new PostgresRepository(databaseUrl);
+  }
   await repo.connect();
   const storage = new FileStorageService(config.storage.path);
 
   try {
-    const existing = await listDemoSeedRows(client);
+    const existing = await listDemoSeedRows(repo);
     if (existing.length > 0 && !force) {
       return { created: 0, pendingCreated: 0, flaggedCreated: 0, skipped: true, removed: 0 };
     }
 
     let removed = 0;
     if (existing.length > 0 && force) {
-      removed = await removeDemoSeedData(client, storage, config.storage.path);
+      removed = await removeDemoSeedData(repo, storage, config.storage.path);
     }
 
     const moderator = await repo.authenticateUser(MODERATOR_USERNAME);
@@ -184,7 +204,9 @@ export async function runSeedDemoSubmissions(
     return { created, pendingCreated, flaggedCreated, skipped: false, removed };
   } finally {
     await repo.close();
-    await client.end();
+    if (client) {
+      await client.end();
+    }
   }
 }
 

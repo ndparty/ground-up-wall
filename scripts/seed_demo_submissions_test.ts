@@ -9,6 +9,8 @@ import {
   runSeedDemoSubmissions,
 } from "./seed_demo_submissions.ts";
 
+const useMock = Deno.env.get("USE_MOCK_DB") === "true";
+
 Deno.test("parseSeedDemoArgs defaults to 40 approved + 10 pending", () => {
   assertEquals(parseSeedDemoArgs([]), {
     count: DEFAULT_DEMO_SEED_COUNT,
@@ -27,6 +29,7 @@ Deno.test("parseSeedDemoArgs reads count, pending, and force", () => {
 
 Deno.test({
   name: "testSeedDemoSubmissionsCreatesApprovedRows",
+  ignore: useMock,
   async fn() {
     await cleanupTestData();
     const storageDir = await Deno.makeTempDir();
@@ -95,6 +98,7 @@ Deno.test({
 
 Deno.test({
   name: "testSeedDemoPendingSubmissionsIncludeFlagged",
+  ignore: useMock,
   async fn() {
     await cleanupTestData();
     const storageDir = await Deno.makeTempDir();

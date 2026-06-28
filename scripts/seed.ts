@@ -3,6 +3,7 @@ import { Client } from "@db/postgres";
 import { normalizeDatabaseUrl } from "../lib/db_url.ts";
 import { loadEnvFile } from "../lib/load_env.ts";
 import { PostgresRepository } from "../lib/repositories/postgres_repository.ts";
+import { MockRepository } from "../lib/repositories/mock_repository.ts";
 import { buildSystemDefaults, CONFIG_MIGRATIONS } from "../lib/defaults/app_defaults.ts";
 import { isDeployedEnvironment } from "../lib/deployed.ts";
 import { runMigrations } from "./migrate.ts";
@@ -56,12 +57,25 @@ export async function runSeed(databaseUrl?: string): Promise<SeedResult> {
       "postgres://localhost:5432/ground_up_wall_dev",
   );
 
-  await runMigrations(url);
+  const useMock = Deno.env.get("USE_MOCK_DB") === "true";
+  
+  if (!useMock) {
+    await runMigrations(url);
+  }
 
   const { password, source } = resolveAdminPassword();
   const moderatorPassword = resolveDemoPassword("DEMO_MODERATOR_PASSWORD");
   const displayPassword = resolveDemoPassword("DEMO_DISPLAY_PASSWORD");
-  const repo = new PostgresRepository(url);
+  
+  let repo;
+  if (useMock) {
+    // Always create a fresh mock repository for seeding to avoid state leakage between tests
+    repo = new MockRepository();
+    const { setMockRepository } = await import("../lib/repositories/mock_repository.ts");
+    setMockRepository(repo);
+  } else {
+    repo = new PostgresRepository(url);
+  }
   await repo.connect();
 
   let adminCreated = false;
@@ -108,35 +122,22 @@ export async function runSeed(databaseUrl?: string): Promise<SeedResult> {
     let configsUpdated = 0;
     for (const config of SYSTEM_DEFAULTS) {
       const existing = await repo.getSystemConfig(config.key);
-      const client = new Client(url);
-      await client.connect();
-      try {
-        if (!existing) {
-          await client.queryArray(
-            `INSERT INTO system_config (key, value, default_value, updated_by)
-             VALUES ($1, $2, $3, 'seed')`,
-            [config.key, config.value, config.default_value],
-          );
-          configsSeeded++;
-        } else {
-          const migration = CONFIG_MIGRATIONS[config.key];
-          const nextValue = migration && existing.value === migration.from
-            ? migration.to
-            : existing.value;
-          if (
-            existing.default_value !== config.default_value ||
-            nextValue !== existing.value
-          ) {
-            await client.queryArray(
-              `UPDATE system_config SET value = $2, default_value = $3, updated_by = 'seed'
-               WHERE key = $1`,
-              [config.key, nextValue, config.default_value],
-            );
-            configsUpdated++;
-          }
+      
+      if (!existing) {
+        await repo.upsertSystemConfig(config.key, config.value, "seed");
+        configsSeeded++;
+      } else {
+        const migration = CONFIG_MIGRATIONS[config.key];
+        const nextValue = migration && existing.value === migration.from
+          ? migration.to
+          : existing.value;
+        if (
+          existing.default_value !== config.default_value ||
+          nextValue !== existing.value
+        ) {
+          await repo.upsertSystemConfig(config.key, nextValue, "seed");
+          configsUpdated++;
         }
-      } finally {
-        await client.end();
       }
     }
 
@@ -149,7 +150,10 @@ export async function runSeed(databaseUrl?: string): Promise<SeedResult> {
       passwordSource: source,
     };
   } finally {
-    await repo.close();
+    // Don't close mock repository - it may be reused by subsequent seed operations
+    if (!useMock) {
+      await repo.close();
+    }
   }
 }
 
