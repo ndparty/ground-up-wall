@@ -1,5 +1,8 @@
 .upload-cabin-preview {
   margin-top: 0.75rem;
+  /* Bogies hang below the cabin wrap by --wheel-drop (train.css, overflow visible);
+     reserve that plus breathing room so wheels never touch the next form field. */
+  margin-bottom: calc(var(--wheel-drop, 7px) + 1.25rem);
   max-width: 320px;
 }
 
