@@ -588,6 +588,15 @@ export class PhotoWallService {
     if (key === "uploads_enabled") this.uploadsEnabledCache = undefined;
   }
 
+  /** Clear all caches - useful for testing */
+  clearAllCaches(): void {
+    this.publicParticipantUrlCache = undefined;
+    this.powDifficultyCache = undefined;
+    this.powFlagCache = undefined;
+    this.killswitchCache = undefined;
+    this.uploadsEnabledCache = undefined;
+  }
+
   async getAuditLog(filters: AuditFilter): Promise<AuditEntry[]> {
     return await this.audit.getLog(filters);
   }

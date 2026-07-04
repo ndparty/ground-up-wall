@@ -2,7 +2,8 @@
 
 ## Method Signatures Reference
 
-This document provides detailed method signatures for all components. Business rules are noted at a high level; detailed logic will be defined in Functional Design (CONSTRUCTION phase).
+This document provides detailed method signatures for all components. Business rules are noted at a
+high level; detailed logic will be defined in Functional Design (CONSTRUCTION phase).
 
 ---
 
@@ -13,6 +14,7 @@ This document provides detailed method signatures for all components. Business r
 **Purpose**: Main entry point for photo submission
 
 **Parameters**:
+
 - `photo`: Image file (validated: JPEG/PNG, max 10MB)
 - `message`: Short message (validated against configurable max length in characters or words)
 - `name`: Submitter's name (required)
@@ -21,6 +23,7 @@ This document provides detailed method signatures for all components. Business r
 **Returns**: `SubmissionResult` with submission ID and status
 
 **Business Rules**:
+
 - Image must be compressed client-side before upload
 - Form validation must pass before submission
 - Privacy notice must be visible before submission (FR-02a updated, Update 02)
@@ -35,13 +38,16 @@ This document provides detailed method signatures for all components. Business r
 **Purpose**: Validate upload form data
 
 **Parameters**:
+
 - `data`: UploadData object with photo, message, name, socialHandle
 
 **Returns**: `ValidationResult` with isValid flag and error messages
 
 **Validation Rules**:
+
 - Photo: valid image file, under size limit
-- Message: validated against configurable max length (default 50 characters); unit (characters or words) determined by system parameter
+- Message: validated against configurable max length (default 50 characters); unit (characters or
+  words) determined by system parameter
 - Name: non-empty string
 - Social handle: optional, valid format if provided
 - Acknowledgment checkbox: must be checked
@@ -53,6 +59,7 @@ This document provides detailed method signatures for all components. Business r
 **Purpose**: Client-side image compression
 
 **Parameters**:
+
 - `file`: Original image file
 - `maxWidth`: Maximum width in pixels (default: 1200)
 - `quality`: JPEG quality 0-1 (default: 0.8)
@@ -60,6 +67,7 @@ This document provides detailed method signatures for all components. Business r
 **Returns**: Compressed image as Blob
 
 **Business Rules**:
+
 - Light compression to maintain screen quality
 - Preserve aspect ratio
 - Convert to JPEG if not already
@@ -73,6 +81,7 @@ This document provides detailed method signatures for all components. Business r
 **Returns**: Prompt text string (default: "Share your National Day moment!", Update 04)
 
 **Business Rules**:
+
 - Fetches from system parameters via PhotoWallService
 - Falls back to default if not configured
 
@@ -83,7 +92,9 @@ This document provides detailed method signatures for all components. Business r
 **Purpose**: Display data privacy notice before submission
 
 **Business Rules**:
-- Informs participant that name, message, photo, and optional social handle will be displayed on photowall during event
+
+- Informs participant that name, message, photo, and optional social handle will be displayed on
+  photowall during event
 - States that submission data will be retained indefinitely for organiser social media use
 - States that if an Instagram handle is provided, content may be posted on social media with tagging
 - Includes reference for contacting organiser with questions
@@ -98,6 +109,7 @@ This document provides detailed method signatures for all components. Business r
 **Returns**: Object with `limit` (default: 50) and `unit` (default: `'characters'`)
 
 **Business Rules**:
+
 - Fetches from system parameters via PhotoWallService
 - Falls back to defaults if not configured
 - Used by validateForm and the live counter display
@@ -113,6 +125,7 @@ This document provides detailed method signatures for all components. Business r
 **Returns**: Array of approved submissions ordered chronologically (oldest first)
 
 **Business Rules**:
+
 - Only approved submissions
 - Ordered by approval timestamp (ascending)
 - Include photo URL, message, name, social handle
@@ -124,11 +137,13 @@ This document provides detailed method signatures for all components. Business r
 **Purpose**: Subscribe to real-time updates for new approvals, edits, deletions
 
 **Parameters**:
+
 - `callback`: Function called when submission changes
 
 **Returns**: Unsubscribe function
 
 **Business Rules**:
+
 - Triggered when submission status changes to "approved"
 - Also triggered on `submission_edited` and `submission_deleted` events (Update 01)
 - Automatically add/update/remove from train animation
@@ -141,9 +156,11 @@ This document provides detailed method signatures for all components. Business r
 **Purpose**: Render the metro train animation
 
 **Parameters**:
+
 - `submissions`: Array of approved submissions
 
 **Business Rules**:
+
 - One cabin per submission
 - Train scrolls right to left
 - Focus on one cabin at a time (configurable dwell time)
@@ -157,11 +174,17 @@ This document provides detailed method signatures for all components. Business r
 **Purpose**: Animate transition to next cabin
 
 **Business Rules**:
+
 - Configurable display time per cabin (default ~15s, via system parameters)
 - Smooth scroll animation
 - Loop back to first cabin when reaching end
 - Maintain 60fps performance
-- **Transition duration is fixed at ~0.6–0.8s** (CSS `transform` transition) regardless of dwell time. The dwell time (3–60s) controls **how long the train holds on a cabin** before triggering the next `transitionToNextCabin()` call. At dwell=3s the transition is ~22% of the cycle (still feels "snappy"); at dwell=60s it's ~1.3% (a subtle movement). The transition must NOT scale with dwell — doing so would make the visual rhythm inconsistent and would feel "slow" at high dwell values.
+- **Transition duration is fixed at ~0.6–0.8s** (CSS `transform` transition) regardless of dwell
+  time. The dwell time (3–60s) controls **how long the train holds on a cabin** before triggering
+  the next `transitionToNextCabin()` call. At dwell=3s the transition is ~22% of the cycle (still
+  feels "snappy"); at dwell=60s it's ~1.3% (a subtle movement). The transition must NOT scale with
+  dwell — doing so would make the visual rhythm inconsistent and would feel "slow" at high dwell
+  values.
 
 ---
 
@@ -170,6 +193,7 @@ This document provides detailed method signatures for all components. Business r
 **Purpose**: Pause the train animation on the current cabin
 
 **Business Rules**:
+
 - Freeze on current cabin
 - Publish `train_paused` event via RealtimeService for other tabs
 - Visible only to logged-in Moderators/Admins
@@ -182,6 +206,7 @@ This document provides detailed method signatures for all components. Business r
 **Purpose**: Resume the train animation from current cabin
 
 **Business Rules**:
+
 - Resume normal transition timing
 - Publish `train_resumed` event via RealtimeService for other tabs
 - Visible only to logged-in Moderators/Admins
@@ -193,21 +218,24 @@ This document provides detailed method signatures for all components. Business r
 **Purpose**: Initialise the train as a circular doubly-linked chain of cabins
 
 **Parameters**:
+
 - `submissions`: Array of approved submissions in chronological order
 
 **Internal State** (not exposed as interface):
+
 ```typescript
 interface TrainCabinNode {
-  submission: Submission
-  index: number           // 0-based logical index
-  next: TrainCabinNode | null
-  prev: TrainCabinNode | null
+  submission: Submission;
+  index: number; // 0-based logical index
+  next: TrainCabinNode | null;
+  prev: TrainCabinNode | null;
 }
-let currentCabin: TrainCabinNode | null
-let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
+let currentCabin: TrainCabinNode | null;
+let trainChain: TrainCabinNode[]; // Flat array for O(1) index lookups
 ```
 
 **Business Rules**:
+
 - Build a flat array `trainChain` from the submissions (for O(1) cabin-number lookups)
 - Link each node → next node in order (last links back to first as circular chain)
 - Set `currentCabin` to the first cabin (index 0)
@@ -220,12 +248,15 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Look up a cabin node by its 1-based cabin number using the flat array
 
 **Parameters**:
+
 - `cabinNumber`: 1-based cabin number (clamped to [1, trainChain.length])
 
 **Returns**: TrainCabinNode at the clamped index or null if train is empty
 
 **Business Rules**:
-- Convert 1-based input to 0-based index: `index = Math.max(0, Math.min(cabinNumber - 1, trainChain.length - 1))`
+
+- Convert 1-based input to 0-based index:
+  `index = Math.max(0, Math.min(cabinNumber - 1, trainChain.length - 1))`
 - O(1) lookup via `trainChain[index]`
 
 ---
@@ -240,26 +271,34 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 
 ### `jumpToCabin(cabinNumber: number): void` (Update 01 — superseded by Update 03)
 
-> **Update 03**: Display playback no longer uses chain-relinking in `lib/train/chain.ts` (`jumpToCabin` remains for legacy unit tests only). Runtime jumps use `lib/train/train_view.ts`.
+> **Update 03**: Display playback no longer uses chain-relinking in `lib/train/chain.ts`
+> (`jumpToCabin` remains for legacy unit tests only). Runtime jumps use `lib/train/train_view.ts`.
 
 **Purpose**: Jump to a specific cabin by number (1-based) via forward-only K-buffer animation.
 
 **Parameters**:
+
 - `cabinNumber`: Target cabin (1-based, clamped to train length)
 
 **Implementation — K-buffer model** (`lib/train/train_view.ts`):
 
-1. **`beginJump(state, targetCabin)`** — compute collapsed node IDs between V+K and T−K on the forward arc; set `jump.stepsRemaining`.
-2. **`getRenderWindow(state)`** — jump mode renders K-left + effective path + K-right of target (virtualized DOM).
-3. **`TrainDisplay` orchestrator** — preload path + K-after-target images; single `slideTo()` proportional to path length; `commitJumpTarget()` snaps on completion.
-4. **Server** — `TrainPlaybackController.jump()` updates authoritative `currentCabin`; SSE `train_playback_state` syncs all tabs.
+1. **`beginJump(state, targetCabin)`** — compute collapsed node IDs between V+K and T−K on the
+   forward arc; set `jump.stepsRemaining`.
+2. **`getRenderWindow(state)`** — jump mode renders K-left + effective path + K-right of target
+   (virtualized DOM).
+3. **`TrainDisplay` orchestrator** — preload path + K-after-target images; single `slideTo()`
+   proportional to path length; `commitJumpTarget()` snaps on completion.
+4. **Server** — `TrainPlaybackController.jump()` updates authoritative `currentCabin`; SSE
+   `train_playback_state` syncs all tabs.
 
 **Constants** (`lib/train/train_view_constants.ts`):
+
 - `VIEWPORT_K = 4`
 - Normal render: `LEFT_RENDER = K`, `RIGHT_RENDER = 2K+2`
 - Slide duration: `slideDurationMs(steps)` — base 800ms, max 3× at 9 steps
 
 **Business Rules**:
+
 - All jumps use forward ring distance (never backward visual motion)
 - Short jumps (d ≤ 2K): animate full path without collapse
 - Long jumps: collapse strictly between V+K and T−K
@@ -276,8 +315,10 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Returns**: Object with `allowed` boolean and `role` string
 
 **Business Rules**:
+
 - Only Display Wall Users, Photo Moderators, and Admins are allowed
-- Unauthenticated users and Participants receive 403 with "Access not allowed. Please refer to the organiser's screen instead."
+- Unauthenticated users and Participants receive 403 with "Access not allowed. Please refer to the
+  organiser's screen instead."
 - Display Wall Users see the train animation only (no controls)
 - Moderators/Admins see the train animation plus pause/play/jump controls
 
@@ -288,9 +329,12 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Respond to display override commands from mod/admin panel
 
 **Parameters**:
-- `command`: DisplayOverrideCommand with `type` ('blank' | 'placeholder' | 'resume') and optional `imageUrl`
+
+- `command`: DisplayOverrideCommand with `type` ('blank' | 'placeholder' | 'resume') and optional
+  `imageUrl`
 
 **Business Rules**:
+
 - `blank`: Render solid black screen, hide train animation
 - `placeholder`: Render the specified image (or system default placeholder), hide train animation
 - `resume`: Return to train animation from current position
@@ -304,11 +348,13 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Subscribe to display override commands broadcast from mod/admin panel
 
 **Parameters**:
+
 - `callback`: Function called when a display override command is received
 
 **Returns**: Unsubscribe function
 
 **Business Rules**:
+
 - Listens to `display_blank`, `display_placeholder`, `display_resume` events via RealtimeService
 - All connected display wall sessions receive commands simultaneously
 
@@ -321,12 +367,14 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Authenticate Photo Moderator or Admin
 
 **Parameters**:
+
 - `username`: Moderator/Admin username
 - `password`: User password
 
 **Returns**: `AuthResult` with user info and session token
 
 **Business Rules**:
+
 - Validate credentials against database
 - Check if account is disabled (Update 01 — FR-15a)
 - Set session with appropriate role
@@ -341,6 +389,7 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Returns**: Array of pending submissions
 
 **Business Rules**:
+
 - Only submissions with "pending" status
 - Ordered by submission timestamp (oldest first)
 - Include full submission details for review
@@ -353,9 +402,11 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Approve a submission for display
 
 **Parameters**:
+
 - `id`: Submission ID
 
 **Business Rules**:
+
 - Change status to "approved"
 - Set approval timestamp and moderator ID
 - Log action in audit log (NFR-22, Update 01)
@@ -369,10 +420,12 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Reject a submission
 
 **Parameters**:
+
 - `id`: Submission ID
 - `reason`: Optional rejection reason (for audit)
 
 **Business Rules**:
+
 - Change status to "rejected"
 - Optionally store rejection reason
 - Log action in audit log (NFR-22, Update 01)
@@ -386,12 +439,14 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Edit submission content (message, name, social handle)
 
 **Parameters**:
+
 - `id`: Submission ID
 - `data`: Updated fields (message, name, social_handle)
 
 **Returns**: Updated Submission with edit metadata
 
 **Business Rules**:
+
 - Can edit pending or approved submissions
 - Original values preserved in audit log
 - Edited submissions display updated content on wall without re-approval
@@ -405,9 +460,11 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Remove an approved submission from the wall
 
 **Parameters**:
+
 - `id`: Submission ID
 
 **Business Rules**:
+
 - Can only delete approved submissions
 - Remove from display rotation immediately
 - Log action in audit log (NFR-22, Update 01)
@@ -421,11 +478,13 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Subscribe to new pending submissions
 
 **Parameters**:
+
 - `callback`: Function called when new submission arrives
 
 **Returns**: Unsubscribe function
 
 **Business Rules**:
+
 - Triggered when new submission is created
 - Update moderation queue in real-time
 - Notify moderator of pending review
@@ -437,11 +496,13 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Determine which words in a message are flagged by auto-moderator
 
 **Parameters**:
+
 - `message`: Submission message text
 
 **Returns**: Array of flagged words (for UI highlighting)
 
 **Business Rules**:
+
 - Reads word list from system parameters (ships with seeded PG-13 default)
 - Returns matching words for visual highlighting in UI
 
@@ -452,10 +513,13 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Command connected display wall sessions to blank, show placeholder, or resume
 
 **Parameters**:
+
 - `type`: Override type — `'blank'`, `'placeholder'`, or `'resume'`
-- `image`: Optional per-action override image (for placeholder); if omitted, the system default placeholder is used
+- `image`: Optional per-action override image (for placeholder); if omitted, the system default
+  placeholder is used
 
 **Business Rules**:
+
 - Available to Photo Moderators and Admins from the moderation panel
 - Broadcasts command via RealtimeService to all connected display wall sessions
 - Override state persisted in database for new sessions
@@ -471,12 +535,14 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Authenticate Admin user
 
 **Parameters**:
+
 - `username`: Admin username
 - `password`: Admin password
 
 **Returns**: `AuthResult` with admin user info and session token
 
 **Business Rules**:
+
 - Validate admin credentials
 - Check if account is disabled (Update 01)
 - Set session with admin role
@@ -491,6 +557,7 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Returns**: Array of moderator user objects with active/disabled status
 
 **Business Rules**:
+
 - Only accessible by Admin
 - Include username, creation date, active/disabled status (FR-15c, Update 01)
 - Exclude sensitive data (passwords)
@@ -502,10 +569,12 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Create new Photo Moderator account
 
 **Parameters**:
+
 - `username`: New moderator username
 - `initialPassword`: Initial password
 
 **Business Rules**:
+
 - Only accessible by Admin
 - Username must be unique
 - Password must meet complexity requirements
@@ -518,10 +587,12 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Reset a moderator's password
 
 **Parameters**:
+
 - `moderatorId`: Moderator user ID
 - `newPassword`: New password
 
 **Business Rules**:
+
 - Only accessible by Admin
 - Log action in audit log (NFR-22, Update 01)
 
@@ -532,9 +603,11 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Disable a moderator account (prevent login without deleting)
 
 **Parameters**:
+
 - `moderatorId`: Moderator user ID
 
 **Business Rules**:
+
 - Only accessible by Admin
 - Set `disabled` flag on user record
 - Preserve all audit history associated with this moderator
@@ -548,9 +621,11 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Re-enable a disabled moderator account
 
 **Parameters**:
+
 - `moderatorId`: Moderator user ID
 
 **Business Rules**:
+
 - Only accessible by Admin
 - Clear `disabled` flag on user record
 - Log action in audit log (NFR-22)
@@ -563,9 +638,11 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Permanently delete a moderator account
 
 **Parameters**:
+
 - `moderatorId`: Moderator user ID
 
 **Business Rules**:
+
 - Only accessible by Admin
 - Show confirmation dialog before deletion
 - Audit log entries retain the moderator ID even after deletion
@@ -580,9 +657,11 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Returns**: Array of SystemConfig objects
 
 **Business Rules**:
+
 - Only accessible by Admin
 - Returns current value, default value, last updated info
-- Parameters: train_dwell_time, message_prompt_text, message_length_limit, message_length_unit, auto_moderator_word_list, default_placeholder_image
+- Parameters: train_dwell_time, message_prompt_text, message_length_limit, message_length_unit,
+  auto_moderator_word_list, default_placeholder_image
 
 ---
 
@@ -591,10 +670,12 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Update a system parameter
 
 **Parameters**:
+
 - `key`: Parameter key (e.g. 'train_dwell_time')
 - `value`: New value (validated against constraints)
 
 **Business Rules**:
+
 - Only accessible by Admin
 - Persist to database immediately
 - Broadcast change via RealtimeService for live effect
@@ -608,9 +689,11 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Reset a system parameter to its default value
 
 **Parameters**:
+
 - `key`: Parameter key
 
 **Business Rules**:
+
 - Only accessible by Admin
 - Restore `default_value` from system_config table
 - Log change in audit log
@@ -622,11 +705,13 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: View audit log entries with filtering
 
 **Parameters**:
+
 - `filters`: Filter criteria (moderator, action_type, date_range, target_type)
 
 **Returns**: Array of matching AuditEntry objects
 
 **Business Rules**:
+
 - Only accessible by Admin
 - Read-only view — no modification or deletion of entries
 - Filterable by moderator, action type, date range, target type
@@ -640,6 +725,7 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Returns**: Array of Display Wall User objects with active/disabled status
 
 **Business Rules**:
+
 - Only accessible by Admin
 - Include username, creation date, active/disabled status
 - Exclude sensitive data (passwords)
@@ -651,10 +737,12 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Create new Display Wall User account for TV display
 
 **Parameters**:
+
 - `username`: New Display Wall User username
 - `initialPassword`: Initial password
 
 **Business Rules**:
+
 - Only accessible by Admin
 - Username must be unique across all user types
 - Log action in audit log (NFR-22)
@@ -666,9 +754,11 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Disable a Display Wall User account
 
 **Parameters**:
+
 - `userId`: Display Wall User ID
 
 **Business Rules**:
+
 - Only accessible by Admin
 - Set `disabled` flag; user can no longer log in
 - Log action in audit log (NFR-22)
@@ -680,9 +770,11 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Permanently delete a Display Wall User account
 
 **Parameters**:
+
 - `userId`: Display Wall User ID
 
 **Business Rules**:
+
 - Only accessible by Admin
 - Show confirmation dialog before deletion
 - Audit log entries retain the user ID
@@ -695,10 +787,12 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Command connected display wall sessions to blank, show placeholder, or resume
 
 **Parameters**:
+
 - `type`: Override type
 - `image`: Optional per-action override image for placeholder
 
 **Business Rules**:
+
 - Available to Admins from the admin panel (also available to Moderators from moderation panel)
 - Broadcasts command via RealtimeService
 - Override state persisted in database
@@ -711,9 +805,11 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Upload or replace the system-wide default placeholder image
 
 **Parameters**:
+
 - `image`: Placeholder image file
 
 **Business Rules**:
+
 - Only accessible by Admin (via system parameters)
 - Stored in system config / filesystem storage
 - Log action in audit log (NFR-22)
@@ -724,9 +820,11 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 
 **Purpose**: Get current display override state
 
-**Returns**: DisplayOverrideState with `type` ('normal' | 'blank' | 'placeholder') and optional `imageUrl`
+**Returns**: DisplayOverrideState with `type` ('normal' | 'blank' | 'placeholder') and optional
+`imageUrl`
 
 **Business Rules**:
+
 - Only accessible by Admin
 - Return the persisted state from database
 
@@ -739,12 +837,14 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Generic login for Moderators and Admins
 
 **Parameters**:
+
 - `username`: Username
 - `password`: Password
 
 **Returns**: `AuthResult` with user info, role, and session token
 
 **Business Rules**:
+
 - Authenticate against user database
 - Check if account is disabled — reject login with "Account disabled" error (Update 01 — FR-15a)
 - Determine role (moderator/admin)
@@ -757,6 +857,7 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: End user session
 
 **Business Rules**:
+
 - Invalidate session token
 - Clear local storage
 - Redirect to login page
@@ -768,10 +869,12 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Change user's own password
 
 **Parameters**:
+
 - `currentPassword`: Current password for verification
 - `newPassword`: New password
 
 **Business Rules**:
+
 - Verify current password
 - Validate new password meets complexity requirements
 - Update password in database
@@ -800,6 +903,7 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Check if current user has specific role
 
 **Parameters**:
+
 - `role`: Role to check ('moderator', 'admin', or 'display_wall')
 
 **Returns**: Boolean indicating role membership
@@ -813,6 +917,7 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Returns**: Boolean indicating disabled status
 
 **Business Rules**:
+
 - Check the `disabled` field on the user record
 - Used on login to prevent disabled accounts from authenticating
 
@@ -825,11 +930,13 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Process new submission
 
 **Parameters**:
+
 - `data`: SubmissionData with photo, message, name, socialHandle
 
 **Returns**: Created Submission object with "pending" status
 
 **Business Rules**:
+
 - Validate submission data
 - Compress and upload image
 - Run AutoModeratorService.checkMessage() on message (Update 01)
@@ -844,6 +951,7 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Edit submission content
 
 **Parameters**:
+
 - `id`: Submission ID
 - `data`: Updated fields (message, name, social_handle)
 - `moderatorId`: ID of the editing moderator
@@ -851,6 +959,7 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Returns**: Updated Submission with edit metadata
 
 **Business Rules**:
+
 - Can edit pending or approved submissions
 - Preserve old values in audit log
 - Update edited_by, edited_at, increment edit_count
@@ -866,6 +975,7 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Returns**: Array of pending submissions
 
 **Business Rules**:
+
 - Only accessible by authenticated moderators/admins
 - Ordered by submission timestamp (oldest first)
 - Include flagged word data for auto-moderator highlighting (Update 01)
@@ -879,6 +989,7 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Returns**: Array of approved submissions
 
 **Business Rules**:
+
 - Ordered by approval timestamp (oldest first)
 - Include all data needed for display
 
@@ -889,12 +1000,14 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Approve a submission (now includes moderatorId for audit)
 
 **Parameters**:
+
 - `id`: Submission ID
 - `moderatorId`: ID of the approving moderator
 
 **Returns**: Updated Submission with "approved" status
 
 **Business Rules**:
+
 - Only accessible by authenticated moderators/admins
 - Set status to "approved"
 - Set approval timestamp and approved_by (moderatorId)
@@ -908,6 +1021,7 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Reject a submission (now includes moderatorId for audit)
 
 **Parameters**:
+
 - `id`: Submission ID
 - `moderatorId`: ID of the rejecting moderator
 - `reason`: Optional rejection reason
@@ -915,6 +1029,7 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Returns**: Updated Submission with "rejected" status
 
 **Business Rules**:
+
 - Only accessible by authenticated moderators/admins
 - Set status to "rejected"
 - Store rejection reason if provided
@@ -927,10 +1042,12 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Delete a submission (now includes moderatorId for audit)
 
 **Parameters**:
+
 - `id`: Submission ID
 - `moderatorId`: ID of the deleting moderator
 
 **Business Rules**:
+
 - Only accessible by authenticated moderators/admins
 - Delete submission record
 - Delete associated image from storage
@@ -944,9 +1061,11 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Publish event for new submission
 
 **Parameters**:
+
 - `submission`: New submission object
 
 **Business Rules**:
+
 - Publish to "submissions" channel
 - Event type: "submission_created"
 - Trigger real-time updates for moderators
@@ -958,11 +1077,13 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Subscribe to approved submission events
 
 **Parameters**:
+
 - `callback`: Function called when submission is approved
 
 **Returns**: Unsubscribe function
 
 **Business Rules**:
+
 - Subscribe to "submissions" channel
 - Filter for "submission_approved" events
 - Trigger real-time updates for display wall
@@ -974,9 +1095,11 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Publish train control command (pause/play/jump)
 
 **Parameters**:
+
 - `command`: TrainCommand with type ('pause' | 'play' | 'jump') and optional cabin number
 
 **Business Rules**:
+
 - Only callable by authenticated moderators/admins
 - Publish to "train_commands" channel
 - Connected display wall tabs receive and execute the command
@@ -988,11 +1111,13 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Subscribe to train control commands
 
 **Parameters**:
+
 - `callback`: Function called when train command is received
 
 **Returns**: Unsubscribe function
 
 **Business Rules**:
+
 - Subscribe to "train_commands" channel
 - Execute command (pause/play/jump) on the display wall
 
@@ -1011,11 +1136,13 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Create a new moderator account (now includes adminId for audit)
 
 **Parameters**:
+
 - `username`: New moderator username
 - `initialPassword`: Initial password
 - `adminId`: ID of the creating admin
 
 **Business Rules**:
+
 - Log action in audit log (NFR-22)
 
 ---
@@ -1025,10 +1152,12 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Disable a moderator account
 
 **Parameters**:
+
 - `moderatorId`: Moderator to disable
 - `adminId`: Admin performing the action
 
 **Business Rules**:
+
 - Set disabled flag on user
 - Log action in audit log
 
@@ -1039,10 +1168,12 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Re-enable a disabled moderator account
 
 **Parameters**:
+
 - `moderatorId`: Moderator to enable
 - `adminId`: Admin performing the action
 
 **Business Rules**:
+
 - Clear disabled flag on user
 - Log action in audit log
 
@@ -1053,10 +1184,12 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Delete a moderator account
 
 **Parameters**:
+
 - `moderatorId`: Moderator to delete
 - `adminId`: Admin performing the action
 
 **Business Rules**:
+
 - Delete account but preserve audit log references
 - Log action in audit log
 
@@ -1075,11 +1208,13 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Update a system parameter
 
 **Parameters**:
+
 - `key`: Parameter key
 - `value`: New value
 - `adminId`: Admin performing the update
 
 **Business Rules**:
+
 - Validate value (e.g. dwell time 3-60s)
 - Persist to database
 - Broadcast change via RealtimeService
@@ -1092,6 +1227,7 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Reset a system parameter to default
 
 **Parameters**:
+
 - `key`: Parameter key
 - `adminId`: Admin performing the reset
 
@@ -1102,6 +1238,7 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Get filtered audit log entries
 
 **Parameters**:
+
 - `filters`: Filter criteria
 
 **Returns**: Array of matching audit entries
@@ -1121,11 +1258,13 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Create new Display Wall User account
 
 **Parameters**:
+
 - `username`: New Display Wall User username
 - `initialPassword`: Initial password
 - `adminId`: Admin performing the action
 
 **Business Rules**:
+
 - Username must be unique across all user types
 - Log action in audit log
 
@@ -1136,6 +1275,7 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Disable a Display Wall User account
 
 **Parameters**:
+
 - `userId`: Display Wall User ID
 - `adminId`: Admin performing the action
 
@@ -1146,6 +1286,7 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Permanently delete a Display Wall User account
 
 **Parameters**:
+
 - `userId`: Display Wall User ID
 - `adminId`: Admin performing the action
 
@@ -1156,11 +1297,13 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Command display wall override from mod/admin panel
 
 **Parameters**:
+
 - `type`: Override type
 - `userId`: User issuing the command
 - `image`: Optional per-action override image for placeholder
 
 **Business Rules**:
+
 - Broadcast via RealtimeService
 - Persist override state in database
 - Log action in audit log
@@ -1180,10 +1323,12 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Upload or replace the system-wide default placeholder image
 
 **Parameters**:
+
 - `image`: Placeholder image file
 - `adminId`: Admin performing the action
 
 **Business Rules**:
+
 - Store image in filesystem/storage
 - Update system config reference
 - Log action in audit log
@@ -1197,11 +1342,13 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Create new submission record
 
 **Parameters**:
+
 - `data`: SubmissionData object
 
 **Returns**: Created Submission with generated ID
 
 **Business Rules**:
+
 - Generate unique ID
 - Set status to "pending"
 - Set submission timestamp
@@ -1215,11 +1362,13 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Query submissions by status
 
 **Parameters**:
+
 - `status`: Submission status to filter
 
 **Returns**: Array of matching submissions
 
 **Business Rules**:
+
 - Filter by status field
 - Order by appropriate timestamp (submission or approval)
 
@@ -1230,6 +1379,7 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Update submission status (now includes moderatorId)
 
 **Parameters**:
+
 - `id`: Submission ID
 - `status`: New status
 - `moderatorId`: ID of moderator performing action
@@ -1237,6 +1387,7 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Returns**: Updated Submission
 
 **Business Rules**:
+
 - Update status field
 - Set appropriate timestamp (approval timestamp if approved)
 - Set approved_by field with moderator ID
@@ -1249,6 +1400,7 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Update submission content (message, name, social handle)
 
 **Parameters**:
+
 - `id`: Submission ID
 - `data`: Updated content fields
 - `moderatorId`: ID of editing moderator
@@ -1256,6 +1408,7 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Returns**: Updated Submission with edit metadata
 
 **Business Rules**:
+
 - Update message, name, social_handle as provided
 - Set edited_by, edited_at
 - Increment edit_count
@@ -1267,9 +1420,11 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Delete submission record
 
 **Parameters**:
+
 - `id`: Submission ID
 
 **Business Rules**:
+
 - Remove from database
 - Cascade delete related data if needed
 
@@ -1280,12 +1435,14 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Authenticate user (check disabled status — Update 01)
 
 **Parameters**:
+
 - `username`: Username
 - `password`: Password (plain text, will be hashed for comparison)
 
 **Returns**: User object if credentials valid and account active, null otherwise
 
 **Business Rules**:
+
 - Hash password and compare with stored hash
 - Return user with role if match and account is not disabled
 - Null if no match, user not found, or account is disabled
@@ -1297,11 +1454,13 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Create new user
 
 **Parameters**:
+
 - `data`: CreateUserData with username, password, role
 
 **Returns**: Created User (excluding password hash)
 
 **Business Rules**:
+
 - Hash password before storing
 - Validate username uniqueness
 - Set creation timestamp
@@ -1315,10 +1474,12 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Update user password
 
 **Parameters**:
+
 - `userId`: User ID
 - `newPassword`: New password (plain text, will be hashed)
 
 **Business Rules**:
+
 - Hash new password
 - Update password hash in database
 - Invalidate existing sessions
@@ -1332,6 +1493,7 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Returns**: Array of moderator objects
 
 **Business Rules**:
+
 - Include `disabled` status in result (Update 01 — FR-15c)
 
 ---
@@ -1341,6 +1503,7 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Create moderator account
 
 **Parameters**:
+
 - `username`: Unique username
 - `password`: Initial password (hashed before storage)
 
@@ -1351,6 +1514,7 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Reset moderator password
 
 **Parameters**:
+
 - `moderatorId`: Moderator ID
 - `newPassword`: New password (hashed before storage)
 
@@ -1361,9 +1525,11 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Disable a moderator account
 
 **Parameters**:
+
 - `moderatorId`: Moderator ID
 
 **Business Rules**:
+
 - Set disabled = true on user record
 - Set disabled_at timestamp
 
@@ -1374,9 +1540,11 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Enable a disabled moderator account
 
 **Parameters**:
+
 - `moderatorId`: Moderator ID
 
 **Business Rules**:
+
 - Set disabled = false on user record
 - Clear disabled_at timestamp
 
@@ -1387,9 +1555,11 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Delete a moderator account
 
 **Parameters**:
+
 - `moderatorId`: Moderator ID
 
 **Business Rules**:
+
 - Remove user record from database
 - Audit log entries retain the moderator ID reference
 
@@ -1400,9 +1570,12 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Create an audit log entry
 
 **Parameters**:
-- `entry`: AuditEntryData with moderator_id, action_type, target_type, target_id, old_value, new_value, timestamp
+
+- `entry`: AuditEntryData with moderator_id, action_type, target_type, target_id, old_value,
+  new_value, timestamp
 
 **Business Rules**:
+
 - Append-only — no update or delete operations permitted on audit entries
 
 ---
@@ -1412,11 +1585,13 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Query audit log entries with filters
 
 **Parameters**:
+
 - `filters`: Filter criteria (moderator_id, action_type, date_range, target_type)
 
 **Returns**: Array of matching AuditEntry objects
 
 **Business Rules**:
+
 - Support filtering by: moderator, action type, date range, target type
 - Order by timestamp descending (most recent first)
 - Read-only — no modification of entries
@@ -1428,6 +1603,7 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Get a single system config value
 
 **Parameters**:
+
 - `key`: Config key
 
 **Returns**: SystemConfig object or null if not found
@@ -1447,11 +1623,13 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Insert or update a system config value
 
 **Parameters**:
+
 - `key`: Config key
 - `value`: New value
 - `updatedBy`: Admin user ID
 
 **Business Rules**:
+
 - Upsert (insert if not exists, update if exists)
 - Set updated_at timestamp
 - Keep default_value unchanged on update
@@ -1463,9 +1641,11 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Reset a config value to its default
 
 **Parameters**:
+
 - `key`: Config key
 
 **Business Rules**:
+
 - Set value = default_value from the database
 - For auto_moderator_word_list, restores the seeded PG-13 default list
 
@@ -1476,10 +1656,12 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Create a Display Wall User in the database
 
 **Parameters**:
+
 - `username`: Display Wall User username
 - `password`: Hashed password
 
 **Business Rules**:
+
 - Role set to 'display_wall'
 - Username must be unique across all user types
 
@@ -1518,6 +1700,7 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Persist the display override state
 
 **Parameters**:
+
 - `state`: DisplayOverrideState to persist
 
 ---
@@ -1529,12 +1712,14 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Upload image to storage
 
 **Parameters**:
+
 - `file`: Compressed image blob
 - `submissionId`: Associated submission ID
 
 **Returns**: URL or path to stored image
 
 **Business Rules**:
+
 - Generate unique filename (submissionId + timestamp)
 - Store in appropriate bucket/folder
 - Return accessible URL
@@ -1547,11 +1732,13 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Generate accessible URL for stored image
 
 **Parameters**:
+
 - `imagePath`: Path or key of stored image
 
 **Returns**: Full URL for image access
 
 **Business Rules**:
+
 - Generate signed URL if needed (Supabase)
 - Return local path for development
 - Handle CDN configuration if present
@@ -1563,9 +1750,11 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Delete stored image
 
 **Parameters**:
+
 - `imagePath`: Path or key of image to delete
 
 **Business Rules**:
+
 - Remove from storage backend
 - Handle errors gracefully (don't fail if already deleted)
 
@@ -1578,12 +1767,14 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Subscribe to real-time channel
 
 **Parameters**:
+
 - `channel`: Channel name (e.g., "submissions", "train_commands")
 - `callback`: Handler for channel events
 
 **Returns**: Unsubscribe function
 
 **Business Rules**:
+
 - Local: register in-memory callback
 - Production: subscribe via Supabase Realtime
 - Handle reconnection automatically
@@ -1595,10 +1786,12 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Publish event to channel
 
 **Parameters**:
+
 - `channel`: Channel name
 - `payload`: Event payload
 
 **Business Rules**:
+
 - Local: invoke registered callbacks
 - Production: broadcast via Supabase Realtime
 - Include event type and timestamp
@@ -1610,11 +1803,13 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Convenience method for approval events
 
 **Parameters**:
+
 - `callback`: Handler for approval events
 
 **Returns**: Unsubscribe function
 
 **Business Rules**:
+
 - Subscribe to "submissions" channel
 - Filter for "submission_approved" events
 - Pass submission data to callback
@@ -1626,11 +1821,13 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Convenience method for creation events
 
 **Parameters**:
+
 - `callback`: Handler for creation events
 
 **Returns**: Unsubscribe function
 
 **Business Rules**:
+
 - Subscribe to "submissions" channel
 - Filter for "submission_created" events
 - Pass submission data to callback
@@ -1642,11 +1839,13 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Convenience method for edit events
 
 **Parameters**:
+
 - `callback`: Handler for edit events
 
 **Returns**: Unsubscribe function
 
 **Business Rules**:
+
 - Subscribe to "submissions" channel
 - Filter for "submission_edited" events
 - DisplayComponent updates cabin content
@@ -1658,11 +1857,13 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Convenience method for train command events
 
 **Parameters**:
+
 - `callback`: Handler for train commands
 
 **Returns**: Unsubscribe function
 
 **Business Rules**:
+
 - Subscribe to "train_commands" channel
 - Execute pause/play/jump on display wall
 - Ignored by non-display components
@@ -1674,11 +1875,13 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Convenience method for system config change events
 
 **Parameters**:
+
 - `callback`: Handler for config changes
 
 **Returns**: Unsubscribe function
 
 **Business Rules**:
+
 - Subscribe to "system_config" channel
 - DisplayComponent applies new dwell time
 - UploadComponent updates prompt text if changed
@@ -1691,11 +1894,13 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Subscribe to display override events (blank/placeholder/resume)
 
 **Parameters**:
+
 - `callback`: Handler for display override commands
 
 **Returns**: Unsubscribe function
 
 **Business Rules**:
+
 - Subscribe to "display_override" channel
 - DisplayComponent responds by showing blank, placeholder, or resuming train
 - All connected display wall sessions receive the command simultaneously
@@ -1709,9 +1914,11 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Log an auditable action
 
 **Parameters**:
+
 - `action`: AuditAction with moderator_id, action_type, target_type, target_id, old_value, new_value
 
 **Business Rules**:
+
 - Generate UUID for entry
 - Set timestamp with millisecond precision
 - Delegate to Repository.createAuditEntry()
@@ -1724,11 +1931,13 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Get filtered audit log entries
 
 **Parameters**:
+
 - `filters`: Filter criteria
 
 **Returns**: Array of matching AuditEntry objects
 
 **Business Rules**:
+
 - Read-only query — no modification of entries
 - Delegate to Repository.getAuditLog()
 
@@ -1741,12 +1950,14 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Check a submission message against the flagged word list
 
 **Parameters**:
+
 - `message`: Submission message text
 - `wordList`: Array of flagged words from system parameters
 
 **Returns**: FlagResult with isFlagged boolean and array of matched words with positions
 
 **Business Rules**:
+
 - Advisory only — moderator retains final approval discretion
 - Case-insensitive matching
 - Unicode character support
@@ -1760,11 +1971,13 @@ let trainChain: TrainCabinNode[]  // Flat array for O(1) index lookups
 **Purpose**: Get the list of words in a message that match the flagged word list
 
 **Parameters**:
+
 - `message`: Submission message text
 - `wordList`: Array of flagged words
 
 **Returns**: Array of matched words (for UI display)
 
 **Business Rules**:
+
 - Same matching rules as checkMessage
 - Returns only the matched words, not positions (for simple display)

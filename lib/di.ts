@@ -27,8 +27,23 @@ export interface PhotoWallServiceDeps {
   autoModerator: AutoModeratorService;
 }
 
-export function createServices(config: AppConfig): PhotoWallServiceDeps {
-  const repository = new PostgresRepository(config.database.url);
+export async function createServices(config: AppConfig): Promise<PhotoWallServiceDeps> {
+  const useMock = Deno.env.get("USE_MOCK_DB") === "true";
+  let repository: Repository;
+
+  if (useMock) {
+    // Use singleton instance for mock DB so tests and app share the same data
+    const mockModule = await import("./repositories/mock_repository.ts");
+    let mockRepo = mockModule.getMockRepository();
+    if (!mockRepo) {
+      mockRepo = new mockModule.MockRepository();
+      mockModule.setMockRepository(mockRepo);
+    }
+    repository = mockRepo;
+  } else {
+    repository = new PostgresRepository(config.database.url);
+  }
+
   const storage = new FileStorageService(config.storage.path);
   const realtime = new MemoryRealtimeService();
   const audit = new AuditServiceImpl(repository);
@@ -37,8 +52,8 @@ export function createServices(config: AppConfig): PhotoWallServiceDeps {
   return { repository, storage, realtime, audit, autoModerator };
 }
 
-export function createPhotoWallService(config: AppConfig): PhotoWallService {
-  const deps = createServices(config);
+export async function createPhotoWallService(config: AppConfig): Promise<PhotoWallService> {
+  const deps = await createServices(config);
   return new PhotoWallService(
     deps.repository,
     deps.storage,
@@ -49,14 +64,21 @@ export function createPhotoWallService(config: AppConfig): PhotoWallService {
 }
 
 export async function createAppState(config: AppConfig): Promise<AppState> {
-  const deps = createServices(config);
+  const deps = await createServices(config);
 
   try {
     await deps.repository.connect();
   } catch (error) {
-    console.error(
-      `Postgres not reachable at ${config.database.url} — is the service running?`,
-    );
+    const useMock = Deno.env.get("USE_MOCK_DB") === "true";
+    if (!useMock) {
+      console.error(
+        `Postgres not reachable at ${config.database.url} — is the service running?`,
+      );
+      throw error;
+    }
+    // If using mock DB, connection should always succeed
+    // If it fails here, something is wrong with the mock implementation
+    console.error("Mock database connection failed:", error);
     throw error;
   }
 

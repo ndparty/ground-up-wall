@@ -2,7 +2,6 @@ import { assertEquals } from "@std/assert";
 import * as bcrypt from "bcrypt";
 import {
   authedRequest,
-  cleanupTestData,
   createTestHandler,
   createTestRepository,
   loginAsAdmin,

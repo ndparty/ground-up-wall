@@ -1,13 +1,15 @@
 # Application Design Plan — ground-up-wall
 
 ## Plan Overview
-**Phase**: INCEPTION — Application Design
-**Project**: ground-up-wall (Photowall Webapp for Singapore National Day)
-**Source Documents**: 
+
+**Phase**: INCEPTION — Application Design **Project**: ground-up-wall (Photowall Webapp for
+Singapore National Day) **Source Documents**:
+
 - `aidlc-docs/inception/requirements/requirements.md`
 - `aidlc-docs/inception/user-stories/stories.md`
 
 This plan will create the Technical Specification document with:
+
 - High-level component identification and service layer design
 - Component interfaces and responsibilities
 - Requirements traceability matrix (FR/NFR → Technical Components)
@@ -45,33 +47,36 @@ This plan will create the Technical Specification document with:
 
 ## Step 4: [x] Design Questions
 
-Based on the requirements and user stories analysis, the following design decisions need clarification:
+Based on the requirements and user stories analysis, the following design decisions need
+clarification:
 
 ### Component Architecture
 
-**Question 1 - Component Granularity**:
-The system has 5 main features (Main Display, Upload, Moderation, Admin, Change Password). How should components be organized?
+**Question 1 - Component Granularity**: The system has 5 main features (Main Display, Upload,
+Moderation, Admin, Change Password). How should components be organized?
 
-- **Option A**: Feature-based components (UploadComponent, ModerationComponent, AdminComponent, DisplayComponent, AuthComponent)
+- **Option A**: Feature-based components (UploadComponent, ModerationComponent, AdminComponent,
+  DisplayComponent, AuthComponent)
 - **Option B**: Layer-based components (Presentation Layer, Business Logic Layer, Data Access Layer)
-- **Option C**: Hybrid approach (Feature components for UI, shared services for business logic and data access)
+- **Option C**: Hybrid approach (Feature components for UI, shared services for business logic and
+  data access)
 
 [Answer]: Option C
 
-**Question 2 - Service Layer Design**:
-For the service orchestration, which pattern should be used?
+**Question 2 - Service Layer Design**: For the service orchestration, which pattern should be used?
 
 - **Option A**: Facade pattern with a single PhotoWallService coordinating all operations
-- **Option B**: Separate services per feature (UploadService, ModerationService, DisplayService, UserService)
+- **Option B**: Separate services per feature (UploadService, ModerationService, DisplayService,
+  UserService)
 - **Option C**: CQRS pattern with separate command and query services
 
-[Answer]: Option A
-I'm thinking of having a monollth since this is a small project and will only be used on that one day.
+[Answer]: Option A I'm thinking of having a monollth since this is a small project and will only be
+used on that one day.
 
 ### Data Model
 
-**Question 3 - Database Schema Approach**:
-For the submission data model, which approach is preferred?
+**Question 3 - Database Schema Approach**: For the submission data model, which approach is
+preferred?
 
 - **Option A**: Single `submissions` table with status field (pending/approved/rejected)
 - **Option B**: Separate tables for `pending_submissions` and `approved_submissions`
@@ -81,45 +86,41 @@ For the submission data model, which approach is preferred?
 
 ### Real-time Updates
 
-**Question 4 - Display Wall Real-time Mechanism**:
-For NFR-04 (new submissions appear within 30 seconds), which approach?
+**Question 4 - Display Wall Real-time Mechanism**: For NFR-04 (new submissions appear within 30
+seconds), which approach?
 
 - **Option A**: Supabase Realtime (websockets) - push-based, immediate updates
 - **Option B**: Polling every 15-30 seconds - simpler, more reliable
 - **Option C**: Hybrid - websockets for moderation panel, polling for display wall
 
-[Answer]: Option A 
-but must also work with local postgres
-note that offline development and testing should be possible
-event before pushing to external platforms like deno deploy and supabase
+[Answer]: Option A but must also work with local postgres note that offline development and testing
+should be possible event before pushing to external platforms like deno deploy and supabase
 
 ### Image Handling
 
-**Question 5 - Image Processing Strategy**:
-For handling image uploads (R-01: storage limits), where should processing occur?
+**Question 5 - Image Processing Strategy**: For handling image uploads (R-01: storage limits), where
+should processing occur?
 
 - **Option A**: Client-side compression before upload (reduces bandwidth and storage)
 - **Option B**: Server-side processing after upload (more control, higher bandwidth)
 - **Option C**: Hybrid - client-side resize + server-side optimization
 
-[Answer]: Option A
-Only compress just enough so that image still looks good on screen.
-Perhaps, this can be further refined after feedback from actual testing later.
+[Answer]: Option A Only compress just enough so that image still looks good on screen. Perhaps, this
+can be further refined after feedback from actual testing later.
 
 ### Phase 2/3 Preparation
 
-**Question 6 - Abstraction Layer Timing**:
-The requirements include Phase 2 (local dev flexibility) and Phase 3 (Instagram integration). Should we:
+**Question 6 - Abstraction Layer Timing**: The requirements include Phase 2 (local dev flexibility)
+and Phase 3 (Instagram integration). Should we:
 
-- **Option A**: Implement abstraction layers upfront (repository pattern, storage abstraction, content source abstraction)
+- **Option A**: Implement abstraction layers upfront (repository pattern, storage abstraction,
+  content source abstraction)
 - **Option B**: Build Phase 1 directly against Supabase, refactor for Phase 2/3
 - **Option C**: Implement core abstractions now, but keep Phase 1 implementation simple
 
-[Answer]: I prefer the following approach:
-must work local first 
-then, work with external platforms (deno deploy and supabase)
-This way, we can ensure smooth development experience without being blocked by external platform issues.
-instagram  integration to be kept in the later phase (Phase 3)
+[Answer]: I prefer the following approach: must work local first then, work with external platforms
+(deno deploy and supabase) This way, we can ensure smooth development experience without being
+blocked by external platform issues. instagram integration to be kept in the later phase (Phase 3)
 
 ---
 
@@ -133,9 +134,11 @@ instagram  integration to be kept in the later phase (Phase 3)
 
 ## Step 6: [x] Request User Input
 
-Please fill in the [Answer]: tags above with your design decisions. These decisions will guide the technical specification creation.
+Please fill in the [Answer]: tags above with your design decisions. These decisions will guide the
+technical specification creation.
 
 **Instructions**:
+
 1. Review each question and select your preferred option (A, B, or C)
 2. Add any additional context or specific requirements in the [Answer]: field
 3. If you have questions about any option, please ask before proceeding
@@ -154,15 +157,15 @@ Please fill in the [Answer]: tags above with your design decisions. These decisi
 **Analysis Complete** — All answers reviewed. No ambiguities detected.
 
 ### Design Decisions Summary:
-| Question | Answer | Notes |
-|----------|--------|-------|
-| Q1: Component Granularity | Option C (Hybrid) | Feature components for UI, shared services for business logic |
-| Q2: Service Layer | Option A (Facade) | Single PhotoWallService (monolith for small one-day project) |
-| Q3: Database Schema | Option A (Single table) | `submissions` table with status field |
-| Q4: Real-time | Option A (Supabase Realtime) | Must work locally with Postgres too; offline dev first |
-| Q5: Image Processing | Option A (Client-side) | Light compression, refine after testing |
-| Q6: Abstraction Timing | Local-first approach | **Phase 1**: Local Deno app (local Postgres, filesystem, in-memory events). **Phase 2**: Cloud deployment (Deno Deploy + Supabase). **Phase 3**: Instagram integration. |
 
+| Question                  | Answer                       | Notes                                                                                                                                                                   |
+| ------------------------- | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Q1: Component Granularity | Option C (Hybrid)            | Feature components for UI, shared services for business logic                                                                                                           |
+| Q2: Service Layer         | Option A (Facade)            | Single PhotoWallService (monolith for small one-day project)                                                                                                            |
+| Q3: Database Schema       | Option A (Single table)      | `submissions` table with status field                                                                                                                                   |
+| Q4: Real-time             | Option A (Supabase Realtime) | Must work locally with Postgres too; offline dev first                                                                                                                  |
+| Q5: Image Processing      | Option A (Client-side)       | Light compression, refine after testing                                                                                                                                 |
+| Q6: Abstraction Timing    | Local-first approach         | **Phase 1**: Local Deno app (local Postgres, filesystem, in-memory events). **Phase 2**: Cloud deployment (Deno Deploy + Supabase). **Phase 3**: Instagram integration. |
 
 ---
 

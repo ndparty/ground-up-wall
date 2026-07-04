@@ -15,8 +15,8 @@ export function sha256Hex(input: string): string {
 }
 
 /** @deprecated Use sha256Hex — kept for callers expecting async. */
-export async function sha256HexAsync(input: string): Promise<string> {
-  return sha256HexSync(input);
+export function sha256HexAsync(input: string): Promise<string> {
+  return Promise.resolve(sha256HexSync(input));
 }
 
 export function hasLeadingZeroBits(hexDigest: string, bits: number): boolean {
@@ -37,14 +37,14 @@ export function hasLeadingZeroBits(hexDigest: string, bits: number): boolean {
   return remaining === 0;
 }
 
-export async function verifyPow(
+export function verifyPow(
   nonce: string,
   solution: string,
   difficulty: number,
 ): Promise<boolean> {
-  if (!nonce || !solution) return false;
+  if (!nonce || !solution) return Promise.resolve(false);
   const digest = sha256Hex(`${nonce}.${solution}`);
-  return hasLeadingZeroBits(digest, difficulty);
+  return Promise.resolve(hasLeadingZeroBits(digest, difficulty));
 }
 
 /** Solve a challenge synchronously (Deno tests and main-thread fallback). */
@@ -62,10 +62,10 @@ export function solvePowSync(
 }
 
 /** Solve a challenge (client-side). Returns the solution string, or null if not found. */
-export async function solvePow(
+export function solvePow(
   nonce: string,
   difficulty: number,
   maxIterations = 5_000_000,
 ): Promise<string | null> {
-  return solvePowSync(nonce, difficulty, maxIterations);
+  return Promise.resolve(solvePowSync(nonce, difficulty, maxIterations));
 }

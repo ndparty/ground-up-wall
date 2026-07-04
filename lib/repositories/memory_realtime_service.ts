@@ -10,6 +10,7 @@ export class MemoryRealtimeService implements RealtimeService {
   private channels = new Map<string, Set<(payload: unknown) => void>>();
 
   async publish(channel: string, payload: unknown): Promise<void> {
+    await Promise.resolve();
     const subscribers = this.channels.get(channel);
     if (!subscribers) return;
     for (const callback of subscribers) {

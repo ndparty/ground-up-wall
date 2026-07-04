@@ -1,6 +1,10 @@
 import { assertEquals, assertRejects } from "@std/assert";
 import { Image } from "imagescript";
-import { MAX_DECODE_PIXELS, normalizeUploadImage, normalizeUploadImageBytes } from "./normalize_upload_image.ts";
+import {
+  MAX_DECODE_PIXELS,
+  normalizeUploadImage,
+  normalizeUploadImageBytes,
+} from "./normalize_upload_image.ts";
 import { TEST_JPEG_BYTES } from "./test_jpeg.ts";
 
 Deno.test("normalizeUploadImageBytes decodes and re-encodes valid JPEG", async () => {

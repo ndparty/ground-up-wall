@@ -1,5 +1,1 @@
-export {
-  loginPageRedirect,
-  loginRedirectPath,
-  roleHomeRedirect,
-} from "../routes/paths.ts";
+export { loginPageRedirect, loginRedirectPath, roleHomeRedirect } from "../routes/paths.ts";

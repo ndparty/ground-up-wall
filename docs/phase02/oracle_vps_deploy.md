@@ -11,19 +11,19 @@ access.
 
 ## Where to find hardening steps
 
-| What to harden                                          | Section in this doc                                                 |
-| ------------------------------------------------------- | ------------------------------------------------------------------- |
-| Oracle cloud network (Security List)                    | [§1](#1-oracle-cloud-firewall-security-list)                        |
-| Ubuntu host firewall (UFW), SSH, auto-updates, fail2ban | [§2](#2-harden-ubuntu)                                              |
-| PostgreSQL (localhost only, least privilege)            | [§3](#3-postgresql-localhost-only)                                  |
-| GitHub read access (private repo clone + deploy fetch)  | [§3.5](#35-github-access-private-repository)                        |
-| App Unix user, file permissions, `.env`                 | [§4](#4-application-user-and-directories)–[§5](#5-environment-file) |
-| systemd service hardening                               | [§7](#7-systemd-service)                                            |
-| TLS origin (Caddy)                                      | [§8](#8-caddy-https-origin)                                         |
-| Cloudflare edge + origin-only exposure                  | [§9](#9-cloudflare-recommended)                                     |
-| Authenticated Origin Pulls (mTLS from Cloudflare)       | [§9.7](#97-authenticated-origin-pulls-recommended)                |
+| What to harden                                          | Section in this doc                                                                      |
+| ------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Oracle cloud network (Security List)                    | [§1](#1-oracle-cloud-firewall-security-list)                                             |
+| Ubuntu host firewall (UFW), SSH, auto-updates, fail2ban | [§2](#2-harden-ubuntu)                                                                   |
+| PostgreSQL (localhost only, least privilege)            | [§3](#3-postgresql-localhost-only)                                                       |
+| GitHub read access (private repo clone + deploy fetch)  | [§3.5](#35-github-access-private-repository)                                             |
+| App Unix user, file permissions, `.env`                 | [§4](#4-application-user-and-directories)–[§5](#5-environment-file)                      |
+| systemd service hardening                               | [§7](#7-systemd-service)                                                                 |
+| TLS origin (Caddy)                                      | [§8](#8-caddy-https-origin)                                                              |
+| Cloudflare edge + origin-only exposure                  | [§9](#9-cloudflare-recommended)                                                          |
+| Authenticated Origin Pulls (mTLS from Cloudflare)       | [§9.7](#97-authenticated-origin-pulls-recommended)                                       |
 | Tag-based deploy + optional GitHub Release webhook      | [§10](#10-updates-tag-based-deploy)–[§10.2](#102-optional-auto-deploy-on-github-release) |
-| Backups                                                 | [§11](#11-backups-recommended)                                      |
+| Backups                                                 | [§11](#11-backups-recommended)                                                           |
 
 **Application-level security** (NFR-23: rate limits, CSRF, PoW, CSP) is already in code — enable
 with `DEPLOYED=1` in [§5](#5-environment-file). No extra app config for Cloudflare beyond what
@@ -88,8 +88,9 @@ sudo ufw enable
 sudo ufw status
 ```
 
-> After Caddy obtains its first certificate, run [`scripts/cloudflare-ufw.sh`](../../scripts/cloudflare-ufw.sh)
-> (§9.2) to replace wide `allow 80/tcp` / `allow 443/tcp` with **Cloudflare-CIDR-only** rules.
+> After Caddy obtains its first certificate, run
+> [`scripts/cloudflare-ufw.sh`](../../scripts/cloudflare-ufw.sh) (§9.2) to replace wide
+> `allow 80/tcp` / `allow 443/tcp` with **Cloudflare-CIDR-only** rules.
 
 ### 2.3 SSH
 
@@ -220,11 +221,11 @@ The `groundupwall` system user has home **`APP_HOME`** at `/opt/ground-up-wall`.
 lives separately at **`APP_DIR`** `/opt/ground-up-wall/ground-up-wall`. Do **not** clone into
 `APP_HOME` — tag checkouts would mix with `.ssh`, `.git-credentials`, and `.env`.
 
-| Path | Role |
-| ---- | ---- |
-| `/opt/ground-up-wall` | `APP_HOME` — `.ssh`, `.git-credentials`, `.env` |
-| `/opt/ground-up-wall/ground-up-wall` | `APP_DIR` — git checkout, app code |
-| `/var/lib/ground-up-wall/uploads` | `STORAGE_PATH` — uploaded images |
+| Path                                 | Role                                            |
+| ------------------------------------ | ----------------------------------------------- |
+| `/opt/ground-up-wall`                | `APP_HOME` — `.ssh`, `.git-credentials`, `.env` |
+| `/opt/ground-up-wall/ground-up-wall` | `APP_DIR` — git checkout, app code              |
+| `/var/lib/ground-up-wall/uploads`    | `STORAGE_PATH` — uploaded images                |
 
 ```bash
 sudo useradd --system --home-dir /opt/ground-up-wall --create-home --shell /bin/bash groundupwall || true
@@ -248,8 +249,8 @@ sudo -u groundupwall git fetch --tags origin
 sudo -u groundupwall git checkout v1.0.4   # or latest v* tag
 ```
 
-Install and cache dependencies once (npm packages such as OpenTelemetry, esbuild, and preact
-require a local `node_modules/` directory; `deno install` creates it from `deno.lock`):
+Install and cache dependencies once (npm packages such as OpenTelemetry, esbuild, and preact require
+a local `node_modules/` directory; `deno install` creates it from `deno.lock`):
 
 ```bash
 cd /opt/ground-up-wall/ground-up-wall
@@ -265,8 +266,8 @@ Fresh **2.x** registers file routes at build time (`_fresh/server.js`). Without 
 
 ## 5. Environment file
 
-Production `.env` lives in **`APP_HOME`** (not inside the git checkout) so secrets survive
-re-clones and are never touched by `git checkout`.
+Production `.env` lives in **`APP_HOME`** (not inside the git checkout) so secrets survive re-clones
+and are never touched by `git checkout`.
 
 ```bash
 sudo -u groundupwall cp /opt/ground-up-wall/ground-up-wall/.env.example /opt/ground-up-wall/.env
@@ -413,7 +414,8 @@ curl -fsS --resolve your.domain.example:443:127.0.0.1 \
 
 Public visitors use `https://your.domain.example` through Cloudflare.
 
-After the origin cert works, add **Authenticated Origin Pulls** ([§9.7](#97-authenticated-origin-pulls-recommended)).
+After the origin cert works, add **Authenticated Origin Pulls**
+([§9.7](#97-authenticated-origin-pulls-recommended)).
 
 ### 8.2 Let's Encrypt on origin (port 80 + 443) — preferred if you want public LE
 
@@ -449,7 +451,8 @@ curl -fsS https://your.domain.example/api/health
 **Risks of exposing port 80** (and how to mitigate) — see
 [§9.5](#95-risks-of-origin-port-80-with-lets-encrypt).
 
-After LE works, add **Authenticated Origin Pulls** ([§9.7](#97-authenticated-origin-pulls-recommended)).
+After LE works, add **Authenticated Origin Pulls**
+([§9.7](#97-authenticated-origin-pulls-recommended)).
 
 ### 8.3 Alternative: Cloudflare Origin Certificate (no port 80)
 
@@ -478,9 +481,10 @@ never talk to your origin IP on port 80.
 | **WebSockets**          | On (default)                                    | SSE display/moderation streams                          |
 
 **Authenticated Origin Pulls** (recommended): Cloudflare presents a client certificate on every
-proxied request to your origin; Caddy verifies it with [§9.7](#97-authenticated-origin-pulls-recommended).
-Use together with [§9.2](#92-firewall-only-cloudflare-may-reach-80-and-443) — IP allowlists and mTLS
-are independent layers.
+proxied request to your origin; Caddy verifies it with
+[§9.7](#97-authenticated-origin-pulls-recommended). Use together with
+[§9.2](#92-firewall-only-cloudflare-may-reach-80-and-443) — IP allowlists and mTLS are independent
+layers.
 
 ### 9.2 Firewall: only Cloudflare may reach :80 and :443
 
@@ -491,9 +495,9 @@ Cloudflare publishes current ranges as plain text:
 - IPv4: [https://www.cloudflare.com/ips-v4](https://www.cloudflare.com/ips-v4)
 - IPv6: [https://www.cloudflare.com/ips-v6](https://www.cloudflare.com/ips-v6)
 
-Use [`scripts/cloudflare-ufw.sh`](../../scripts/cloudflare-ufw.sh) on the VPS to fetch both lists and
-apply UFW rules for **80** and **443** (tagged `cloudflare` for safe refresh). The script also removes
-the world-open `80/tcp` and `443/tcp` rules from §2.2.
+Use [`scripts/cloudflare-ufw.sh`](../../scripts/cloudflare-ufw.sh) on the VPS to fetch both lists
+and apply UFW rules for **80** and **443** (tagged `cloudflare` for safe refresh). The script also
+removes the world-open `80/tcp` and `443/tcp` rules from §2.2.
 
 **Run once after Caddy/LE works** (from the app checkout on the VPS):
 
@@ -525,8 +529,8 @@ script only adds missing CIDRs (fine for ad-hoc runs).
 
 **OCI Security List (required separately):** UFW is host-only. In the Oracle console (or OCI CLI),
 ingress rules for **80** and **443** must also allow only the same Cloudflare IPv4/IPv6 CIDRs — not
-`0.0.0.0/0`. Download the lists from the URLs above and mirror them in the VCN security list.
-Keep **22** restricted to your admin IP in both UFW and OCI.
+`0.0.0.0/0`. Download the lists from the URLs above and mirror them in the VCN security list. Keep
+**22** restricted to your admin IP in both UFW and OCI.
 
 **Manual one-liner** (if you prefer not to use the script — IPv4 only):
 
@@ -543,14 +547,14 @@ Also fetch [ips-v6](https://www.cloudflare.com/ips-v6) if the instance has a pub
 
 ### 9.3 App compatibility (already handled in code)
 
-| Concern                                           | Status                                                                                                                                                              |
-| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Real client IP** for rate limit / login lockout | `clientKey()` prefers `CF-Connecting-IP`, then `X-Forwarded-For` ([`lib/security/rate_limit.ts`](../../lib/security/rate_limit.ts))                                 |
-| **Caddy forwards client IP**                      | `header_up X-Forwarded-For {CF-Connecting-IP}` in §8.1                                                                                                              |
-| **Secure cookies + HSTS**                         | `DEPLOYED=1` in `.env`                                                                                                                                              |
+| Concern                                           | Status                                                                                                                                                                                                            |
+| ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Real client IP** for rate limit / login lockout | `clientKey()` prefers `CF-Connecting-IP`, then `X-Forwarded-For` ([`lib/security/rate_limit.ts`](../../lib/security/rate_limit.ts))                                                                               |
+| **Caddy forwards client IP**                      | `header_up X-Forwarded-For {CF-Connecting-IP}` in §8.1                                                                                                                                                            |
+| **Secure cookies + HSTS**                         | `DEPLOYED=1` in `.env`                                                                                                                                                                                            |
 | **CSRF**                                          | Compares `Origin`/`Referer` to public origin from `X-Forwarded-Proto` + `Host` when `DEPLOYED=1` ([`lib/middleware/csrf_origin.ts`](../../lib/middleware/csrf_origin.ts)); Caddy must forward both headers (§8.1) |
-| **SSE long connections**                          | Comment keepalive every 25s in [`lib/sse/create_event_stream.ts`](../../lib/sse/create_event_stream.ts) — avoids Cloudflare proxy read timeout during quiet periods |
-| **Upload size**                                   | 12 MB app limit; Cloudflare free proxy body limit is 100 MB — sufficient                                                                                            |
+| **SSE long connections**                          | Comment keepalive every 25s in [`lib/sse/create_event_stream.ts`](../../lib/sse/create_event_stream.ts) — avoids Cloudflare proxy read timeout during quiet periods                                               |
+| **Upload size**                                   | 12 MB app limit; Cloudflare free proxy body limit is 100 MB — sufficient                                                                                                                                          |
 
 No `DEPLOYED=0` or code changes needed beyond deploying a release that includes the above.
 
@@ -562,14 +566,14 @@ No `DEPLOYED=0` or code changes needed beyond deploying a release that includes 
 
 ### 9.5 Risks of origin port 80 with Let's Encrypt
 
-| Risk                                                                 | Severity                          | Mitigation                                                                                                                                                                                                    |
-| -------------------------------------------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Risk                                                                 | Severity                          | Mitigation                                                                                                                                                                                                                                                                           |
+| -------------------------------------------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Bypass Cloudflare** (hit origin IP directly, skip WAF/rate limits) | High if firewall is open          | Restrict **80 and 443** to Cloudflare IPs only ([§9.2](#92-firewall-only-cloudflare-may-reach-80-and-443)). Enable **Authenticated Origin Pulls** ([§9.7](#97-authenticated-origin-pulls-recommended)) so direct TLS to Caddy without CF's client cert fails even if IP rules drift. |
-| **Plain HTTP to origin**                                             | Medium                            | Cloudflare **Full (strict)** only — never **Flexible** (that sends decrypted HTTP from CF to origin). Caddy should redirect all non-ACME HTTP to HTTPS.                                                       |
-| **DDoS / scanning on :80**                                           | Medium if open to world           | Cloudflare-only firewall rules; Oracle VCN matches UFW.                                                                                                                                                       |
-| **LE renewal failure**                                               | Medium (outage when cert expires) | Keep :80 reachable **from Cloudflare**; monitor Caddy logs / cert expiry; test `caddy reload` after firewall changes.                                                                                         |
-| **Origin IP leaked**                                                 | Ongoing                           | Use CF proxied DNS; avoid grey-cloud except briefly; don't publish origin IP in emails/docs. Firewall still blocks non-CF traffic if rules are correct.                                                       |
-| **Misconfiguration drift**                                           | Low                               | Avoid `ufw allow 80/tcp` without `from` — document rules in runbook; re-check after OCI console edits.                                                                                                        |
+| **Plain HTTP to origin**                                             | Medium                            | Cloudflare **Full (strict)** only — never **Flexible** (that sends decrypted HTTP from CF to origin). Caddy should redirect all non-ACME HTTP to HTTPS.                                                                                                                              |
+| **DDoS / scanning on :80**                                           | Medium if open to world           | Cloudflare-only firewall rules; Oracle VCN matches UFW.                                                                                                                                                                                                                              |
+| **LE renewal failure**                                               | Medium (outage when cert expires) | Keep :80 reachable **from Cloudflare**; monitor Caddy logs / cert expiry; test `caddy reload` after firewall changes.                                                                                                                                                                |
+| **Origin IP leaked**                                                 | Ongoing                           | Use CF proxied DNS; avoid grey-cloud except briefly; don't publish origin IP in emails/docs. Firewall still blocks non-CF traffic if rules are correct.                                                                                                                              |
+| **Misconfiguration drift**                                           | Low                               | Avoid `ufw allow 80/tcp` without `from` — document rules in runbook; re-check after OCI console edits.                                                                                                                                                                               |
 
 **Compared to Origin Certificate only on :443:** LE adds one more open port on the host, but with
 Cloudflare-only firewall rules the practical risk is small — attackers who discover your IP still
@@ -612,16 +616,17 @@ origin. Caddy verifies that certificate during the TLS handshake and rejects con
 present a valid one — including a direct `curl` to your origin IP that might otherwise reach Caddy
 if firewall rules drift or the origin IP leaks.
 
-| Layer | What it blocks |
-| ----- | -------------- |
-| UFW + OCI (§9.2) | Non-Cloudflare source IPs on :80 / :443 |
+| Layer              | What it blocks                                               |
+| ------------------ | ------------------------------------------------------------ |
+| UFW + OCI (§9.2)   | Non-Cloudflare source IPs on :80 / :443                      |
 | AOP (this section) | Connections that reach :443 without Cloudflare's client cert |
 
 Do **both**. AOP does not replace IP allowlists (someone on a Cloudflare IP range without a valid
-client cert should still be blocked by mTLS; conversely, mTLS does not help if :443 is world-open and
-an attacker finds another path to your app).
+client cert should still be blocked by mTLS; conversely, mTLS does not help if :443 is world-open
+and an attacker finds another path to your app).
 
-**Prerequisites:** Caddy serves HTTPS for your hostname ([§8.1](#81-cloudflare-origin-certificate-443-only-no-le) or
+**Prerequisites:** Caddy serves HTTPS for your hostname
+([§8.1](#81-cloudflare-origin-certificate-443-only-no-le) or
 [§8.2](#82-lets-encrypt-on-origin-port-80--443--preferred-if-you-want-public-le)); Cloudflare DNS is
 **proxied**; SSL mode is **Full (strict)** ([§9.1](#91-cloudflare-dashboard)).
 
@@ -645,9 +650,9 @@ text from blog posts.
 
 #### 9.7.2 Configure Caddy `client_auth`
 
-Add a `client_auth` block inside the site `tls` configuration. Caddy **2.8+** (Ubuntu 24.04
-package) uses `trust_pool file`; older Caddy builds may need `trusted_ca_cert_file` instead (see
-note at end).
+Add a `client_auth` block inside the site `tls` configuration. Caddy **2.8+** (Ubuntu 24.04 package)
+uses `trust_pool file`; older Caddy builds may need `trusted_ca_cert_file` instead (see note at
+end).
 
 **With Cloudflare Origin Certificate** ([§8.1](#81-cloudflare-origin-certificate-443-only-no-le)) —
 replace `your.domain.example`:
@@ -669,8 +674,9 @@ your.domain.example {
 }
 ```
 
-**With Let's Encrypt** ([§8.2](#82-lets-encrypt-on-origin-port-80--443--preferred-if-you-want-public-le)) —
-explicit `tls` block so `client_auth` nests correctly; Caddy still obtains and renews LE certs:
+**With Let's Encrypt**
+([§8.2](#82-lets-encrypt-on-origin-port-80--443--preferred-if-you-want-public-le)) — explicit `tls`
+block so `client_auth` nests correctly; Caddy still obtains and renews LE certs:
 
 ```
 your.domain.example {
@@ -707,14 +713,16 @@ sudo systemctl reload caddy
 3. Confirm **SSL/TLS encryption mode** remains **Full (strict)**.
 
 This is **zone-level** AOP with Cloudflare's shared origin-pull certificate — the usual setup for a
-single photowall hostname. Per-hostname custom client certs are only needed for multi-tenant origins;
-see [Cloudflare per-hostname AOP](https://developers.cloudflare.com/ssl/origin-configuration/authenticated-origin-pull/set-up/per-hostname/)
+single photowall hostname. Per-hostname custom client certs are only needed for multi-tenant
+origins; see
+[Cloudflare per-hostname AOP](https://developers.cloudflare.com/ssl/origin-configuration/authenticated-origin-pull/set-up/per-hostname/)
 if you outgrow zone-level.
 
 **Safe rollout order**
 
 1. Install the CA file on the VPS ([§9.7.1](#971-download-cloudflares-origin-pull-ca)).
-2. Update the Caddyfile and `caddy validate` + `reload` ([§9.7.2](#972-configure-caddy-client_auth)).
+2. Update the Caddyfile and `caddy validate` + `reload`
+   ([§9.7.2](#972-configure-caddy-client_auth)).
 3. Verify the site still works through Cloudflare **before** enabling the Cloudflare toggle (Caddy
    accepts connections without a client cert until CF starts sending one — brief window only if you
    delay step 3).
@@ -722,9 +730,9 @@ if you outgrow zone-level.
 5. Re-test through Cloudflare and run the negative test ([§9.7.4](#974-verify)).
 
 If you enable the Cloudflare toggle **before** Caddy enforces client auth, proxied traffic continues
-to work (CF sends a cert; Caddy ignores it until configured). If you enable Caddy `require_and_verify`
-**before** the Cloudflare toggle, proxied traffic **breaks** (502) until step 4 is done — configure
-Caddy first, then flip the toggle immediately.
+to work (CF sends a cert; Caddy ignores it until configured). If you enable Caddy
+`require_and_verify` **before** the Cloudflare toggle, proxied traffic **breaks** (502) until step 4
+is done — configure Caddy first, then flip the toggle immediately.
 
 #### 9.7.4 Verify
 
@@ -759,18 +767,18 @@ curl -vk --resolve your.domain.example:443:127.0.0.1 \
   https://your.domain.example/api/health
 ```
 
-If the negative test still returns `{"ok":true}`, Caddy is not enforcing `require_and_verify` — recheck
-the Caddyfile, `caddy validate`, and that you reloaded Caddy.
+If the negative test still returns `{"ok":true}`, Caddy is not enforcing `require_and_verify` —
+recheck the Caddyfile, `caddy validate`, and that you reloaded Caddy.
 
 #### 9.7.5 Troubleshooting AOP
 
-| Symptom | Likely cause | Fix |
-| ------- | ------------ | --- |
-| **502** from Cloudflare right after enabling AOP | Caddy requires client cert but CF toggle off, or wrong CA file | Enable CF AOP; verify CA path; `journalctl -u caddy -n 30` |
-| Site works direct-to-IP | `client_auth` missing or mode not `require_and_verify` | Fix Caddyfile; `caddy validate`; `reload` |
-| `caddy validate` syntax error on `trust_pool` | Older Caddy | Use `trusted_ca_cert_file` ([§9.7.2](#972-configure-caddy-client_auth)) |
-| Health OK via CF, fails direct | Expected when AOP works | No action |
-| Grey-cloud DNS (DNS only) | CF does not send origin-pull cert on non-proxied records | Keep **proxied** (orange cloud) for the app `A` record |
+| Symptom                                          | Likely cause                                                   | Fix                                                                     |
+| ------------------------------------------------ | -------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| **502** from Cloudflare right after enabling AOP | Caddy requires client cert but CF toggle off, or wrong CA file | Enable CF AOP; verify CA path; `journalctl -u caddy -n 30`              |
+| Site works direct-to-IP                          | `client_auth` missing or mode not `require_and_verify`         | Fix Caddyfile; `caddy validate`; `reload`                               |
+| `caddy validate` syntax error on `trust_pool`    | Older Caddy                                                    | Use `trusted_ca_cert_file` ([§9.7.2](#972-configure-caddy-client_auth)) |
+| Health OK via CF, fails direct                   | Expected when AOP works                                        | No action                                                               |
+| Grey-cloud DNS (DNS only)                        | CF does not send origin-pull cert on non-proxied records       | Keep **proxied** (orange cloud) for the app `A` record                  |
 
 ---
 
@@ -778,9 +786,8 @@ the Caddyfile, `caddy validate`, and that you reloaded Caddy.
 
 From the repo, `scripts/deploy.sh` checks out a **git tag** (`v*`), installs dependencies, runs
 `deno task build`, migrates, and restarts the service. It reuses the same `origin` credentials
-configured in
-[§3.5](#35-github-access-private-repository) — if `git fetch` fails during deploy, re-check that
-section.
+configured in [§3.5](#35-github-access-private-repository) — if `git fetch` fails during deploy,
+re-check that section.
 
 ```bash
 sudo chmod +x /opt/ground-up-wall/ground-up-wall/scripts/deploy.sh
@@ -815,8 +822,8 @@ sudo chmod +x /usr/local/bin/deploy-wall
 If you previously cloned into `/opt/ground-up-wall` directly:
 
 1. Stop the service: `sudo systemctl stop ground-up-wall`
-2. Preserve secrets: ensure `.env` is at `/opt/ground-up-wall/.env` (move out of the old checkout
-   if needed)
+2. Preserve secrets: ensure `.env` is at `/opt/ground-up-wall/.env` (move out of the old checkout if
+   needed)
 3. Preserve Git auth: keep `/opt/ground-up-wall/.ssh` and `.git-credentials` in home
 4. Clone fresh to the subdirectory (or move the checkout):
    `sudo -u groundupwall git clone git@github.com:ndparty/ground-up-wall.git /opt/ground-up-wall/ground-up-wall`
@@ -833,8 +840,8 @@ that tag. This is optional — manual `sudo deploy-wall v1.0.2` remains the defa
 **Do not** auto-deploy `main` or on every push. Only `release` events with `action: published` and
 tags matching `v*`.
 
-**Prerequisites:** [§3.5](#35-github-access-private-repository) working; `deploy-wall` tested manually
-(§10 above).
+**Prerequisites:** [§3.5](#35-github-access-private-repository) working; `deploy-wall` tested
+manually (§10 above).
 
 #### 10.2.1 Install webhook and deploy-wall
 
@@ -876,8 +883,8 @@ sudo systemctl enable --now webhook
 sudo systemctl status webhook
 ```
 
-The listener binds **port 9000** on all interfaces. GitHub delivers webhooks directly to your
-origin IP — **not** through Cloudflare.
+The listener binds **port 9000** on all interfaces. GitHub delivers webhooks directly to your origin
+IP — **not** through Cloudflare.
 
 #### 10.2.4 Firewall (UFW + OCI)
 
@@ -901,19 +908,19 @@ Refresh when GitHub updates ranges (weekly cron as root, alongside Cloudflare sy
 5 3 * * 0 /opt/ground-up-wall/ground-up-wall/scripts/github-webhook-ufw.sh --purge >> /var/log/github-webhook-ufw.log 2>&1
 ```
 
-`--purge` deletes old `github-hooks`-tagged rules and re-applies from the live API. Without it,
-the script only adds missing CIDRs.
+`--purge` deletes old `github-hooks`-tagged rules and re-applies from the live API. Without it, the
+script only adds missing CIDRs.
 
 #### 10.2.5 GitHub repository webhook
 
 In the repo: **Settings → Webhooks → Add webhook**
 
-| Field | Value |
-| ----- | ----- |
-| Payload URL | `http://YOUR_VPS_PUBLIC_IP:9000/hooks/ground-up-wall-release` |
-| Content type | `application/json` |
-| Secret | same value as in `/etc/webhook/hooks.json` |
-| Events | **Releases** only |
+| Field        | Value                                                         |
+| ------------ | ------------------------------------------------------------- |
+| Payload URL  | `http://YOUR_VPS_PUBLIC_IP:9000/hooks/ground-up-wall-release` |
+| Content type | `application/json`                                            |
+| Secret       | same value as in `/etc/webhook/hooks.json`                    |
+| Events       | **Releases** only                                             |
 
 A **tag push alone does not deploy** — you must publish a Release (e.g. `gh release create v1.0.5`).
 
@@ -926,13 +933,13 @@ A **tag push alone does not deploy** — you must publish a Release (e.g. `gh re
    gh release create vX.Y.Z --target "$(git rev-parse main)" --title "..." --notes "..."
    ```
 4. Confirm the tag resolves to the expected commit: `git rev-parse vX.Y.Z^{commit}`.
-5. On the VPS after deploy: `git cat-file -e HEAD:prod.ts` and `curl -fsS http://127.0.0.1:8080/api/health`.
+5. On the VPS after deploy: `git cat-file -e HEAD:prod.ts` and
+   `curl -fsS http://127.0.0.1:8080/api/health`.
 
 #### 10.2.6 Verify
 
 1. **Recent Deliveries** in GitHub webhook settings — redeliver a `release` event; expect `200`.
-2. Publish a test release tag and confirm:
-   `sudo journalctl -u ground-up-wall -n 20`
+2. Publish a test release tag and confirm: `sudo journalctl -u ground-up-wall -n 20`
 3. `curl -fsS http://127.0.0.1:8080/api/health` returns `{"ok":true,...}`.
 
 **Security:** HMAC secret is required even with IP-restricted UFW. Never expose the webhook on your
@@ -957,8 +964,10 @@ Add a weekly `cron` entry as root.
 ## 12. Pre-event checklist
 
 - [ ] Cloudflare **Full (strict)**; Caddy LE cert valid (or Origin Cert if using §8.1)
-- [ ] **Authenticated Origin Pulls** enabled in Cloudflare and enforced in Caddy (§9.7); direct-to-origin `curl` without client cert fails
-- [ ] Origin **80 and 443** restricted to Cloudflare IP ranges — UFW via `cloudflare-ufw.sh` (§9.2) and matching OCI Security List rules
+- [ ] **Authenticated Origin Pulls** enabled in Cloudflare and enforced in Caddy (§9.7);
+      direct-to-origin `curl` without client cert fails
+- [ ] Origin **80 and 443** restricted to Cloudflare IP ranges — UFW via `cloudflare-ufw.sh` (§9.2)
+      and matching OCI Security List rules
 - [ ] `https://your.domain.example/muatnaik` loads through Cloudflare
 - [ ] `https://your.domain.example/api/health` returns `{"ok":true,"db":true}`
 - [ ] Admin login works; change default passwords if still using seed values
@@ -967,34 +976,36 @@ Add a weekly `cron` entry as root.
 - [ ] Cloudflare WAF rate limits configured (§9.6)
 - [ ] Oracle idle reclamation: light traffic or cron `curl` during the week before the event
 - [ ] GitHub deploy key or PAT verified:
-      `sudo -u groundupwall git -C /opt/ground-up-wall/ground-up-wall fetch --tags origin` (non-interactive)
+      `sudo -u groundupwall git -C /opt/ground-up-wall/ground-up-wall fetch --tags origin`
+      (non-interactive)
 - [ ] `deploy-wall` tested once on staging tag
-- [ ] (Optional) GitHub Release webhook: `webhook` service active; UFW + OCI allow port 9000 from GitHub `hooks` CIDRs only (§10.2)
+- [ ] (Optional) GitHub Release webhook: `webhook` service active; UFW + OCI allow port 9000 from
+      GitHub `hooks` CIDRs only (§10.2)
 
 ---
 
 ## 13. Troubleshooting
 
-| Problem                                                | Fix                                                                                     |
-| ------------------------------------------------------ | --------------------------------------------------------------------------------------- |
-| **525/526** SSL errors from Cloudflare                 | Set SSL mode to **Full (strict)**; verify origin cert paths in Caddyfile                |
-| **502** from Cloudflare after enabling AOP             | Enable CF **Authenticated Origin Pulls** (§9.7.3); verify CA file + `client_auth` in Caddyfile |
-| **502** from Cloudflare                                | App or Caddy down — `systemctl status caddy ground-up-wall`                             |
-| Direct `curl` to origin IP still returns health JSON   | AOP not enforced — add `client_auth` (§9.7.2), `require_and_verify`, reload Caddy       |
-| Rate limits affect everyone at once                    | Caddy not passing `CF-Connecting-IP` — check §8.1 headers                               |
-| Display SSE drops every ~100s                          | Deploy version with SSE keepalive; confirm Cloudflare proxy (not grey-cloud)            |
-| `Connection refused` on 8080                           | `sudo journalctl -u ground-up-wall -f` — check `DATABASE_URL`, Postgres running         |
-| 502 from Caddy                                         | App not listening — verify `HOSTNAME=127.0.0.1` and service active                      |
-| Seed refuses weak passwords                            | Set `ADMIN_INITIAL_PASSWORD` etc. in `.env`                                             |
-| Images 404                                             | Check files under `STORAGE_PATH`; app user owns directory                               |
-| After deploy, health fails                             | `sudo journalctl -u ground-up-wall -n 50`; re-run `deno task db:migrate`                |
-| Every path returns plain `Not Found` (incl. `/api/health`) | Run `deno task build` — Fresh 2.x needs `_fresh/server.js` before `prod.ts` starts |
-| `git clone` / `git fetch` 401, 403, or password prompt | Complete [§3.5](#35-github-access-private-repository); test as `groundupwall`           |
-| `Permission denied (publickey)` on `git fetch`         | Deploy key not on repo, wrong key path, or `core.sshCommand` not set for `groundupwall` |
-| `Host key verification failed` (git/ssh)               | `sudo -u groundupwall ssh-keyscan github.com >> /opt/ground-up-wall/.ssh/known_hosts`   |
-| GitHub webhook delivery fails / times out              | Check OCI + UFW allow 9000 from GitHub `hooks` CIDRs (§10.2.4); `systemctl status webhook` |
-| Webhook returns 403 / signature mismatch               | Secret in GitHub must match `/etc/webhook/hooks.json`; redeploy hooks after editing       |
-| Webhook fires but deploy does not run                  | `deploy-wall` must exist and run as root; check `journalctl -u webhook`                   |
+| Problem                                                    | Fix                                                                                            |
+| ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| **525/526** SSL errors from Cloudflare                     | Set SSL mode to **Full (strict)**; verify origin cert paths in Caddyfile                       |
+| **502** from Cloudflare after enabling AOP                 | Enable CF **Authenticated Origin Pulls** (§9.7.3); verify CA file + `client_auth` in Caddyfile |
+| **502** from Cloudflare                                    | App or Caddy down — `systemctl status caddy ground-up-wall`                                    |
+| Direct `curl` to origin IP still returns health JSON       | AOP not enforced — add `client_auth` (§9.7.2), `require_and_verify`, reload Caddy              |
+| Rate limits affect everyone at once                        | Caddy not passing `CF-Connecting-IP` — check §8.1 headers                                      |
+| Display SSE drops every ~100s                              | Deploy version with SSE keepalive; confirm Cloudflare proxy (not grey-cloud)                   |
+| `Connection refused` on 8080                               | `sudo journalctl -u ground-up-wall -f` — check `DATABASE_URL`, Postgres running                |
+| 502 from Caddy                                             | App not listening — verify `HOSTNAME=127.0.0.1` and service active                             |
+| Seed refuses weak passwords                                | Set `ADMIN_INITIAL_PASSWORD` etc. in `.env`                                                    |
+| Images 404                                                 | Check files under `STORAGE_PATH`; app user owns directory                                      |
+| After deploy, health fails                                 | `sudo journalctl -u ground-up-wall -n 50`; re-run `deno task db:migrate`                       |
+| Every path returns plain `Not Found` (incl. `/api/health`) | Run `deno task build` — Fresh 2.x needs `_fresh/server.js` before `prod.ts` starts             |
+| `git clone` / `git fetch` 401, 403, or password prompt     | Complete [§3.5](#35-github-access-private-repository); test as `groundupwall`                  |
+| `Permission denied (publickey)` on `git fetch`             | Deploy key not on repo, wrong key path, or `core.sshCommand` not set for `groundupwall`        |
+| `Host key verification failed` (git/ssh)                   | `sudo -u groundupwall ssh-keyscan github.com >> /opt/ground-up-wall/.ssh/known_hosts`          |
+| GitHub webhook delivery fails / times out                  | Check OCI + UFW allow 9000 from GitHub `hooks` CIDRs (§10.2.4); `systemctl status webhook`     |
+| Webhook returns 403 / signature mismatch                   | Secret in GitHub must match `/etc/webhook/hooks.json`; redeploy hooks after editing            |
+| Webhook fires but deploy does not run                      | `deploy-wall` must exist and run as root; check `journalctl -u webhook`                        |
 
 ---
 

@@ -5,7 +5,7 @@ export const DISPLAY_SESSION_KEEPALIVE_MS = 45 * 60 * 1000;
 
 export function redirectToLogin(): void {
   if (typeof window === "undefined") return;
-  window.location.assign("/masuk");
+  globalThis.location.assign("/masuk");
 }
 
 /**

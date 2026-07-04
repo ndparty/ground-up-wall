@@ -17,23 +17,17 @@ import {
   getCenterKeyFromSteps,
   getRenderWindow,
   hasCabins as viewHasCabins,
-  type RenderCabin,
   overlayDomKeys,
+  type RenderCabin,
   renderWindowToSteps,
   type TrainViewState,
 } from "../lib/train/train_view.ts";
-import {
-  imageUrlsFromWindow,
-  preloadCabinImages,
-} from "../lib/train/preload_cabin_images.ts";
+import { imageUrlsFromWindow, preloadCabinImages } from "../lib/train/preload_cabin_images.ts";
 import { jumpSlideDurationMs } from "../lib/train/slide_duration.ts";
 import { shouldShowTrainControls } from "../lib/train/playback.ts";
 import { useTrainPlayback } from "../lib/train/use_train_playback.ts";
 import { LEFT_RENDER, VIEWPORT_K } from "../lib/train/train_view_constants.ts";
-import {
-  buildReconcileBridge,
-  windowsIdentityEqual,
-} from "../lib/train/tape_helpers.ts";
+import { buildReconcileBridge, windowsIdentityEqual } from "../lib/train/tape_helpers.ts";
 import type { TrainStep } from "../interfaces/realtime_service.ts";
 import { resolveOverrideView } from "../lib/train/display_override.ts";
 import ConnectionBanner from "./ConnectionBanner.tsx";

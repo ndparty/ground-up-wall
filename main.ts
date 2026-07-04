@@ -1,6 +1,6 @@
 import { App, staticFiles } from "fresh";
 import { loadConfig } from "./lib/config.ts";
-import { closeAppState, createAppState, type AppState } from "./lib/di.ts";
+import { type AppState, closeAppState, createAppState } from "./lib/di.ts";
 import { loadEnvFile } from "./lib/load_env.ts";
 import { accessGateMiddleware } from "./lib/middleware/access_gate.ts";
 import { csrfOriginMiddleware } from "./lib/middleware/csrf_origin.ts";
@@ -22,6 +22,11 @@ export async function shutdownApp(): Promise<void> {
 /** Clear in-memory session cache between tests (DB rows cleared separately). */
 export function resetTestSessionCache(): void {
   appState?.auth.clearSessionCache();
+}
+
+/** Clear PhotoWallService caches between tests to prevent stale data. */
+export function resetPhotoWallCaches(): void {
+  appState?.photoWall.clearAllCaches();
 }
 
 function registerShutdownHandlers(): void {

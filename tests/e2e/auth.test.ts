@@ -1,7 +1,6 @@
 import { assertEquals } from "@std/assert";
 import {
   authedRequest,
-  cleanupTestData,
   createTestHandler,
   loginAsModerator,
   serveInfo,

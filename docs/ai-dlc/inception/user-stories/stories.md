@@ -2,11 +2,10 @@
 
 ## Overview
 
-**Organization**: Feature-based with 6 feature groups
-**Format**: Gherkin (Given/When/Then) acceptance criteria
-**Personas**: Participant (Jamie), Photo Moderator (Sam), Admin (Alex), Display Wall User (Screen)
-**NFRs**: Separate stories to avoid blocking main functions
-**Ordering**: By user journey flow (Upload → Moderate → Display → Admin → Password)
+**Organization**: Feature-based with 6 feature groups **Format**: Gherkin (Given/When/Then)
+acceptance criteria **Personas**: Participant (Jamie), Photo Moderator (Sam), Admin (Alex), Display
+Wall User (Screen) **NFRs**: Separate stories to avoid blocking main functions **Ordering**: By user
+journey flow (Upload → Moderate → Display → Admin → Password)
 
 ---
 
@@ -14,11 +13,12 @@
 
 ### US-01 — Submit a Photo (Participant)
 
-**As a** Participant  
-**I want** to submit a photo with a short message and my name  
+**As a** Participant\
+**I want** to submit a photo with a short message and my name\
 **So that** my submission can appear on the National Day photowall
 
 **Acceptance Criteria**:
+
 ```gherkin
 Scenario: Successful photo submission
   Given I am on the upload page
@@ -71,11 +71,12 @@ Scenario: Invalid file type
 
 ### US-02 — Access Upload Page (Participant)
 
-**As a** Participant  
-**I want** to access the upload page via a short URL or QR code  
+**As a** Participant\
+**I want** to access the upload page via a short URL or QR code\
 **So that** I can quickly submit a photo without typing a long address
 
 **Acceptance Criteria**:
+
 ```gherkin
 Scenario: Access via short URL
   Given I have the short URL for the event
@@ -91,11 +92,14 @@ Scenario: Access via QR code
 
 ### US-02a — View Privacy Notice, Posting Guidelines, and Acknowledge (Participant)
 
-**As a** Participant  
-**I want** to see a data privacy notice and posting guidelines disclaimer on the upload form, and acknowledge them before submitting  
-**So that** I understand how my data will be used, that it may be shared on social media, and what happens if my submission isn't approved
+**As a** Participant\
+**I want** to see a data privacy notice and posting guidelines disclaimer on the upload form, and
+acknowledge them before submitting\
+**So that** I understand how my data will be used, that it may be shared on social media, and what
+happens if my submission isn't approved
 
 **Acceptance Criteria**:
+
 ```gherkin
 Scenario: Privacy notice displayed with indefinite retention
   Given I am on the upload page
@@ -128,11 +132,12 @@ Scenario: Success page shows posting guidelines disclaimer
 
 ### US-03 — Log In to Organiser Panel (Photo Moderator)
 
-**As a** Photo Moderator  
-**I want** to log in to the organiser panel  
+**As a** Photo Moderator\
+**I want** to log in to the organiser panel\
 **So that** I can review pending photo submissions
 
 **Acceptance Criteria**:
+
 ```gherkin
 Scenario: Successful login
   Given I am on the organiser login page
@@ -154,11 +159,12 @@ Scenario: Access without login
 
 ### US-04 — View Pending Moderation Queue (Photo Moderator)
 
-**As a** Photo Moderator  
-**I want** to see a list of pending photo submissions  
+**As a** Photo Moderator\
+**I want** to see a list of pending photo submissions\
 **So that** I can review them before they appear on the wall
 
 **Acceptance Criteria**:
+
 ```gherkin
 Scenario: View pending submissions
   Given I am logged in as a Photo Moderator
@@ -175,11 +181,13 @@ Scenario: No pending submissions
 
 ### US-05 — Approve, Reject, or Edit Submission (Photo Moderator)
 
-**As a** Photo Moderator  
-**I want** to approve, reject, or edit each pending submission  
-**So that** appropriate content appears on the display wall and I can fix minor issues without rejecting
+**As a** Photo Moderator\
+**I want** to approve, reject, or edit each pending submission\
+**So that** appropriate content appears on the display wall and I can fix minor issues without
+rejecting
 
 **Acceptance Criteria**:
+
 ```gherkin
 Scenario: Approve a submission
   Given I am viewing a pending submission
@@ -222,11 +230,12 @@ Scenario: Approve multiple submissions
 
 ### US-06 — Delete Approved Submission (Photo Moderator)
 
-**As a** Photo Moderator  
-**I want** to delete a previously approved submission  
+**As a** Photo Moderator\
+**I want** to delete a previously approved submission\
 **So that** I can remove content that should no longer be displayed
 
 **Acceptance Criteria**:
+
 ```gherkin
 Scenario: Delete an approved submission
   Given I am viewing the list of approved submissions
@@ -244,11 +253,12 @@ Scenario: Confirm deletion
 
 ### US-12 — Auto-Moderator Flagging (Photo Moderator)
 
-**As a** Photo Moderator  
-**I want** the system to flag potentially inappropriate messages  
+**As a** Photo Moderator\
+**I want** the system to flag potentially inappropriate messages\
 **So that** I can review flagged content before deciding to approve or reject
 
 **Acceptance Criteria**:
+
 ```gherkin
 Scenario: Flagged message shows visual indicator
   Given I am viewing the moderation queue
@@ -284,11 +294,12 @@ Scenario: Unicode and character substitution handling
 
 ### US-07 — View Display Wall (Display Wall User)
 
-**As a** Display Wall User  
-**I want** to log in and see the photo train display wall on the TV  
+**As a** Display Wall User\
+**I want** to log in and see the photo train display wall on the TV\
 **So that** event attendees can view all approved submissions in the MRT-style metro train format
 
 **Acceptance Criteria**:
+
 ```gherkin
 Scenario: Display Wall User login and view
   Given I have Display Wall User credentials created by an Admin
@@ -347,11 +358,12 @@ Scenario: Display wall resumes after override
 
 ### US-08 — Automatic Wall Updates (System)
 
-**As a** System  
-**I want** to add newly approved submissions to the display rotation in real-time  
+**As a** System\
+**I want** to add newly approved submissions to the display rotation in real-time\
 **So that** the wall stays current without manual refresh
 
 **Acceptance Criteria**:
+
 ```gherkin
 Scenario: New approval appears on wall
   Given the display wall is currently showing submissions
@@ -368,11 +380,13 @@ Scenario: Browser refresh recovers state
 
 ### US-15 — Pause/Play and Jump to Cabin (Photo Moderator)
 
-**As a** Photo Moderator  
-**I want** to pause, play, and jump to specific cabins on the display wall  
-**So that** I can highlight a particular submission or allow participants to take photos with their cabin
+**As a** Photo Moderator\
+**I want** to pause, play, and jump to specific cabins on the display wall\
+**So that** I can highlight a particular submission or allow participants to take photos with their
+cabin
 
 **Acceptance Criteria**:
+
 ```gherkin
 Scenario: Pause the train
   Given I am logged in as a Photo Moderator or Admin
@@ -420,11 +434,12 @@ Scenario: Display Wall User cannot see controls
 
 ### US-09 — Create Moderator Account (Admin)
 
-**As an** Admin  
-**I want** to create moderator accounts with username and initial password  
+**As an** Admin\
+**I want** to create moderator accounts with username and initial password\
 **So that** I can delegate moderation to trusted volunteers
 
 **Acceptance Criteria**:
+
 ```gherkin
 Scenario: Create a new moderator
   Given I am logged in as Admin
@@ -450,11 +465,12 @@ Scenario: Empty username or password
 
 ### US-10 — View and Manage Moderators (Admin)
 
-**As an** Admin  
-**I want** to see a list of all moderator accounts and manage them  
+**As an** Admin\
+**I want** to see a list of all moderator accounts and manage them\
 **So that** I can control who has moderation access
 
 **Acceptance Criteria**:
+
 ```gherkin
 Scenario: View moderator list
   Given I am logged in as Admin
@@ -471,11 +487,12 @@ Scenario: Reset moderator password
 
 ### US-18 — Disable and Delete Moderator Accounts (Admin)
 
-**As an** Admin  
-**I want** to disable or delete moderator accounts  
+**As an** Admin\
+**I want** to disable or delete moderator accounts\
 **So that** I can revoke access for volunteers who no longer need it
 
 **Acceptance Criteria**:
+
 ```gherkin
 Scenario: Disable a moderator account
   Given I am viewing the moderator list
@@ -501,11 +518,13 @@ Scenario: Delete a moderator account
 
 ### US-14 — Configure System Parameters (Admin)
 
-**As an** Admin  
-**I want** to configure system parameters from the admin panel  
-**So that** I can adjust the display wall behaviour and content prompts without developer involvement
+**As an** Admin\
+**I want** to configure system parameters from the admin panel\
+**So that** I can adjust the display wall behaviour and content prompts without developer
+involvement
 
 **Acceptance Criteria**:
+
 ```gherkin
 Scenario: Change dwell time
   Given I am logged in as Admin
@@ -556,11 +575,12 @@ Scenario: Invalid dwell time value
 
 ### US-11 — Change Own Password (Photo Moderator & Admin)
 
-**As a** Photo Moderator  
-**I want** to change my own password  
+**As a** Photo Moderator\
+**I want** to change my own password\
 **So that** I can maintain account security
 
 **Acceptance Criteria**:
+
 ```gherkin
 Scenario: Successful password change
   Given I am logged in as a Photo Moderator or Admin
@@ -590,11 +610,12 @@ Scenario: Password confirmation mismatch
 
 ### US-16 — Manage Display Wall Accounts (Admin)
 
-**As an** Admin  
-**I want** to create, disable, and delete Display Wall User accounts  
+**As an** Admin\
+**I want** to create, disable, and delete Display Wall User accounts\
 **So that** I can control which devices can show the photo train on the TV
 
 **Acceptance Criteria**:
+
 ```gherkin
 Scenario: Create a Display Wall account
   Given I am logged in as Admin
@@ -628,11 +649,14 @@ Scenario: User management page shows role and status
 
 ### US-19 — Command Display Override (Photo Moderator / Admin)
 
-**As a** Photo Moderator or Admin  
-**I want** to blank the display wall, show a placeholder image, or resume normal display from the moderation or admin panel  
-**So that** I can control what the TV shows during the event (e.g. during breaks, speeches, or setup)
+**As a** Photo Moderator or Admin\
+**I want** to blank the display wall, show a placeholder image, or resume normal display from the
+moderation or admin panel\
+**So that** I can control what the TV shows during the event (e.g. during breaks, speeches, or
+setup)
 
 **Acceptance Criteria**:
+
 ```gherkin
 Scenario: Blank the display wall
   Given I am logged in as a Photo Moderator or Admin
@@ -674,11 +698,12 @@ Scenario: Display override state broadcast via RealtimeService
 
 ### US-17 — View Audit Log (Admin)
 
-**As an** Admin  
-**I want** to view the audit log with filtering  
+**As an** Admin\
+**I want** to view the audit log with filtering\
 **So that** I can see who did what and investigate any issues
 
 **Acceptance Criteria**:
+
 ```gherkin
 Scenario: View audit log
   Given I am logged in as Admin
@@ -718,11 +743,12 @@ Scenario: Non-admin cannot access audit log
 
 ### US-NFR-01 — Mobile Responsiveness
 
-**As a** Participant  
-**I want** the upload form to work on my mobile phone  
+**As a** Participant\
+**I want** the upload form to work on my mobile phone\
 **So that** I can submit a photo from my phone at the event
 
 **Acceptance Criteria**:
+
 ```gherkin
 Scenario: Upload form works on mobile
   Given I am using a mobile device
@@ -739,11 +765,12 @@ Scenario: Display wall legible from distance
 
 ### US-NFR-02 — Display Wall Performance
 
-**As a** Viewer  
-**I want** the photo train animation to be smooth  
+**As a** Viewer\
+**I want** the photo train animation to be smooth\
 **So that** the display is pleasant to watch
 
 **Acceptance Criteria**:
+
 ```gherkin
 Scenario: Smooth animation
   Given the display wall is running on a modern laptop browser
@@ -760,11 +787,12 @@ Scenario: Handles up to 200 submissions
 
 ### US-NFR-03 — Security
 
-**As an** Admin  
-**I want** the admin panel to be protected from unauthorised access  
+**As an** Admin\
+**I want** the admin panel to be protected from unauthorised access\
 **So that** only approved organisers can moderate content
 
 **Acceptance Criteria**:
+
 ```gherkin
 Scenario: Admin panel not publicly accessible
   Given I am not logged in
@@ -784,11 +812,12 @@ Scenario: Image upload validation
 
 ### US-NFR-04 — Availability
 
-**As an** Organiser  
-**I want** the system to remain operational for the full event duration  
+**As an** Organiser\
+**I want** the system to remain operational for the full event duration\
 **So that** the photowall works throughout the party
 
 **Acceptance Criteria**:
+
 ```gherkin
 Scenario: System handles peak load
   Given the event is at peak time
@@ -805,11 +834,12 @@ Scenario: Supabase active during event week
 
 ### US-NFR-05 — Audit Log Integrity
 
-**As an** Admin  
-**I want** the audit log to be append-only and tamper-proof  
+**As an** Admin\
+**I want** the audit log to be append-only and tamper-proof\
 **So that** I can trust the recorded actions for accountability
 
 **Acceptance Criteria**:
+
 ```gherkin
 Scenario: Audit entries cannot be deleted
   Given there are audit log entries
@@ -833,29 +863,29 @@ Scenario: All auditable actions are logged
 
 ## Story Summary
 
-| ID | Feature | Title | Persona |
-|:--:|---------|-------|:-------:|
-| US-01 | Upload | Submit a Photo | Participant |
-| US-02 | Upload | Access Upload Page | Participant |
-| US-02a | Upload | View Privacy Notice, Posting Guidelines, and Acknowledge | Participant |
-| US-03 | Moderate | Log In to Organiser Panel | Photo Moderator |
-| US-04 | Moderate | View Pending Queue | Photo Moderator |
-| US-05 | Moderate | Approve, Reject, or Edit | Photo Moderator |
-| US-06 | Moderate | Delete Approved Submission | Photo Moderator |
-| US-07 | Display | View Display Wall | Display Wall User |
-| US-08 | Display | Automatic Wall Updates | System |
-| US-09 | Admin | Create Moderator Account | Admin |
-| US-10 | Admin | View & Manage Moderators | Admin |
-| US-11 | Password | Change Own Password | Photo Moderator & Admin |
-| US-12 | Moderate | Auto-Moderator Flagging | Photo Moderator |
-| US-14 | Admin | Configure System Parameters | Admin |
-| US-15 | Display | Pause/Play & Jump to Cabin | Photo Moderator |
-| US-16 | Admin | Manage Display Wall Accounts | Admin |
-| US-17 | Admin | View Audit Log | Admin |
-| US-18 | Admin | Disable/Delete Moderator | Admin |
-| US-19 | Admin | Command Display Override | Photo Moderator & Admin |
-| US-NFR-01 | NFR | Mobile Responsiveness | Participant |
-| US-NFR-02 | NFR | Display Wall Performance | Viewer |
-| US-NFR-03 | NFR | Security | Admin |
-| US-NFR-04 | NFR | Availability | Organiser |
-| US-NFR-05 | NFR | Audit Log Integrity | Admin |
+|    ID     | Feature  | Title                                                    |         Persona         |
+| :-------: | -------- | -------------------------------------------------------- | :---------------------: |
+|   US-01   | Upload   | Submit a Photo                                           |       Participant       |
+|   US-02   | Upload   | Access Upload Page                                       |       Participant       |
+|  US-02a   | Upload   | View Privacy Notice, Posting Guidelines, and Acknowledge |       Participant       |
+|   US-03   | Moderate | Log In to Organiser Panel                                |     Photo Moderator     |
+|   US-04   | Moderate | View Pending Queue                                       |     Photo Moderator     |
+|   US-05   | Moderate | Approve, Reject, or Edit                                 |     Photo Moderator     |
+|   US-06   | Moderate | Delete Approved Submission                               |     Photo Moderator     |
+|   US-07   | Display  | View Display Wall                                        |    Display Wall User    |
+|   US-08   | Display  | Automatic Wall Updates                                   |         System          |
+|   US-09   | Admin    | Create Moderator Account                                 |          Admin          |
+|   US-10   | Admin    | View & Manage Moderators                                 |          Admin          |
+|   US-11   | Password | Change Own Password                                      | Photo Moderator & Admin |
+|   US-12   | Moderate | Auto-Moderator Flagging                                  |     Photo Moderator     |
+|   US-14   | Admin    | Configure System Parameters                              |          Admin          |
+|   US-15   | Display  | Pause/Play & Jump to Cabin                               |     Photo Moderator     |
+|   US-16   | Admin    | Manage Display Wall Accounts                             |          Admin          |
+|   US-17   | Admin    | View Audit Log                                           |          Admin          |
+|   US-18   | Admin    | Disable/Delete Moderator                                 |          Admin          |
+|   US-19   | Admin    | Command Display Override                                 | Photo Moderator & Admin |
+| US-NFR-01 | NFR      | Mobile Responsiveness                                    |       Participant       |
+| US-NFR-02 | NFR      | Display Wall Performance                                 |         Viewer          |
+| US-NFR-03 | NFR      | Security                                                 |          Admin          |
+| US-NFR-04 | NFR      | Availability                                             |        Organiser        |
+| US-NFR-05 | NFR      | Audit Log Integrity                                      |          Admin          |

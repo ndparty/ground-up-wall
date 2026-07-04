@@ -446,6 +446,7 @@ export class PostgresRepository implements Repository {
        VALUES ($1, $2, $2, $3)
        ON CONFLICT (key) DO UPDATE SET
          value = EXCLUDED.value,
+         default_value = EXCLUDED.default_value,
          updated_at = NOW(),
          updated_by = EXCLUDED.updated_by
        RETURNING *`,

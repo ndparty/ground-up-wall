@@ -1,6 +1,6 @@
 import { assertEquals, assertGreaterOrEqual } from "@std/assert";
 import { parseOperationalStations } from "./generate_mrt_stations.ts";
-import { MRT_LRT_STATIONS, MRT_LRT_STATION_COUNT } from "../lib/copy/mrt_stations.generated.ts";
+import { MRT_LRT_STATION_COUNT, MRT_LRT_STATIONS } from "../lib/copy/mrt_stations.generated.ts";
 
 const SAMPLE_MRT_WIKITEXT = `
 == In operation ==

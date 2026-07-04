@@ -3,10 +3,7 @@ import * as bcrypt from "bcrypt";
 import type { Context } from "fresh";
 import { sessionCookieHeader } from "../cookies.ts";
 import { AuditServiceImpl } from "../services/audit_service_impl.ts";
-import {
-  AuthService,
-  SESSION_REFRESH_THRESHOLD_MS,
-} from "../services/auth_service.ts";
+import { AuthService, SESSION_REFRESH_THRESHOLD_MS } from "../services/auth_service.ts";
 import { MemorySessionStore } from "../services/session_store.ts";
 import type { AuthState } from "./auth_guard.ts";
 import { sessionMiddleware } from "./session.ts";
@@ -45,7 +42,7 @@ Deno.test({
         headers: { cookie: `session=${encodeURIComponent(login.token!)}` },
       }),
       state: { user: null, services: { auth } },
-      next: async () => new Response(JSON.stringify({ ok: true }), { status: 200 }),
+      next: () => new Response(JSON.stringify({ ok: true }), { status: 200 }),
     } as unknown as Context<AuthState>;
 
     const res = await sessionMiddleware(ctx);
@@ -78,7 +75,7 @@ Deno.test({
         headers: { cookie: `session=${encodeURIComponent(login.token!)}` },
       }),
       state: { user: null, services: { auth } },
-      next: async () => new Response("ok"),
+      next: () => new Response("ok"),
     } as unknown as Context<AuthState>;
 
     const res = await sessionMiddleware(ctx);

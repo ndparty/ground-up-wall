@@ -8,7 +8,7 @@ import {
   QR_CABIN_NAME,
 } from "../lib/defaults/app_defaults.ts";
 import { pickDecorativeLineBadge } from "../lib/copy/station_sign.ts";
-import { useFitText, fitTextClass, fitTextDataRem } from "../lib/hooks/use_fit_text.ts";
+import { fitTextClass, fitTextDataRem, useFitText } from "../lib/hooks/use_fit_text.ts";
 
 /** Production roof sign style — change after preview at /roof-badge-preview.html */
 export const CABIN_SIGN_VARIANT = "b" as "a" | "b" | "c" | "simple";

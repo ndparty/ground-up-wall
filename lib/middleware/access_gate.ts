@@ -1,9 +1,6 @@
 import type { Middleware } from "fresh";
 import type { State } from "../../utils.ts";
-import {
-  isKillswitchExempt,
-  isUploadGatedPath,
-} from "../routes/paths.ts";
+import { isKillswitchExempt, isUploadGatedPath } from "../routes/paths.ts";
 
 export type AccessDecision = "allow" | "offline" | "uploads-closed";
 

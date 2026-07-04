@@ -1,11 +1,7 @@
 import { assertEquals, assertRejects } from "@std/assert";
 import * as bcrypt from "bcrypt";
 import { AuditServiceImpl } from "./audit_service_impl.ts";
-import {
-  AuthService,
-  SESSION_MAX_AGE_MS,
-  SESSION_REFRESH_THRESHOLD_MS,
-} from "./auth_service.ts";
+import { AuthService, SESSION_MAX_AGE_MS, SESSION_REFRESH_THRESHOLD_MS } from "./auth_service.ts";
 import { MemorySessionStore } from "./session_store.ts";
 import { cleanupTestData, createTestRepository } from "../test_helpers.ts";
 

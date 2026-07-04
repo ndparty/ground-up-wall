@@ -1,12 +1,11 @@
 import { assertEquals } from "@std/assert";
-import * as bcrypt from "bcrypt";
 import {
   authedRequest,
   createTestHandler,
   loginAsAdmin,
   serveInfo,
 } from "../../../../lib/api/concourse_route_test_helpers.ts";
-import { cleanupTestData, createTestRepository } from "../../../../lib/test_helpers.ts";
+import { cleanupTestData } from "../../../../lib/test_helpers.ts";
 
 Deno.test({
   name: "testCreateModerator",

@@ -2,8 +2,9 @@
 
 ## Service Layer Architecture
 
-**Pattern**: Facade (Monolithic PhotoWallService)  
-**Rationale**: Small one-day project — single coordinating service simplifies development and deployment
+**Pattern**: Facade (Monolithic PhotoWallService)\
+**Rationale**: Small one-day project — single coordinating service simplifies development and
+deployment
 
 ---
 
@@ -11,7 +12,8 @@
 
 ### Purpose
 
-Central orchestrator for all photo wall operations. Coordinates between UI components, data access, storage, real-time, audit, and auto-moderator services.
+Central orchestrator for all photo wall operations. Coordinates between UI components, data access,
+storage, real-time, audit, and auto-moderator services.
 
 ### Responsibilities
 
@@ -35,7 +37,8 @@ Central orchestrator for all photo wall operations. Coordinates between UI compo
    - Handle real-time updates for new approvals, edits, and deletions
    - Pause/play/jump train controls (moderator/admin only)
    - Support cabin transition timing via system parameters
-   - Display override controls (blank/placeholder/resume) commanded from mod/admin panel, broadcast via RealtimeService
+   - Display override controls (blank/placeholder/resume) commanded from mod/admin panel, broadcast
+     via RealtimeService
 
 4. **User Management**
    - Authenticate moderators and admins (check disabled accounts)
@@ -47,7 +50,8 @@ Central orchestrator for all photo wall operations. Coordinates between UI compo
 5. **Admin Operations**
    - List, create, disable, enable, delete moderator accounts
    - Reset moderator passwords
-   - Read and update system parameters (dwell time, prompt text, message length limit/unit, word list, default placeholder image)
+   - Read and update system parameters (dwell time, prompt text, message length limit/unit, word
+     list, default placeholder image)
    - List, create, disable, delete Display Wall User accounts
    - View and filter audit log
 
@@ -62,52 +66,56 @@ Central orchestrator for all photo wall operations. Coordinates between UI compo
 // Main service facade
 interface PhotoWallService {
   // Submission operations
-  submitSubmission(data: SubmissionData): Promise<Submission>
-  editSubmission(id: string, data: SubmissionEditData, moderatorId: string): Promise<Submission>  // Update 01
-  getPendingSubmissions(): Promise<Submission[]>
-  getApprovedSubmissions(): Promise<Submission[]>
-  approveSubmission(id: string, moderatorId: string): Promise<Submission>
-  rejectSubmission(id: string, moderatorId: string, reason?: string): Promise<Submission>
-  deleteSubmission(id: string, moderatorId: string): Promise<void>
-  
+  submitSubmission(data: SubmissionData): Promise<Submission>;
+  editSubmission(id: string, data: SubmissionEditData, moderatorId: string): Promise<Submission>; // Update 01
+  getPendingSubmissions(): Promise<Submission[]>;
+  getApprovedSubmissions(): Promise<Submission[]>;
+  approveSubmission(id: string, moderatorId: string): Promise<Submission>;
+  rejectSubmission(id: string, moderatorId: string, reason?: string): Promise<Submission>;
+  deleteSubmission(id: string, moderatorId: string): Promise<void>;
+
   // Real-time operations
-  publishNewSubmission(submission: Submission): void
-  subscribeToApproved(callback: (submission: Submission) => void): UnsubscribeFn
-  publishTrainCommand(command: TrainCommand): void                                     // Update 01
-  subscribeToTrainCommands(callback: (command: TrainCommand) => void): UnsubscribeFn   // Update 01
-  
+  publishNewSubmission(submission: Submission): void;
+  subscribeToApproved(callback: (submission: Submission) => void): UnsubscribeFn;
+  publishTrainCommand(command: TrainCommand): void; // Update 01
+  subscribeToTrainCommands(callback: (command: TrainCommand) => void): UnsubscribeFn; // Update 01
+
   // User operations
-  authenticateUser(username: string, password: string): Promise<User | null>
-  createUser(data: CreateUserData): Promise<User>
-  changePassword(userId: string, currentPassword: string, newPassword: string): Promise<void>
-  
+  authenticateUser(username: string, password: string): Promise<User | null>;
+  createUser(data: CreateUserData): Promise<User>;
+  changePassword(userId: string, currentPassword: string, newPassword: string): Promise<void>;
+
   // Admin — Moderator management (Update 01 extensions)
-  listModerators(): Promise<Moderator[]>
-  createModerator(username: string, initialPassword: string, adminId: string): Promise<void>
-  resetModeratorPassword(moderatorId: string, newPassword: string, adminId: string): Promise<void>
-  disableModerator(moderatorId: string, adminId: string): Promise<void>                // Update 01
-  enableModerator(moderatorId: string, adminId: string): Promise<void>                 // Update 01
-  deleteModerator(moderatorId: string, adminId: string): Promise<void>                 // Update 01
+  listModerators(): Promise<Moderator[]>;
+  createModerator(username: string, initialPassword: string, adminId: string): Promise<void>;
+  resetModeratorPassword(moderatorId: string, newPassword: string, adminId: string): Promise<void>;
+  disableModerator(moderatorId: string, adminId: string): Promise<void>; // Update 01
+  enableModerator(moderatorId: string, adminId: string): Promise<void>; // Update 01
+  deleteModerator(moderatorId: string, adminId: string): Promise<void>; // Update 01
 
   // Admin — System parameters (Update 01)
-  getSystemParameters(): Promise<SystemConfig[]>
-  updateSystemParameter(key: string, value: string, adminId: string): Promise<void>
-  resetSystemParameterToDefault(key: string, adminId: string): Promise<void>
+  getSystemParameters(): Promise<SystemConfig[]>;
+  updateSystemParameter(key: string, value: string, adminId: string): Promise<void>;
+  resetSystemParameterToDefault(key: string, adminId: string): Promise<void>;
 
   // Admin — Audit log (Update 01)
-  getAuditLog(filters: AuditFilter): Promise<AuditEntry[]>
+  getAuditLog(filters: AuditFilter): Promise<AuditEntry[]>;
 
   // Admin — Display Wall User management (Update 02)
-  listDisplayWallUsers(): Promise<DisplayWallUser[]>
-  createDisplayWallUser(username: string, initialPassword: string, adminId: string): Promise<void>
-  disableDisplayWallUser(userId: string, adminId: string): Promise<void>
-  deleteDisplayWallUser(userId: string, adminId: string): Promise<void>
+  listDisplayWallUsers(): Promise<DisplayWallUser[]>;
+  createDisplayWallUser(username: string, initialPassword: string, adminId: string): Promise<void>;
+  disableDisplayWallUser(userId: string, adminId: string): Promise<void>;
+  deleteDisplayWallUser(userId: string, adminId: string): Promise<void>;
 
   // Display override controls (Update 02)
-  commandDisplayOverride(type: 'blank' | 'placeholder' | 'resume', userId: string, image?: File): Promise<void>
-  getDisplayOverrideState(): Promise<DisplayOverrideState>
-  subscribeToDisplayOverride(callback: (command: DisplayOverrideCommand) => void): UnsubscribeFn
-  uploadDefaultPlaceholder(image: File, adminId: string): Promise<void>
+  commandDisplayOverride(
+    type: "blank" | "placeholder" | "resume",
+    userId: string,
+    image?: File,
+  ): Promise<void>;
+  getDisplayOverrideState(): Promise<DisplayOverrideState>;
+  subscribeToDisplayOverride(callback: (command: DisplayOverrideCommand) => void): UnsubscribeFn;
+  uploadDefaultPlaceholder(image: File, adminId: string): Promise<void>;
 }
 ```
 
@@ -120,6 +128,7 @@ interface PhotoWallService {
 **Purpose**: Abstracted data access layer for database operations
 
 **Responsibilities**:
+
 - CRUD operations for submissions
 - User authentication and management (including disable/delete)
 - Audit log CRUD (append-only)
@@ -128,6 +137,7 @@ interface PhotoWallService {
 - Environment-aware data access (local Postgres vs Supabase)
 
 **Implementation Strategy**:
+
 - Single repository interface
 - Environment-specific implementations:
   - `PostgresRepository` (local development)
@@ -141,12 +151,14 @@ interface PhotoWallService {
 **Purpose**: Abstracted image storage operations
 
 **Responsibilities**:
+
 - Upload images to storage backend
 - Generate accessible URLs
 - Handle image deletion
 - Environment-aware storage (local filesystem vs Supabase Storage)
 
 **Implementation Strategy**:
+
 - Single storage interface
 - Environment-specific implementations:
   - `FileStorageService` (local development)
@@ -160,6 +172,7 @@ interface PhotoWallService {
 **Purpose**: Environment-adaptive real-time event system
 
 **Responsibilities**:
+
 - Publish events (submission created, approved, rejected, edited, deleted)
 - Publish train control commands (pause, play, jump)
 - Publish system config changes
@@ -168,11 +181,13 @@ interface PhotoWallService {
 - Environment-aware event distribution
 
 **Implementation Strategy**:
+
 - Local: In-memory event emitter
 - Production: Supabase Realtime (websockets)
 - Automatic environment detection
 
 **Events (Extended for Update 01)**:
+
 - `submission_created` → New submission available for moderation
 - `submission_approved` → Submission added to display rotation
 - `submission_rejected` → Submission removed from queue
@@ -193,11 +208,13 @@ interface PhotoWallService {
 **Purpose**: Append-only audit logging for moderator and admin actions
 
 **Responsibilities**:
+
 - Record actions with moderator ID, action type, target, old/new values, timestamp
 - Provide filtered read-only queries for Admin panel
 - Enforce append-only policy (no delete or update of entries)
 
 **Implementation Strategy**:
+
 - Uses Repository interface for database access
 - Environment-agnostic (works with both local Postgres and Supabase Postgres)
 - Single implementation for all phases
@@ -209,11 +226,13 @@ interface PhotoWallService {
 **Purpose**: Content flagging for submission messages
 
 **Responsibilities**:
+
 - Check submission messages against configurable word list
 - Identify flagged words with position information
 - Support case-insensitive matching, Unicode, and basic character substitution (e.g. @ for a)
 
 **Implementation Strategy**:
+
 - Pure logic service — no environment dependencies
 - Reads word list from system_config (via PhotoWallService/Repository)
 - Returns flagged word positions and match details for UI highlighting
@@ -339,36 +358,36 @@ PhotoWallService.updateSystemParameter('train_dwell_time', '10')
 // Environment: local
 const config = {
   database: {
-    host: 'localhost',
+    host: "localhost",
     port: 5432,
-    name: 'ground_up_wall_dev'
+    name: "ground_up_wall_dev",
   },
   storage: {
-    provider: 'filesystem',
-    path: './uploads'
+    provider: "filesystem",
+    path: "./uploads",
   },
   realtime: {
-    provider: 'memory'
-  }
-}
+    provider: "memory",
+  },
+};
 
 // Phase 1 service implementations (local only)
-const repository = new PostgresRepository(config.postgres)
+const repository = new PostgresRepository(config.postgres);
 const services = {
   repository,
   storage: new FileStorageService(config.filesystem),
   realtime: new MemoryRealtimeService(),
   audit: new AuditServiceImpl(repository),
-  autoModerator: new AutoModeratorServiceImpl()
-}
+  autoModerator: new AutoModeratorServiceImpl(),
+};
 
 const photoWallService = new PhotoWallService(
   services.repository,
   services.storage,
   services.realtime,
   services.audit,
-  services.autoModerator
-)
+  services.autoModerator,
+);
 ```
 
 ### Phase 2 — Production (Deno Deploy + Supabase)
@@ -377,29 +396,29 @@ const photoWallService = new PhotoWallService(
 // Environment: production
 const config = {
   database: {
-    provider: 'supabase',
-    url: Deno.env.get('SUPABASE_URL'),
-    key: Deno.env.get('SUPABASE_ANON_KEY')
+    provider: "supabase",
+    url: Deno.env.get("SUPABASE_URL"),
+    key: Deno.env.get("SUPABASE_ANON_KEY"),
   },
   storage: {
-    provider: 'supabase',
-    bucket: 'submissions'
+    provider: "supabase",
+    bucket: "submissions",
   },
   realtime: {
-    provider: 'supabase',
-    url: Deno.env.get('SUPABASE_URL')
-  }
-}
+    provider: "supabase",
+    url: Deno.env.get("SUPABASE_URL"),
+  },
+};
 
 // Phase 2 implementations — same interface, different backend
-const repository = new SupabaseRepository(config.supabase)
+const repository = new SupabaseRepository(config.supabase);
 const services = {
   repository,
   storage: new SupabaseStorageService(config.supabase),
   realtime: new SupabaseRealtimeService(config.supabase),
-  audit: new AuditServiceImpl(repository),          // Same impl, different repo
-  autoModerator: new AutoModeratorServiceImpl()       // Pure logic, unchanged
-}
+  audit: new AuditServiceImpl(repository), // Same impl, different repo
+  autoModerator: new AutoModeratorServiceImpl(), // Pure logic, unchanged
+};
 ```
 
 ### Phase 3 — Instagram Integration (extends Phase 2 config)
@@ -407,15 +426,15 @@ const services = {
 ```typescript
 // Environment: production + instagram
 const config = {
-  database: { /* same as Phase 2 */ },
-  storage: { /* same as Phase 2 */ },
-  realtime: { /* same as Phase 2 */ },
+  database: {/* same as Phase 2 */},
+  storage: {/* same as Phase 2 */},
+  realtime: {/* same as Phase 2 */},
   instagram: {
-    hashtag: Deno.env.get('INSTAGRAM_HASHTAG'),
-    apiKey: Deno.env.get('INSTAGRAM_API_KEY'),
-    pollInterval: 300000  // 5 minutes
-  }
-}
+    hashtag: Deno.env.get("INSTAGRAM_HASHTAG"),
+    apiKey: Deno.env.get("INSTAGRAM_API_KEY"),
+    pollInterval: 300000, // 5 minutes
+  },
+};
 ```
 
 ---
@@ -429,20 +448,21 @@ const config = {
 ```typescript
 interface InstagramService {
   // Configuration
-  configureHashtag(hashtag: string): Promise<void>
-  
+  configureHashtag(hashtag: string): Promise<void>;
+
   // Content fetching
-  fetchInstagramPosts(): Promise<InstagramPost[]>
-  
+  fetchInstagramPosts(): Promise<InstagramPost[]>;
+
   // Integration
-  importInstagramPost(post: InstagramPost): Promise<Submission>
-  
+  importInstagramPost(post: InstagramPost): Promise<Submission>;
+
   // Event handling
-  handleInstagramWebhook(payload: any): Promise<void>
+  handleInstagramWebhook(payload: any): Promise<void>;
 }
 ```
 
 **Integration Points**:
+
 - PhotoWallService will coordinate with InstagramService
 - Repository will add `source` field to submissions
 - ModerationComponent will show source indicator
@@ -488,15 +508,15 @@ interface InstagramService {
 
 ## Phase Delivery Summary
 
-| Service | Phase 1 (Local MVP) | Phase 2 (Cloud) | Phase 3 (Instagram) |
-|---------|---------------------|-----------------|---------------------|
-| Repository | PostgresRepository (interface) | SupabaseRepository (same interface) | Same as Phase 2 |
-| StorageService | FileStorageService (interface) | SupabaseStorageService (same interface) | Same as Phase 2 |
-| RealtimeService | MemoryRealtimeService (interface) | SupabaseRealtimeService (same interface) | Same as Phase 2 |
-| AuditService | AuditServiceImpl (new — Update 01) | Same impl (repo-agnostic) | Same as Phase 2 |
-| AutoModeratorService | AutoModeratorServiceImpl (new — Update 01) | Same impl (pure logic) | Same as Phase 2 |
-| InstagramService | — | — | New: interface + implementation |
-| Business Logic | All features (FR-01–FR-24c, 31 FRs + Update 01 + Update 02) | Same as Phase 1 (no changes) | Same + Instagram source handling |
+| Service              | Phase 1 (Local MVP)                                         | Phase 2 (Cloud)                          | Phase 3 (Instagram)              |
+| -------------------- | ----------------------------------------------------------- | ---------------------------------------- | -------------------------------- |
+| Repository           | PostgresRepository (interface)                              | SupabaseRepository (same interface)      | Same as Phase 2                  |
+| StorageService       | FileStorageService (interface)                              | SupabaseStorageService (same interface)  | Same as Phase 2                  |
+| RealtimeService      | MemoryRealtimeService (interface)                           | SupabaseRealtimeService (same interface) | Same as Phase 2                  |
+| AuditService         | AuditServiceImpl (new — Update 01)                          | Same impl (repo-agnostic)                | Same as Phase 2                  |
+| AutoModeratorService | AutoModeratorServiceImpl (new — Update 01)                  | Same impl (pure logic)                   | Same as Phase 2                  |
+| InstagramService     | —                                                           | —                                        | New: interface + implementation  |
+| Business Logic       | All features (FR-01–FR-24c, 31 FRs + Update 01 + Update 02) | Same as Phase 1 (no changes)             | Same + Instagram source handling |
 
 ---
 
@@ -515,10 +535,10 @@ interface InstagramService {
 
 ```typescript
 interface ServiceError {
-  code: string
-  message: string
-  details?: Record<string, any>
-  timestamp: string
+  code: string;
+  message: string;
+  details?: Record<string, any>;
+  timestamp: string;
 }
 ```
 
