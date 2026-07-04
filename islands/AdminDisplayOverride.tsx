@@ -19,7 +19,7 @@ export default function AdminDisplayOverride() {
   }, []);
 
   async function sendCommand(
-    type: "blank" | "placeholder" | "resume" | "reload" | "panic",
+    type: "blank" | "placeholder" | "resume" | "reload" | "panic" | "show_qr",
     confirmMessage?: string,
     image?: File,
   ) {
@@ -59,6 +59,9 @@ export default function AdminDisplayOverride() {
         </button>
         <button type="button" onClick={() => sendCommand("resume")}>
           Resume display
+        </button>
+        <button type="button" onClick={() => sendCommand("show_qr")}>
+          Show QR cabin
         </button>
         <button
           type="button"

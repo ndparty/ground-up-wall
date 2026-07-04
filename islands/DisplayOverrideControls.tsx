@@ -5,7 +5,7 @@ export default function DisplayOverrideControls() {
   const [loading, setLoading] = useState(false);
 
   async function sendCommand(
-    type: "blank" | "placeholder" | "resume" | "reload" | "panic",
+    type: "blank" | "placeholder" | "resume" | "reload" | "panic" | "show_qr",
     confirmMessage?: string,
     image?: File,
   ) {
@@ -31,6 +31,8 @@ export default function DisplayOverrideControls() {
           ? "Display resumed"
           : type === "reload"
           ? "Display reloaded"
+          : type === "show_qr"
+          ? "QR cabin coming up on the display"
           : "Panic activated — displays blanked and reset",
       );
     } catch {
@@ -67,6 +69,14 @@ export default function DisplayOverrideControls() {
           class="btn btn--navy"
         >
           Resume display
+        </button>
+        <button
+          type="button"
+          disabled={loading}
+          onClick={() => sendCommand("show_qr")}
+          class="btn btn--nav"
+        >
+          Show QR cabin
         </button>
         <button
           type="button"

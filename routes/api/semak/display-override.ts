@@ -8,7 +8,7 @@ export const handlers = define.handlers({
     const type = form.get("type");
     if (
       type !== "blank" && type !== "placeholder" && type !== "resume" &&
-      type !== "reload" && type !== "panic"
+      type !== "reload" && type !== "panic" && type !== "show_qr"
     ) {
       return ctx.json({ error: "Invalid override type" }, { status: 400 });
     }
@@ -19,6 +19,9 @@ export const handlers = define.handlers({
         await ctx.state.services.photoWall.reloadDisplay(user.id);
       } else if (type === "panic") {
         await ctx.state.services.photoWall.panicDisplay(user.id);
+      } else if (type === "show_qr") {
+        // Not a persisted override state: an immediate playback action.
+        await ctx.state.services.photoWall.showQrCabinNow(user.id);
       } else {
         await ctx.state.services.photoWall.commandDisplayOverride(type, user.id, image);
       }

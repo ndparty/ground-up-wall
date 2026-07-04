@@ -20,6 +20,8 @@ const PUBLIC_ERROR_MESSAGES = new Set([
   "Display wall user not found",
   "Invalid command type",
   "Invalid override type",
+  "Display override active",
+  "No approved submissions",
   "cabinNumber required for jump",
   "key is required",
   "Confirmation required",

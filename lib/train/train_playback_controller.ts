@@ -5,6 +5,7 @@ import { pickRandomStation } from "../copy/mrt_stations.ts";
 import { CENTER_SLOT, LEFT_RENDER, RIGHT_RENDER, WINDOW_LENGTH } from "./train_view_constants.ts";
 import {
   buildAppendOnlyJump,
+  hasJumpBufferAtTarget,
   isCanonicalAtCenter,
   preserveDestinationsFromPreJumpTape,
 } from "./tape_helpers.ts";
@@ -393,6 +394,63 @@ export class TrainPlaybackController {
       window: [...this.tape],
     });
     this.scheduleNextTick();
+  }
+
+  /**
+   * Center the recurring QR cabin now (display-override action). Append-only:
+   * - QR already at center → republish the unchanged window (client no-ops),
+   *   mirroring the at-center jump no-op (no dwell reset).
+   * - QR on tape right of center → extend the tape with `emitNextStep` until
+   *   the QR has the full right buffer, then commit the slice centered on it.
+   * - No QR at/right of center → append a fresh QR step at the tail (draining
+   *   any queued QR to avoid an immediate duplicate) plus the right buffer.
+   * `currentCabin` never changes: the QR is ephemeral and is never the
+   * canonical center. The client animates the published jump window through
+   * its existing reconcile pipeline. Returns false when no cabins exist.
+   */
+  showQrCabin(): boolean {
+    if (this.cabinIds.length === 0 || this.tape.length === 0) return false;
+
+    if (this.tape[CENTER_SLOT]?.kind === "qr") {
+      this.publish({
+        type: "jump",
+        cabinNumber: this.state.currentCabin,
+        currentCabin: this.state.currentCabin,
+        window: [...this.tape],
+      });
+      return true;
+    }
+
+    const linear = [...this.tape];
+    let qrIdx: number | null = null;
+    for (let i = CENTER_SLOT + 1; i < linear.length; i++) {
+      if (linear[i]?.kind === "qr") {
+        qrIdx = i;
+        break;
+      }
+    }
+
+    if (qrIdx === null) {
+      this.queue = this.queue.filter((q) => q.kind !== "qr");
+      linear.push(this.qrStep());
+      qrIdx = linear.length - 1;
+    }
+
+    while (!hasJumpBufferAtTarget(linear, qrIdx)) {
+      linear.push(this.emitNextStep());
+    }
+
+    this.tape = linear.slice(qrIdx - LEFT_RENDER, qrIdx + RIGHT_RENDER + 1);
+    this.state.lastTransitionAt = this.now();
+
+    this.publish({
+      type: "jump",
+      cabinNumber: this.state.currentCabin,
+      currentCabin: this.state.currentCabin,
+      window: [...this.tape],
+    });
+    this.scheduleNextTick();
+    return true;
   }
 
   /** One dwell tick: emit the next right-edge cabin and shift the window forward. */

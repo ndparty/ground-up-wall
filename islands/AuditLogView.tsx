@@ -23,6 +23,7 @@ const ACTION_TYPES = [
   "show_placeholder",
   "set_default_placeholder",
   "resume_display",
+  "show_qr_cabin",
   "reload_display",
   "panic_display",
   "change_password",
