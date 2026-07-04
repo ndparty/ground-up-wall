@@ -7,11 +7,8 @@ import {
   QR_CABIN_MESSAGE,
   QR_CABIN_NAME,
 } from "../lib/defaults/app_defaults.ts";
-import { pickDecorativeLineBadge } from "../lib/copy/station_sign.ts";
+import { stationLineBadges } from "../lib/copy/station_lines.ts";
 import { fitTextClass, fitTextDataRem, useFitText } from "../lib/hooks/use_fit_text.ts";
-
-/** Production roof sign style — change after preview at /roof-badge-preview.html */
-export const CABIN_SIGN_VARIANT = "b" as "a" | "b" | "c" | "simple";
 
 export interface TrainCabinProps {
   kind: "post" | "qr";
@@ -26,59 +23,37 @@ export interface TrainCabinProps {
   onPhotoError?: () => void;
 }
 
-function StationSign({ name, variant }: { name: string; variant: typeof CABIN_SIGN_VARIANT }) {
-  const badge = pickDecorativeLineBadge(name);
-
-  if (variant === "a") {
+/**
+ * Roof station sign modelled on real Singapore MRT signage: station name
+ * left-aligned in normal case, real line designators (any count) concatenated
+ * in a white-bordered pill on the right. QR cabins keep the "simple" variant.
+ */
+function StationSign({ name, variant }: { name: string; variant: "station" | "simple" }) {
+  if (variant === "simple") {
     return (
-      <div class={`train-cabin__sign train-cabin__sign--a`}>
+      <div class={`train-cabin__sign train-cabin__sign--simple`}>
         <span class="train-cabin__sign-logo" aria-hidden="true" />
-        <span class="train-cabin__sign-line-badge" aria-hidden="true">{badge.primary}</span>
         <span class="train-cabin__sign-name">{name}</span>
-        <span class="train-cabin__sign-transit" aria-hidden="true">
-          <span class="train-cabin__sign-transit-mrt">M</span>
-          <span class="train-cabin__sign-transit-bus">B</span>
-        </span>
       </div>
     );
   }
 
-  if (variant === "b") {
-    return (
-      <div class={`train-cabin__sign train-cabin__sign--b`}>
-        <span class="train-cabin__sign-logo" aria-hidden="true" />
-        <span class="train-cabin__sign-bus-icon" aria-hidden="true" />
-        <span class="train-cabin__sign-name">{name}</span>
-        <span class="train-cabin__sign-line-pill" aria-hidden="true">
-          <span class="train-cabin__sign-line-ns">{badge.primary}</span>
-          {badge.secondary && <span class="train-cabin__sign-line-te">{badge.secondary}</span>}
-        </span>
-        <span class="train-cabin__sign-exit" aria-hidden="true">{badge.exit}</span>
-      </div>
-    );
-  }
-
-  if (variant === "c") {
-    return (
-      <div class={`train-cabin__sign train-cabin__sign--c`}>
-        <span class="train-cabin__sign-logo-frame" aria-hidden="true">
-          <span class="train-cabin__sign-logo" />
-          <span class="train-cabin__sign-mrt-label">MRT</span>
-        </span>
-        <span class="train-cabin__sign-line-pill" aria-hidden="true">
-          <span class="train-cabin__sign-line-ns">{badge.primary}</span>
-          {badge.secondary && <span class="train-cabin__sign-line-te">{badge.secondary}</span>}
-        </span>
-        <span class="train-cabin__sign-name">{name}</span>
-        <span class="train-cabin__sign-exit" aria-hidden="true">{badge.platform}</span>
-      </div>
-    );
-  }
-
+  const badges = stationLineBadges(name);
   return (
-    <div class={`train-cabin__sign train-cabin__sign--simple`}>
-      <span class="train-cabin__sign-logo" aria-hidden="true" />
+    <div class={`train-cabin__sign train-cabin__sign--station`}>
       <span class="train-cabin__sign-name">{name}</span>
+      {badges.length > 0 && (
+        <span class="train-cabin__sign-line-pill" aria-hidden="true">
+          {badges.map((badge) => (
+            <span
+              key={badge.code}
+              class={`train-cabin__sign-line-seg train-cabin__sign-line-seg--${badge.line}`}
+            >
+              {badge.code}
+            </span>
+          ))}
+        </span>
+      )}
     </div>
   );
 }
@@ -90,7 +65,7 @@ const TrainCabin = forwardRef<HTMLElement, TrainCabinProps>(function TrainCabin(
   const roofLabel = kind === "qr" ? QR_CABIN_DESTINATION : (destination ?? "—");
   const messageText = kind === "qr" ? QR_CABIN_MESSAGE : (submission?.message ?? "");
   const { wrapRef, textRef, sizeRem, refit } = useFitText(messageText, kind === "post");
-  const signVariant = kind === "qr" ? "simple" : CABIN_SIGN_VARIANT;
+  const signVariant = kind === "qr" ? "simple" as const : "station" as const;
   const wasActiveRef = useRef(isActive);
 
   useLayoutEffect(() => {
