@@ -18,6 +18,12 @@ import {
   resolvePublicParticipantUrl,
 } from "../display/public_participant_url.ts";
 import {
+  DEFAULT_DISPLAY_BAR_CONFIG,
+  type DisplayBarConfig,
+  parseCornerQrEnabled,
+  parseJoinBarPosition,
+} from "../display/display_bar_config.ts";
+import {
   addApproved,
   applyServerWindow,
   getCanonicalCount,
@@ -98,6 +104,7 @@ export interface UseTrainPlaybackResult {
   overrideState: OverrideState;
   reloadGeneration: number;
   publicParticipantUrl: PublicParticipantUrl | null;
+  displayBarConfig: DisplayBarConfig;
   setOrchestratorBusy: (busy: boolean) => void;
   clearOrchestratorState: () => void;
   acknowledgeReconcileCatchUp: () => void;
@@ -124,6 +131,9 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
   const [reloadGeneration, setReloadGeneration] = useState(0);
   const [publicParticipantUrl, setPublicParticipantUrl] = useState<PublicParticipantUrl | null>(
     null,
+  );
+  const [displayBarConfig, setDisplayBarConfig] = useState<DisplayBarConfig>(
+    DEFAULT_DISPLAY_BAR_CONFIG,
   );
 
   const isPlayingRef = useRef(isPlaying);
@@ -298,6 +308,11 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
           } else {
             setPublicParticipantUrl(null);
           }
+          if (data.displayBarConfig) {
+            setDisplayBarConfig(data.displayBarConfig as DisplayBarConfig);
+          } else {
+            setDisplayBarConfig(DEFAULT_DISPLAY_BAR_CONFIG);
+          }
         } else {
           setBootstrapError("Could not load the display. Please try again.");
         }
@@ -380,8 +395,20 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
     },
     system_config_changed: (event) => {
       const cfg = parseSseData<{ key: string; value: string }>(event);
-      if (!cfg || cfg.key !== "public_participant_url") return;
-      setPublicParticipantUrl(resolvePublicParticipantUrl(cfg.value));
+      if (!cfg) return;
+      if (cfg.key === "public_participant_url") {
+        setPublicParticipantUrl(resolvePublicParticipantUrl(cfg.value));
+      } else if (cfg.key === "display_join_bar_position") {
+        setDisplayBarConfig((prev) => ({
+          ...prev,
+          joinBarPosition: parseJoinBarPosition(cfg.value),
+        }));
+      } else if (cfg.key === "display_corner_qr_enabled") {
+        setDisplayBarConfig((prev) => ({
+          ...prev,
+          cornerQrEnabled: parseCornerQrEnabled(cfg.value),
+        }));
+      }
     },
   };
 
@@ -445,6 +472,7 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
     overrideState,
     reloadGeneration,
     publicParticipantUrl,
+    displayBarConfig,
     setOrchestratorBusy,
     clearOrchestratorState,
     acknowledgeReconcileCatchUp,

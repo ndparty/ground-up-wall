@@ -80,6 +80,16 @@ export function validateParameterValue(key: string, value: string): string | nul
         return "uploads_enabled must be 'true' or 'false'";
       }
       return null;
+    case "display_join_bar_position":
+      if (value !== "top" && value !== "bottom") {
+        return "display_join_bar_position must be 'top' or 'bottom'";
+      }
+      return null;
+    case "display_corner_qr_enabled":
+      if (value !== "true" && value !== "false") {
+        return "display_corner_qr_enabled must be 'true' or 'false'";
+      }
+      return null;
     default:
       return `Unknown parameter key: ${key}`;
   }
@@ -120,6 +130,8 @@ export const PARAMETER_LABELS: Record<string, string> = {
   public_participant_url: "Public participant URL (banner + QR; empty = auto-detect)",
   system_killswitch_enabled: "Event killswitch (disable everything except login + admin)",
   uploads_enabled: "Public uploads enabled",
+  display_join_bar_position: "Join bar position (top or bottom of display)",
+  display_corner_qr_enabled: "Corner QR codes on the join bar",
 };
 
 export const PARAMETER_CATEGORIES: Record<string, string> = {
@@ -135,4 +147,6 @@ export const PARAMETER_CATEGORIES: Record<string, string> = {
   public_participant_url: "Display",
   system_killswitch_enabled: "Event",
   uploads_enabled: "Event",
+  display_join_bar_position: "Display",
+  display_corner_qr_enabled: "Display",
 };

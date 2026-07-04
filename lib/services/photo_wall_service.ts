@@ -23,6 +23,11 @@ import {
   type PublicParticipantUrl,
   resolvePublicParticipantUrl,
 } from "../display/public_participant_url.ts";
+import {
+  type DisplayBarConfig,
+  parseCornerQrEnabled,
+  parseJoinBarPosition,
+} from "../display/display_bar_config.ts";
 import { isMessageValid, type MessageLengthConfig } from "../validation/message_length.ts";
 import type {
   AuditEntry,
@@ -57,6 +62,7 @@ export class PhotoWallService {
   private publicParticipantUrlCache?: { value: PublicParticipantUrl | null; at: number };
   private killswitchCache?: { value: boolean; at: number };
   private uploadsEnabledCache?: { value: boolean; at: number };
+  private displayBarConfigCache?: { value: DisplayBarConfig; at: number };
 
   constructor(
     private repository: Repository,
@@ -413,6 +419,24 @@ export class PhotoWallService {
     return value;
   }
 
+  /** Join-bar placement + corner QR flags for the display wall. Cached 5s. */
+  async getDisplayBarConfig(): Promise<DisplayBarConfig> {
+    const now = Date.now();
+    if (this.displayBarConfigCache && now - this.displayBarConfigCache.at < 5_000) {
+      return this.displayBarConfigCache.value;
+    }
+    const [position, cornerQr] = await Promise.all([
+      this.repository.getSystemConfig("display_join_bar_position"),
+      this.repository.getSystemConfig("display_corner_qr_enabled"),
+    ]);
+    const value: DisplayBarConfig = {
+      joinBarPosition: parseJoinBarPosition(position?.value),
+      cornerQrEnabled: parseCornerQrEnabled(cornerQr?.value),
+    };
+    this.displayBarConfigCache = { value, at: now };
+    return value;
+  }
+
   /** Whether public uploads are accepted (admin toggle; defaults to enabled). */
   async areUploadsEnabled(): Promise<boolean> {
     const now = Date.now();
@@ -586,6 +610,9 @@ export class PhotoWallService {
     if (key === "pow_challenge_enabled") this.powFlagCache = undefined;
     if (key === "system_killswitch_enabled") this.killswitchCache = undefined;
     if (key === "uploads_enabled") this.uploadsEnabledCache = undefined;
+    if (key === "display_join_bar_position" || key === "display_corner_qr_enabled") {
+      this.displayBarConfigCache = undefined;
+    }
   }
 
   /** Clear all caches - useful for testing */
@@ -595,6 +622,7 @@ export class PhotoWallService {
     this.powFlagCache = undefined;
     this.killswitchCache = undefined;
     this.uploadsEnabledCache = undefined;
+    this.displayBarConfigCache = undefined;
   }
 
   async getAuditLog(filters: AuditFilter): Promise<AuditEntry[]> {

@@ -636,6 +636,34 @@ body.display-wall-mode main {
   letter-spacing: 0.02em;
 }
 
+/* Flag-controlled bottom placement of the join bar (issue #22). */
+.display-wall__join-bar--bottom {
+  top: auto;
+  bottom: 0;
+  border-bottom: none;
+  border-top: 2px solid var(--sg-red);
+  background: linear-gradient(0deg, rgba(26, 26, 46, 0.94), rgba(26, 26, 46, 0.66));
+}
+
+/* When corner QRs are shown the bar hosts them at its left/right edges. */
+.display-wall__join-bar--with-qr {
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.display-wall__join-bar--with-qr .display-wall__join-text {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Inverted-palette QR (white modules on bar navy) sized by the island so the
+   bar never encroaches on the cabins/tracks. */
+.display-wall__corner-qr {
+  flex: 0 0 auto;
+  display: block;
+  border-radius: 6px;
+}
+
 /* QR "join the wall" cabin: light window with a system-themed code. */
 .train-cabin-wrap--qr .train-cabin__window {
   background: #fff;
@@ -743,7 +771,8 @@ body.display-wall-mode main {
   box-sizing: border-box;
   position: absolute;
   left: 50%;
-  bottom: 1.5rem;
+  /* --join-bar-clearance lifts the controls above a bottom-placed join bar. */
+  bottom: calc(1.5rem + var(--join-bar-clearance, 0px));
   transform: translateX(-50%);
   z-index: 15;
   display: flex;

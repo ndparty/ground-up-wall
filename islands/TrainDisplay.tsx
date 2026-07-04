@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 import {
   centerNow,
   centerSlotDelta,
@@ -30,6 +30,8 @@ import { LEFT_RENDER, VIEWPORT_K } from "../lib/train/train_view_constants.ts";
 import { buildReconcileBridge, windowsIdentityEqual } from "../lib/train/tape_helpers.ts";
 import type { TrainStep } from "../interfaces/realtime_service.ts";
 import { resolveOverrideView } from "../lib/train/display_override.ts";
+import { computeCornerQrSize } from "../lib/display/corner_qr_size.ts";
+import { qrCodeDataUrl } from "../lib/qr/qr_code.ts";
 import ConnectionBanner from "./ConnectionBanner.tsx";
 import TrainCabin from "./TrainCabin.tsx";
 import TrainControls from "./TrainControls.tsx";
@@ -67,6 +69,7 @@ export default function TrainDisplay() {
     overrideState,
     reloadGeneration,
     publicParticipantUrl,
+    displayBarConfig,
     setOrchestratorBusy,
     clearOrchestratorState,
     acknowledgeReconcileCatchUp,
@@ -77,9 +80,17 @@ export default function TrainDisplay() {
   const [isSliding, setIsSliding] = useState(false);
   const [highlightReady, setHighlightReady] = useState(true);
   const [jumpOverlaySteps, setJumpOverlaySteps] = useState<TrainStep[] | null>(null);
+  const [cornerQrSize, setCornerQrSize] = useState(0);
 
   const baseUrl = publicParticipantUrl?.bannerHost ?? globalThis.location?.host ?? "";
   const originUrl = publicParticipantUrl?.qrOrigin ?? globalThis.location?.origin ?? "";
+  const joinBarAtBottom = displayBarConfig.joinBarPosition === "bottom";
+  const cornerQrEnabled = displayBarConfig.cornerQrEnabled;
+  // Inverted palette: white modules on the bar's navy so the codes blend in.
+  const cornerQrDataUrl = useMemo(
+    () => (originUrl ? qrCodeDataUrl(originUrl, { dark: "#ffffff", light: "#1a1a2e" }) : null),
+    [originUrl],
+  );
 
   const stageRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
@@ -108,6 +119,9 @@ export default function TrainDisplay() {
     getCenterKey(trainView);
   const showControls = shouldShowTrainControls(userRole);
   const overrideView = resolveOverrideView(overrideState);
+  const showCornerQr = cornerQrEnabled && cornerQrSize > 0 && cornerQrDataUrl !== null;
+  /** Lift the floating train controls above the bar when it sits at the bottom. */
+  const joinBarClearancePx = joinBarAtBottom ? (showCornerQr ? cornerQrSize + 20 : 44) : 0;
 
   useEffect(() => {
     const dismissed = globalThis.localStorage?.getItem("display_wall_fullscreen_dismissed");
@@ -260,6 +274,34 @@ export default function TrainDisplay() {
     ro.observe(track);
     return () => ro.disconnect();
   }, [hasCabins, centerKey]);
+
+  /** Size corner QRs from the free space between the bar's edge and the train (never cover it). */
+  useEffect(() => {
+    if (!cornerQrEnabled || !hasCabins || overrideView !== "train") {
+      setCornerQrSize(0);
+      return;
+    }
+    const stage = stageRef.current;
+    const track = trackRef.current;
+    if (!stage || !track) return;
+
+    const measure = () => {
+      const rect = track.getBoundingClientRect();
+      const viewportH = globalThis.innerHeight || 0;
+      const freeSpace = joinBarAtBottom ? viewportH - rect.bottom : rect.top;
+      setCornerQrSize(computeCornerQrSize(freeSpace));
+    };
+
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(stage);
+    ro.observe(track);
+    globalThis.addEventListener("resize", measure);
+    return () => {
+      ro.disconnect();
+      globalThis.removeEventListener("resize", measure);
+    };
+  }, [cornerQrEnabled, hasCabins, overrideView, joinBarAtBottom]);
 
   /** Recenter when idle (bootstrap / server sync); orchestrator recenters after each reconcile. */
   useLayoutEffect(() => {
@@ -498,7 +540,10 @@ export default function TrainDisplay() {
   }
 
   return (
-    <div class="display-wall">
+    <div
+      class="display-wall"
+      style={{ "--join-bar-clearance": `${joinBarClearancePx}px` }}
+    >
       <link rel="stylesheet" href="/train.css" />
       <ConnectionBanner status={connectionStatus} />
 
@@ -518,10 +563,33 @@ export default function TrainDisplay() {
       )}
 
       {baseUrl && overrideView === "train" && (
-        <div class="display-wall__join-bar" aria-hidden="true">
+        <div
+          class={`display-wall__join-bar${
+            joinBarAtBottom ? " display-wall__join-bar--bottom" : ""
+          }${showCornerQr ? " display-wall__join-bar--with-qr" : ""}`}
+          aria-hidden="true"
+        >
+          {showCornerQr && (
+            <img
+              class="display-wall__corner-qr"
+              src={cornerQrDataUrl!}
+              alt=""
+              decoding="async"
+              style={{ width: `${cornerQrSize}px`, height: `${cornerQrSize}px` }}
+            />
+          )}
           <span class="display-wall__join-text">
             Want in? Visit <strong>{baseUrl}</strong> on your phone to share a photo
           </span>
+          {showCornerQr && (
+            <img
+              class="display-wall__corner-qr"
+              src={cornerQrDataUrl!}
+              alt=""
+              decoding="async"
+              style={{ width: `${cornerQrSize}px`, height: `${cornerQrSize}px` }}
+            />
+          )}
         </div>
       )}
 
