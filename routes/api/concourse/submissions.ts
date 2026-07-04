@@ -6,6 +6,7 @@ export const handlers = define.handlers({
     const submissions = await ctx.state.services.photoWall.getApprovedSubmissions();
     const playback = ctx.state.services.photoWall.getTrainPlaybackState();
     const publicParticipantUrl = await ctx.state.services.photoWall.getPublicParticipantUrl();
+    const displayBarConfig = await ctx.state.services.photoWall.getDisplayBarConfig();
     return ctx.json({
       submissions,
       dwellTimeSeconds: playback.dwellSeconds,
@@ -17,6 +18,7 @@ export const handlers = define.handlers({
         window: playback.window,
       },
       publicParticipantUrl,
+      displayBarConfig,
     });
   },
 });

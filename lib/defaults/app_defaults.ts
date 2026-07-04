@@ -52,6 +52,8 @@ export function buildSystemDefaults(): SystemDefaultRow[] {
     { key: "public_participant_url", value: "", default_value: "" },
     { key: "system_killswitch_enabled", value: "false", default_value: "false" },
     { key: "uploads_enabled", value: "true", default_value: "true" },
+    { key: "display_join_bar_position", value: "top", default_value: "top" },
+    { key: "display_corner_qr_enabled", value: "false", default_value: "false" },
   ];
 }
 

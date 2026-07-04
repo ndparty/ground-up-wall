@@ -198,6 +198,19 @@ export default function SystemParameters() {
                     <option value="words">Words</option>
                   </select>
                 )
+                : p.key === "display_join_bar_position"
+                ? (
+                  <select
+                    aria-label={PARAMETER_LABELS[p.key] ?? p.key}
+                    value={drafts[p.key] ?? "top"}
+                    onChange={(e) =>
+                      setDrafts({ ...drafts, [p.key]: (e.target as HTMLSelectElement).value })}
+                  >
+                    <option value="top">Top</option>
+
+                    <option value="bottom">Bottom</option>
+                  </select>
+                )
                 : p.key === "default_placeholder_image"
                 ? (
                   <div>
@@ -227,7 +240,8 @@ export default function SystemParameters() {
                 )
                 : (p.key === "pow_challenge_enabled" ||
                     p.key === "system_killswitch_enabled" ||
-                    p.key === "uploads_enabled")
+                    p.key === "uploads_enabled" ||
+                    p.key === "display_corner_qr_enabled")
                 ? (
                   <select
                     aria-label={PARAMETER_LABELS[p.key] ?? p.key}
