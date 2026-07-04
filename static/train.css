@@ -263,146 +263,84 @@ body.display-wall-mode main {
 .train-cabin__sign-name {
   flex: 1;
   min-width: 0;
-  font-size: 0.95rem;
+  font-size: 1.2rem;
   font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
   color: #fff;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  text-align: left;
 }
 
-.train-cabin__sign-line-badge {
-  flex: 0 0 auto;
-  font-size: 0.6rem;
-  font-weight: 800;
-  padding: 0.15rem 0.4rem;
-  border-radius: 4px;
-  color: #fff;
-  background: var(--sg-red);
-  letter-spacing: 0.05em;
+/* QR "simple" sign keeps the compact all-caps label next to the logo dot. */
+.train-cabin__sign--simple .train-cabin__sign-name {
+  font-size: 0.95rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
+/* Real-signage line pill: white border, one fixed-width segment per line
+   designator (supports any count), official line colours (issue #21). */
 .train-cabin__sign-line-pill {
   display: flex;
   overflow: hidden;
+  border: 2px solid #fff;
   border-radius: 999px;
-  flex: 0 0 auto;
-  font-size: 0.55rem;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 65%;
+  font-size: 0.78rem;
   font-weight: 800;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
 }
 
-.train-cabin__sign-line-ns,
-.train-cabin__sign-line-te {
-  padding: 0.15rem 0.35rem;
-  color: #fff;
-}
-
-.train-cabin__sign-line-ns {
-  background: var(--sg-red);
-}
-
-.train-cabin__sign-line-te {
-  background: #7a4a2e;
-}
-
-.train-cabin__sign-exit {
-  flex: 0 0 auto;
-  width: 26px;
-  height: 26px;
-  background: #f5c518;
-  color: #1a1a1a;
-  font-weight: 900;
-  font-size: 0.85rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 2px;
-}
-
-.train-cabin__sign-transit {
-  display: flex;
-  gap: 0.2rem;
-  flex: 0 0 auto;
-}
-
-.train-cabin__sign-transit-mrt,
-.train-cabin__sign-transit-bus {
-  width: 16px;
-  height: 16px;
-  border-radius: 2px;
-  font-size: 0.5rem;
-  font-weight: 800;
+.train-cabin__sign-line-seg {
+  flex: 1 1 3.4em;
+  min-width: 0;
+  padding: 0.22em 0.35em;
   display: flex;
   align-items: center;
   justify-content: center;
   color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
-.train-cabin__sign-transit-mrt {
-  background: var(--sg-red);
+/* Official line colours (Wikipedia Module:Adjacent_stations/SMRT + /Singapore_LRT). */
+.train-cabin__sign-line-seg--ns {
+  background: #d42e12;
 }
 
-.train-cabin__sign-transit-bus {
-  background: #0066b3;
+.train-cabin__sign-line-seg--ew {
+  background: #009645;
 }
 
-.train-cabin__sign-bus-icon {
-  flex: 0 0 auto;
-  width: 18px;
-  height: 18px;
-  background: #0066b3;
-  border-radius: 2px;
-  position: relative;
+.train-cabin__sign-line-seg--ne {
+  background: #9900aa;
 }
 
-.train-cabin__sign-bus-icon::after {
-  content: "B";
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.5rem;
-  font-weight: 800;
-  color: #fff;
+.train-cabin__sign-line-seg--cc {
+  background: #fa9e0d;
 }
 
-.train-cabin__sign-logo-frame {
-  flex: 0 0 auto;
-  padding: 2px;
-  background: #f5c518;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  gap: 0.2rem;
+.train-cabin__sign-line-seg--dt {
+  background: #005ec4;
 }
 
-.train-cabin__sign-logo-frame .train-cabin__sign-logo {
-  width: 20px;
-  height: 20px;
+.train-cabin__sign-line-seg--te {
+  background: #9d5b25;
 }
 
-.train-cabin__sign-mrt-label {
-  font-size: 0.45rem;
-  font-weight: 800;
-  color: #1a1a1a;
-  padding-right: 0.2rem;
+.train-cabin__sign-line-seg--lrt {
+  background: #748477;
 }
 
-.train-cabin__sign--a {
-  background: #0a0a0a;
-  border: 1px solid #333;
+.train-cabin__sign-line-seg--unknown {
+  background: #4a4f57;
 }
 
-.train-cabin__sign--b {
-  background: #004b50;
-  border: 1px solid #006870;
-}
-
-.train-cabin__sign--c {
+.train-cabin__sign--station {
   background: #004b50;
   border: 1px solid #006870;
 }
