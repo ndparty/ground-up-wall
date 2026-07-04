@@ -61,10 +61,16 @@ export async function serveStorageFile(
 
   try {
     const bytes = await Deno.readFile(filePath);
+    // Auth-gated prefixes must not be stored by shared/CDN caches (NFR-23);
+    // only intentionally public placeholders may be cached publicly.
+    const isProtected = AUTH_REQUIRED_PREFIXES.some((prefix) => relative.startsWith(prefix));
+    const cacheControl = isProtected
+      ? "private, no-store"
+      : "public, max-age=3600";
     return new Response(bytes, {
       headers: {
         "Content-Type": contentType(relative),
-        "Cache-Control": "public, max-age=3600",
+        "Cache-Control": cacheControl,
       },
     });
   } catch (err) {

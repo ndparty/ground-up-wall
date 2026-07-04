@@ -25,9 +25,22 @@ export function validateParameterValue(key: string, value: string): string | nul
       }
       return null;
     case "auto_moderator_word_list":
+      // Bound the stored list so per-message moderation cannot be made pathological.
+      if (value.length > 10_000) return "auto_moderator_word_list is too large";
       return null;
-    case "default_placeholder_image":
+    case "default_placeholder_image": {
+      const v = value.trim();
+      if (v === "") return null;
+      if (v.length > 500) return "default_placeholder_image is too long";
+      // Same-origin storage path set by the upload flow, e.g. /placeholders/default.jpg.
+      // Reject data:/javascript: and other schemes that could render on the display wall.
+      const isSafeStoragePath = /^\/(placeholders|overrides)\/[\w.\-/]+\.(jpg|jpeg|png)$/i.test(v) &&
+        !v.includes("..");
+      if (!isSafeStoragePath) {
+        return "default_placeholder_image must be an uploaded placeholder path";
+      }
       return null;
+    }
     case "pow_challenge_enabled":
       if (value !== "true" && value !== "false") {
         return "pow_challenge_enabled must be 'true' or 'false'";

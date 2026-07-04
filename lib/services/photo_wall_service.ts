@@ -29,6 +29,10 @@ import {
   parseJoinBarPosition,
 } from "../display/display_bar_config.ts";
 import { isMessageValid, type MessageLengthConfig } from "../validation/message_length.ts";
+import {
+  MAX_SOCIAL_HANDLE_LENGTH,
+  MAX_SUBMITTER_NAME_LENGTH,
+} from "../api/submission_request.ts";
 import type {
   AuditEntry,
   AuditFilter,
@@ -165,6 +169,18 @@ export class PhotoWallService {
       if (!isMessageValid(data.message, lengthConfig)) {
         throw new Error("Message exceeds length limit");
       }
+    }
+    if (
+      data.submitter_name !== undefined &&
+      data.submitter_name.length > MAX_SUBMITTER_NAME_LENGTH
+    ) {
+      throw new Error("Name is too long");
+    }
+    if (
+      data.social_handle !== undefined && data.social_handle !== null &&
+      data.social_handle.length > MAX_SOCIAL_HANDLE_LENGTH
+    ) {
+      throw new Error("Social handle is too long");
     }
 
     let editFlags: { is_flagged: boolean; flagged_words: string[] } | undefined;
@@ -724,8 +740,12 @@ export class PhotoWallService {
 
   private async resolvePlaceholderImageUrl(image?: Blob): Promise<string | undefined> {
     if (image) {
+      // Re-encode + dimension-cap staff-supplied images through the same pipeline
+      // as public uploads so overrides cannot store bombs or non-image bytes (NFR-23).
+      const { normalizeUploadImage } = await import("../image/normalize_upload_image.ts");
+      const normalized = await normalizeUploadImage(image);
       const path = `overrides/${crypto.randomUUID()}.jpg`;
-      await this.storage.uploadImage(image, path);
+      await this.storage.uploadImage(normalized, path);
       return this.storage.getImageUrl(path);
     }
     return await this.resolveDefaultPlaceholderUrl();
@@ -892,8 +912,10 @@ export class PhotoWallService {
   }
 
   async uploadDefaultPlaceholder(image: Blob, adminId: string): Promise<void> {
+    const { normalizeUploadImage } = await import("../image/normalize_upload_image.ts");
+    const normalized = await normalizeUploadImage(image);
     const path = "placeholders/default.jpg";
-    await this.storage.uploadImage(image, path);
+    await this.storage.uploadImage(normalized, path);
     const imageUrl = this.storage.getImageUrl(path);
     await this.updateSystemParameter("default_placeholder_image", imageUrl, adminId);
   }

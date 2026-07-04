@@ -153,10 +153,12 @@ export function mergeStationEntries(entries: StationEntry[]): StationEntry[] {
 }
 
 function renderTs(stations: StationEntry[], date: string): string {
+  // JSON.stringify fully escapes quotes, backslashes, newlines, and line/paragraph
+  // separators so poisoned/MITM'd Wikipedia content cannot inject TypeScript here.
   const lines = stations
     .map((s) =>
-      `  { name: "${s.name.replace(/"/g, '\\"')}", codes: [${
-        s.codes.map((c) => `"${c}"`).join(", ")
+      `  { name: ${JSON.stringify(s.name)}, codes: [${
+        s.codes.map((c) => JSON.stringify(c)).join(", ")
       }] },`
     )
     .join("\n");

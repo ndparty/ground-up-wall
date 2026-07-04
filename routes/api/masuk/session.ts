@@ -1,11 +1,9 @@
 import { sessionCookieHeader } from "../../../lib/cookies.ts";
-import { clientKey, RateLimiter, tooManyRequests } from "../../../lib/security/rate_limit.ts";
+import { clientKey, tooManyRequests } from "../../../lib/security/rate_limit.ts";
+import { loginRateLimiter } from "../../../lib/security/login_gate.ts";
 import { verifyPowToken } from "../../../lib/security/pow_challenge_store.ts";
 import { securityGatesDisabled } from "../../../lib/security/gate_mode.ts";
 import { define } from "../../../utils.ts";
-
-// Per-IP login rate limit (NFR-23) — complements per-account lockout in AuthService.
-const loginRateLimiter = new RateLimiter(10, 60_000);
 
 export const handlers = define.handlers({
   async POST(ctx) {
