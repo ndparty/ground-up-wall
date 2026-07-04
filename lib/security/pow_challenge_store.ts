@@ -18,10 +18,21 @@ export interface IssuedChallenge {
   difficulty: number;
 }
 
+/**
+ * Drop expired, never-consumed nonces so the in-memory store cannot grow without
+ * bound under sustained challenge issuance (NFR-23 memory-DoS defense).
+ */
+function purgeExpired(now: number): void {
+  for (const [nonce, challenge] of store) {
+    if (challenge.expiresAt < now) store.delete(nonce);
+  }
+}
+
 export function issueChallenge(
   difficulty: number = DEFAULT_POW_DIFFICULTY_BITS,
   now: number = Date.now(),
 ): IssuedChallenge {
+  purgeExpired(now);
   const nonce = crypto.randomUUID();
   store.set(nonce, { difficulty, expiresAt: now + CHALLENGE_TTL_MS });
   return { nonce, difficulty };

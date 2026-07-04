@@ -67,3 +67,34 @@ Deno.test("testSubmitWithOversizedFile", () => {
     "File too large",
   );
 });
+
+Deno.test("testSubmitWithOversizedName", () => {
+  const file = new File([new Uint8Array([1, 2, 3])], "photo.jpg", { type: "image/jpeg" });
+  const form = makeForm({
+    photo: file,
+    message: "Hi",
+    submitter_name: "A".repeat(101),
+    acknowledged: "true",
+  });
+  assertThrows(
+    () => parseSubmissionForm(form, lengthConfig),
+    Error,
+    "Name is too long",
+  );
+});
+
+Deno.test("testSubmitWithOversizedSocialHandle", () => {
+  const file = new File([new Uint8Array([1, 2, 3])], "photo.jpg", { type: "image/jpeg" });
+  const form = makeForm({
+    photo: file,
+    message: "Hi",
+    submitter_name: "Alex",
+    social_handle: "x".repeat(101),
+    acknowledged: "true",
+  });
+  assertThrows(
+    () => parseSubmissionForm(form, lengthConfig),
+    Error,
+    "Social handle is too long",
+  );
+});

@@ -87,7 +87,9 @@ function dedupeSorted(names: string[]): string[] {
 }
 
 function renderTs(stations: string[], date: string): string {
-  const lines = stations.map((s) => `  "${s.replace(/"/g, '\\"')}",`).join("\n");
+  // JSON.stringify fully escapes quotes, backslashes, newlines, and line/paragraph
+  // separators so poisoned/MITM'd Wikipedia content cannot inject TypeScript here.
+  const lines = stations.map((s) => `  ${JSON.stringify(s)},`).join("\n");
   return `/**
  * Singapore MRT + LRT station names (operational only).
  * Sources:
