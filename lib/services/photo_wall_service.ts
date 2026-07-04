@@ -760,6 +760,26 @@ export class PhotoWallService {
     this.publishPlaybackState();
   }
 
+  /** Center the recurring QR cabin on the display now (moderator/admin action, FR-22a). */
+  async showQrCabinNow(userId: string): Promise<void> {
+    const override = await this.repository.getDisplayOverrideState();
+    if (override && override.type !== "normal") {
+      throw new Error("Display override active");
+    }
+
+    await this.ensurePlaybackInitialized();
+    if (!this.playback.showQrCabin()) {
+      throw new Error("No approved submissions");
+    }
+
+    await this.audit.logAction({
+      moderator_id: userId,
+      action_type: "show_qr_cabin",
+      target_type: "display_override",
+      target_id: "train_playback",
+    });
+  }
+
   /** Rebuild server tape from current approved list at cabin 1 (shared by reload/panic). */
   private async resetDisplayPlaybackFresh(): Promise<void> {
     await this.ensurePlaybackInitialized();

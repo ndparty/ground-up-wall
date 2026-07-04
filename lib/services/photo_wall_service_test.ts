@@ -1,10 +1,10 @@
-import { assertEquals, assertExists } from "@std/assert";
+import { assertEquals, assertExists, assertRejects } from "@std/assert";
 import { join } from "@std/path";
 import { FileStorageService } from "../repositories/file_storage_service.ts";
 import { MemoryRealtimeService } from "../repositories/memory_realtime_service.ts";
 import { AuditServiceImpl } from "./audit_service_impl.ts";
 import { AutoModeratorServiceImpl } from "./auto_moderator_service_impl.ts";
-import type { DisplayOverrideCommand } from "../interfaces/realtime_service.ts";
+import type { DisplayOverrideCommand, TrainCommand } from "../interfaces/realtime_service.ts";
 import { PhotoWallService } from "./photo_wall_service.ts";
 import { cleanupTestData, createTestRepository } from "../test_helpers.ts";
 import { testJpegBlob } from "../image/test_jpeg.ts";
@@ -389,6 +389,72 @@ Deno.test({
       await service.commandDisplayOverride("blank", "admin-1");
       const state = await service.getDisplayOverrideState();
       assertEquals(state?.type, "blank");
+      await repo.close();
+    } finally {
+      await cleanupTestData();
+      await Deno.remove(dir, { recursive: true });
+    }
+  },
+});
+
+Deno.test({
+  name: "testShowQrCabinNowPublishesJumpAndAudits",
+  async fn() {
+    const dir = await Deno.makeTempDir();
+    try {
+      await cleanupTestData();
+      const { service, repo, realtime } = await createTestService(dir);
+      const submission = await service.submitSubmission(
+        { image: testJpegBlob(), message: "Hi", submitter_name: "A" },
+        [],
+      );
+      await service.approveSubmission(submission.id, "mod-1");
+      await service.ensurePlaybackInitialized();
+
+      let jump: TrainCommand | undefined;
+      realtime.onTrainCommand((cmd) => {
+        if (cmd.type === "jump") jump = cmd;
+      });
+
+      await service.showQrCabinNow("mod-1");
+
+      assertExists(jump);
+      assertEquals(jump!.window?.[2]?.kind, "qr");
+      const logs = await service.getAuditLog({ action_type: "show_qr_cabin" });
+      assertEquals(logs.length, 1);
+      await repo.close();
+    } finally {
+      await cleanupTestData();
+      await Deno.remove(dir, { recursive: true });
+    }
+  },
+});
+
+Deno.test({
+  name: "testShowQrCabinNowRejectedWhileOverrideActive",
+  async fn() {
+    const dir = await Deno.makeTempDir();
+    try {
+      await cleanupTestData();
+      const { service, repo } = await createTestService(dir);
+      const submission = await service.submitSubmission(
+        { image: testJpegBlob(), message: "Hi", submitter_name: "A" },
+        [],
+      );
+      await service.approveSubmission(submission.id, "mod-1");
+      await service.commandDisplayOverride("blank", "admin-1");
+
+      await assertRejects(
+        () => service.showQrCabinNow("mod-1"),
+        Error,
+        "Display override active",
+      );
+
+      // Resuming clears the override; the action then succeeds.
+      await service.commandDisplayOverride("resume", "admin-1");
+      await service.showQrCabinNow("mod-1");
+      const logs = await service.getAuditLog({ action_type: "show_qr_cabin" });
+      assertEquals(logs.length, 1);
       await repo.close();
     } finally {
       await cleanupTestData();

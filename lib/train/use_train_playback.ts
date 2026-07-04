@@ -364,6 +364,10 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
       if (!playback) return;
       setIsPlaying(playback.isPlaying);
       if (orchestratorBusyRef.current || !playback.window?.length) return;
+      // Spec §2.9 playback-sync guard: never displace a pending command target.
+      // Jump SSEs arrive immediately before their companion playback_state;
+      // overwriting here would drop allowWhilePaused and strand paused clients.
+      if (latestTargetRef.current !== null) return;
       if (windowsIdentityEqual(viewToSteps(trainViewRef.current), playback.window)) return;
       bumpReconcile(playback.window, playback.currentCabin ?? 0, false);
     },
