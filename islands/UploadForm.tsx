@@ -22,6 +22,7 @@ import {
   UploadImageError,
 } from "../lib/image/decode_upload_image.ts";
 import { repairPreviewUrl, shouldAttemptPreviewRepair } from "../lib/image/preview_upload_image.ts";
+import { snapshotUploadFile } from "../lib/image/snapshot_upload_file.ts";
 import {
   isAllowedUploadImage,
   UNSUPPORTED_IMAGE_TYPE_MESSAGE,
@@ -117,6 +118,12 @@ export default function UploadForm({
 
   const previewRepairAttemptedRef = useRef(false);
   const previewUrlRef = useRef<string | null>(null);
+  /** Guards async selection work against rapid re-selection (latest pick wins). */
+  const selectionGenRef = useRef(0);
+  /** Single-flight decodeUploadImage result shared by preview and submit. */
+  const decodedUploadRef = useRef<Promise<File | Blob> | null>(null);
+  /** Settled when the preview pipeline finishes; submit awaits it so two heavy decodes never run concurrently. */
+  const previewJobRef = useRef<Promise<void>>(Promise.resolve());
 
   useEffect(() => {
     const profile = loadFormProfile();
@@ -253,23 +260,46 @@ export default function UploadForm({
       return;
     }
 
+    const gen = ++selectionGenRef.current;
+    decodedUploadRef.current = null;
     setPhoto(file);
     setError("");
     clearFieldError("photo");
-    void updateCroppedPreview(file);
+    previewJobRef.current = updateCroppedPreview(file, gen);
     input.value = "";
   }
 
-  async function updateCroppedPreview(file: File) {
+  /** Latest-selection decode of the photo; retries fresh if a cached attempt failed. */
+  function getDecodedUpload(file: File): Promise<File | Blob> {
+    const cached = decodedUploadRef.current;
+    const attempt = cached
+      ? cached.catch(() => decodeUploadImage(file))
+      : decodeUploadImage(file);
+    decodedUploadRef.current = attempt;
+    attempt.catch(() => {
+      // Consumers surface the error; this guard only prevents unhandled rejections.
+    });
+    return attempt;
+  }
+
+  async function updateCroppedPreview(file: File, gen: number) {
     setPreviewLoading(true);
+    // Snapshot bytes into memory right away: Android content-URI file handles
+    // can go stale before submit even though the preview renders fine.
+    const stable = await snapshotUploadFile(file);
+    if (selectionGenRef.current !== gen) return;
+    if (stable !== file) setPhoto(stable);
+
     try {
-      const decoded = await decodeUploadImage(file);
+      const decoded = await getDecodedUpload(stable);
       const cropped = await prepareCabinPreviewBlob(decoded);
+      if (selectionGenRef.current !== gen) return;
       setPreviewUrl(URL.createObjectURL(cropped));
     } catch {
-      setPreviewUrl(URL.createObjectURL(file));
+      if (selectionGenRef.current !== gen) return;
+      setPreviewUrl(URL.createObjectURL(stable));
     } finally {
-      setPreviewLoading(false);
+      if (selectionGenRef.current === gen) setPreviewLoading(false);
     }
   }
 
@@ -293,7 +323,7 @@ export default function UploadForm({
     }
   }
 
-  async function postSubmission(compressed: File) {
+  async function postSubmission(compressed: Blob) {
     const buildForm = () => {
       const form = new FormData();
       form.append("photo", compressed, "photo.jpg");
@@ -356,7 +386,10 @@ export default function UploadForm({
     setFieldErrors({});
     setLoading(true);
     try {
-      const decoded = await decodeUploadImage(photo!);
+      // Let an in-flight preview decode finish first so two heavy image
+      // decodes never run concurrently on memory-constrained devices.
+      await previewJobRef.current.catch(() => {});
+      const decoded = await getDecodedUpload(photo!);
       const compressed = await compressImage(decoded);
       await postSubmission(compressed);
     } catch (err) {
