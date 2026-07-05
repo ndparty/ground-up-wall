@@ -45,10 +45,15 @@ export default function ApprovedWallList({
   onDelete: (sub: Submission) => Promise<void>;
   onShowOnDisplay: (cabinNumber: number) => Promise<void>;
 }) {
-  const storedPrefs = loadApprovedListPrefs();
   const [search, setSearch] = useState("");
-  const [page, setPage] = useState(storedPrefs.page);
-  const [pageSize, setPageSize] = useState<PageSizeOption>(storedPrefs.pageSize);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<PageSizeOption>(DEFAULT_PAGE_SIZE);
+
+  useEffect(() => {
+    const prefs = loadApprovedListPrefs();
+    setPage(prefs.page);
+    setPageSize(prefs.pageSize);
+  }, []);
 
   const filtered = useMemo(
     () => approved.filter((sub) => matchesSearch(sub, search)),
