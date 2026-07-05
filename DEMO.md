@@ -258,14 +258,13 @@ For offline/LAN deployment details, see
 
 ## Useful commands
 
-| Command                           | Purpose                                           |
-| --------------------------------- | ------------------------------------------------- |
-| `deno task start`                 | Dev server with hot reload (port 8080)            |
-| `deno task db:migrate`            | Create/update database schema                     |
-| `deno task db:seed`               | Admin + demo users + default system parameters    |
-| `deno task db:seed:demos`         | 40 approved demo submissions with numbered images |
-| `deno task generate:mrt-stations` | Refresh MRT/LRT station list from Wikipedia       |
-| `/roof-badge-preview.html`        | Compare MRT roof badge styles (static page)       |
-| `deno task test`                  | Full test suite                                   |
-| `deno task test:e2e:smoke`        | Smoke E2E scenarios                               |
-| `deno task check`                 | Format, lint, and type-check                      |
+| Command                           | Purpose                                                 |
+| --------------------------------- | ------------------------------------------------------- |
+| `deno task start`                 | Dev server with hot reload (port 8080)                  |
+| `deno task db:migrate`            | Create/update database schema                           |
+| `deno task db:seed`               | Admin + demo users + default system parameters          |
+| `deno task db:seed:demos`         | 40 approved demo submissions with numbered images       |
+| `deno task generate:mrt-stations` | Refresh MRT/LRT station + line-code list from Wikipedia |
+| `deno task test`                  | Full test suite                                         |
+| `deno task test:e2e:smoke`        | Smoke E2E scenarios                                     |
+| `deno task check`                 | Format, lint, and type-check                            |

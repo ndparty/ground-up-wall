@@ -631,3 +631,85 @@ Deno.test("far jump with on-path ephemeral preserves pre-jump roof destinations"
   assertEquals(cmd.type, "jump");
   assertPreJumpDestinationsPreserved(cmd.window ?? [], preJump);
 });
+
+Deno.test("showQrCabin inserts a fresh QR with full buffer and keeps currentCabin", () => {
+  const harness = createTestController();
+  harness.controller.initialize(10, ids(10));
+  const before = harness.controller.getState();
+  const beforeTape = before.window;
+  assertEquals(beforeTape.some((s) => s.kind === "qr"), false);
+  harness.published.length = 0;
+
+  assertEquals(harness.controller.showQrCabin(), true);
+
+  assertEquals(harness.published.length, 1);
+  const cmd = harness.published[0];
+  assertEquals(cmd.type, "jump");
+  assertEquals(cmd.window?.length, WINDOW_LENGTH);
+  assertEquals(cmd.window?.[CENTER_SLOT]?.kind, "qr");
+  assertEquals(cmd.window?.[CENTER_SLOT]?.ephemeral, true);
+  // Ephemeral center never becomes the canonical position.
+  assertEquals(cmd.currentCabin, before.currentCabin);
+  assertEquals(harness.controller.getState().currentCabin, before.currentCabin);
+  // Append-only: the two slots left of the QR are live pre-jump steps (same seqs).
+  assertEquals(cmd.window?.[0]?.seq, beforeTape[5]?.seq);
+  assertEquals(cmd.window?.[1]?.seq, beforeTape[6]?.seq);
+  // Full K+preload buffer right of the QR, all canonical posts.
+  assertEquals(
+    cmd.window?.slice(CENTER_SLOT + 1).every((s) => s.kind === "post" && !s.ephemeral),
+    true,
+  );
+});
+
+Deno.test("showQrCabin with QR already centered republishes the unchanged window", () => {
+  const harness = createTestController();
+  harness.controller.initialize(10, ids(10));
+  harness.controller.showQrCabin();
+  const centered = harness.controller.getState().window;
+  assertEquals(centered[CENTER_SLOT]?.kind, "qr");
+  harness.published.length = 0;
+
+  assertEquals(harness.controller.showQrCabin(), true);
+
+  assertEquals(harness.published.length, 1);
+  const cmd = harness.published[0];
+  assertEquals(cmd.type, "jump");
+  // Identical window (same seq objects) — the client reconciler no-ops.
+  assertEquals(cmd.window?.map((s) => s.seq), centered.map((s) => s.seq));
+  assertEquals(
+    harness.controller.getState().window.map((s) => s.seq),
+    centered.map((s) => s.seq),
+  );
+});
+
+Deno.test("showQrCabin jumps to an on-tape QR right of center without recreating it", () => {
+  const harness = createTestController();
+  harness.controller.initialize(10, ids(10));
+  harness.controller.setQrInterval(3);
+  // Advance until the interval QR sits right of center on the live tape.
+  let qrSeq: number | undefined;
+  for (let i = 0; i < 10 && qrSeq === undefined; i++) {
+    harness.fireScheduled();
+    const win = harness.controller.getState().window;
+    const idx = win.findIndex((s) => s.kind === "qr");
+    if (idx > CENTER_SLOT) qrSeq = win[idx]!.seq;
+  }
+  assertEquals(typeof qrSeq, "number");
+  const before = harness.controller.getState();
+  harness.published.length = 0;
+
+  assertEquals(harness.controller.showQrCabin(), true);
+
+  const cmd = harness.published[0];
+  assertEquals(cmd.type, "jump");
+  // The centered QR is the same on-tape step, not a new emission.
+  assertEquals(cmd.window?.[CENTER_SLOT]?.seq, qrSeq);
+  assertEquals(cmd.currentCabin, before.currentCabin);
+});
+
+Deno.test("showQrCabin returns false and publishes nothing with no cabins", () => {
+  const harness = createTestController();
+  harness.published.length = 0;
+  assertEquals(harness.controller.showQrCabin(), false);
+  assertEquals(harness.published.length, 0);
+});

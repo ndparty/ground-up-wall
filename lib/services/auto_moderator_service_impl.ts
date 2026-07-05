@@ -1,6 +1,11 @@
 import type { AutoModeratorService, FlagResult } from "../interfaces/auto_moderator_service.ts";
+import { findFoldedMatches, SUBSTITUTIONS } from "../moderation/normalize_for_match.ts";
 
+export { SUBSTITUTIONS };
+
+/** Seeded PG-13 default word list (FR-09a). Admin "Reset to default" uses this constant. */
 export const SEEDED_DEFAULT_WORD_LIST = [
+  // Core profanity
   "damn",
   "hell",
   "crap",
@@ -15,41 +20,44 @@ export const SEEDED_DEFAULT_WORD_LIST = [
   "porn",
   "slut",
   "whore",
+  // Compound profanity
+  "bullshit",
+  "goddamn",
+  "douche",
+  "douchebag",
+  "motherfucker",
+  // Abbrev / internet
+  "wtf",
+  "stfu",
+  "gtfo",
+  "lmfao",
+  // Common misspellings / truncations
+  "fuk",
+  "fck",
+  "fcuk",
+  "shyt",
+  "biatch",
+  // Sexual / explicit (PG-13 advisory)
+  "sex",
+  "nude",
+  "naked",
+  "xxx",
+  "boob",
+  "penis",
+  "vagina",
 ];
-
-export const SUBSTITUTIONS: Record<string, string> = {
-  "@": "a",
-  "0": "o",
-  "$": "s",
-  "1": "l",
-  "3": "e",
-  "4": "a",
-  "5": "s",
-  "!": "i",
-};
-
-function normalizeForMatching(text: string): string {
-  const normalized = text.toLowerCase().normalize("NFKC");
-  let result = "";
-  for (const char of normalized) {
-    result += SUBSTITUTIONS[char] ?? char;
-  }
-  return result;
-}
 
 export class AutoModeratorServiceImpl implements AutoModeratorService {
   checkMessage(message: string, wordList: string[]): FlagResult {
-    const normalizedMessage = normalizeForMatching(message);
     const flaggedWords: string[] = [];
     const positions: { word: string; index: number }[] = [];
 
     for (const word of wordList) {
       if (!word.trim()) continue;
-      const normalizedWord = normalizeForMatching(word);
-      const index = normalizedMessage.indexOf(normalizedWord);
-      if (index !== -1) {
+      const matches = findFoldedMatches(message, word);
+      if (matches.length > 0) {
         flaggedWords.push(word);
-        positions.push({ word, index });
+        positions.push({ word, index: matches[0][0] });
       }
     }
 

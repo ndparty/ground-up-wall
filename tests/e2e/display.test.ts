@@ -13,6 +13,7 @@ import {
   setupModeratorAndDisplayWall,
   teardownTestDb,
 } from "../helpers.ts";
+import { testJpegBlob } from "../../lib/image/test_jpeg.ts";
 
 Deno.test({
   name: "smoke: US-07 display wall user can view train",
@@ -112,7 +113,7 @@ Deno.test({
   async fn() {
     const handler = await createTestHandler();
     const { token } = await loginAsAdmin(handler);
-    const blob = new Blob([new Uint8Array([1, 2, 3])], { type: "image/jpeg" });
+    const blob = testJpegBlob();
     const uploadForm = new FormData();
     uploadForm.append("image", blob, "default.jpg");
     await handler(

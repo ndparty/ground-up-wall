@@ -12,6 +12,7 @@ import {
   serveInfo,
 } from "../../../lib/api/semak_route_test_helpers.ts";
 import { cleanupTestData, createTestRepository } from "../../../lib/test_helpers.ts";
+import { testJpegBlob } from "../../../lib/image/test_jpeg.ts";
 import { loginAs } from "../../../tests/helpers.ts";
 
 Deno.test({
@@ -98,7 +99,7 @@ Deno.test({
     const adminToken = await loginAs(handler, admin.username, password);
     const modToken = await loginAs(handler, moderator.username, password);
 
-    const blob = new Blob([new Uint8Array([1, 2, 3])], { type: "image/jpeg" });
+    const blob = testJpegBlob();
     const uploadForm = new FormData();
     uploadForm.append("image", blob, "default.jpg");
     await handler(

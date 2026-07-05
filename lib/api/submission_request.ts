@@ -4,6 +4,9 @@ import type { SubmissionInput } from "../types.ts";
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 // Upload form converts HEIC/WebP/AVIF to JPEG client-side before POST.
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png"]);
+/** Bound free-text identity fields so they cannot bloat DB/SSE/render (NFR-23). */
+export const MAX_SUBMITTER_NAME_LENGTH = 100;
+export const MAX_SOCIAL_HANDLE_LENGTH = 100;
 
 export interface ParsedSubmissionRequest {
   data: SubmissionInput;
@@ -31,6 +34,12 @@ export function parseSubmissionForm(
 
   if (!submitterName) {
     throw new Error("Name is required");
+  }
+  if (submitterName.length > MAX_SUBMITTER_NAME_LENGTH) {
+    throw new Error("Name is too long");
+  }
+  if (socialHandle && socialHandle.length > MAX_SOCIAL_HANDLE_LENGTH) {
+    throw new Error("Social handle is too long");
   }
   if (!isMessageValid(message, lengthConfig)) {
     throw new Error("Message exceeds length limit");

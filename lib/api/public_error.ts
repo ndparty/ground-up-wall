@@ -20,6 +20,8 @@ const PUBLIC_ERROR_MESSAGES = new Set([
   "Display wall user not found",
   "Invalid command type",
   "Invalid override type",
+  "Display override active",
+  "No approved submissions",
   "cabinNumber required for jump",
   "key is required",
   "Confirmation required",
@@ -38,6 +40,8 @@ const PUBLIC_ERROR_MESSAGES = new Set([
   "qr_cabin_interval must be an integer between 0 and 999 (0 disables)",
   "system_killswitch_enabled must be 'true' or 'false'",
   "uploads_enabled must be 'true' or 'false'",
+  "display_join_bar_position must be 'top' or 'bottom'",
+  "display_corner_qr_enabled must be 'true' or 'false'",
 ]);
 
 /** Return a safe client-facing message; never leak internal error details. */

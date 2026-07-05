@@ -33,6 +33,8 @@ export interface TrainCommand {
 export interface DisplayOverrideCommand {
   type: "blank" | "placeholder" | "resume";
   imageUrl?: string;
+  /** When true, cut to override immediately (panic). Otherwise fade in/out. */
+  instant?: boolean;
 }
 
 export interface RealtimeService {

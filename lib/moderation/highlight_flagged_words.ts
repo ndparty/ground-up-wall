@@ -1,4 +1,4 @@
-import { SUBSTITUTIONS } from "../services/auto_moderator_service_impl.ts";
+import { findFoldedMatches } from "./normalize_for_match.ts";
 
 export interface MessageSegment {
   text: string;
@@ -6,30 +6,9 @@ export interface MessageSegment {
 }
 
 /**
- * Normalize a single UTF-16 unit for matching: lowercase + character substitution
- * (e.g. `@`->a, `3`->e). Kept strictly 1:1 (one unit in, one unit out) so normalized
- * string indices map directly back onto the original message (FR-09a).
- */
-function normalizeUnit(ch: string): string {
-  const lower = ch.toLowerCase();
-  const base = lower.length === 1 ? lower : ch;
-  const sub = SUBSTITUTIONS[base];
-  if (sub && sub.length === 1) return sub;
-  return base.length === 1 ? base : ch[0];
-}
-
-function normalizeForHighlight(text: string): string {
-  let out = "";
-  for (let i = 0; i < text.length; i++) {
-    out += normalizeUnit(text[i]);
-  }
-  return out;
-}
-
-/**
- * Split a message into highlighted/plain segments. Matching is substitution-aware
- * (mirrors the auto-moderator), and highlighted spans are taken from the ORIGINAL
- * text so leetspeak like `cr@p` is highlighted even though the word list has `crap`.
+ * Split a message into highlighted/plain segments. Matching mirrors the auto-moderator
+ * (substitutions, separator folding, repeat collapse), and highlighted spans are taken
+ * from the ORIGINAL text so evasion like `cr@p` or `f*ck` is highlighted correctly.
  */
 export function highlightFlaggedWords(
   message: string,
@@ -40,19 +19,10 @@ export function highlightFlaggedWords(
     return [{ text: message, highlighted: false }];
   }
 
-  const normalizedMessage = normalizeForHighlight(message);
   const ranges: Array<[number, number]> = [];
 
   for (const word of words) {
-    const normalizedWord = normalizeForHighlight(word);
-    if (normalizedWord.length === 0) continue;
-    let from = 0;
-    while (true) {
-      const idx = normalizedMessage.indexOf(normalizedWord, from);
-      if (idx === -1) break;
-      ranges.push([idx, idx + normalizedWord.length]);
-      from = idx + normalizedWord.length;
-    }
+    ranges.push(...findFoldedMatches(message, word));
   }
 
   if (ranges.length === 0) {

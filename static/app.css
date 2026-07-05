@@ -912,3 +912,202 @@ textarea:focus-visible {
     font-size: 0.9rem;
   }
 }
+
+/* Moderator/admin console dark mode (system preference only) */
+@media (prefers-color-scheme: dark) {
+  main:has(.page--moderate, .page--admin, .page--audit, .page--override) {
+    background: #121218;
+  }
+
+  .page--moderate,
+  .page--admin,
+  .page--audit,
+  .page--override {
+    color-scheme: dark;
+    color: #e8e8ec;
+  }
+
+  .page--moderate .heading-brand,
+  .page--moderate .heading-section,
+  .page--moderate .heading-section--spaced,
+  .page--admin .heading-brand,
+  .page--admin .heading-section,
+  .page--admin .heading-section--spaced,
+  .page--audit .heading-brand,
+  .page--audit .heading-section,
+  .page--audit .heading-section--spaced,
+  .page--override .heading-brand,
+  .page--override .heading-section,
+  .page--override .heading-section--spaced {
+    color: var(--sg-red, #ef3340);
+  }
+
+  .page--moderate .text-muted,
+  .page--moderate .text-subtle,
+  .page--moderate .text-subtle--center,
+  .page--moderate .text-small,
+  .page--moderate .text-loading,
+  .page--admin .text-muted,
+  .page--admin .text-subtle,
+  .page--admin .text-subtle--center,
+  .page--admin .text-small,
+  .page--admin .text-loading,
+  .page--audit .text-muted,
+  .page--audit .text-subtle,
+  .page--audit .text-subtle--center,
+  .page--audit .text-small,
+  .page--audit .text-loading,
+  .page--override .text-muted,
+  .page--override .text-subtle,
+  .page--override .text-subtle--center,
+  .page--override .text-small,
+  .page--override .text-loading,
+  .page--moderate .panel__desc,
+  .page--admin .panel__desc,
+  .page--audit .panel__desc,
+  .page--override .panel__desc,
+  .page--moderate .approved-toolbar__count,
+  .page--admin .approved-toolbar__count,
+  .page--audit .approved-toolbar__count,
+  .page--override .approved-toolbar__count,
+  .page--moderate .submission-card__time,
+  .page--moderate .submission-card__edited,
+  .page--admin .submission-card__time,
+  .page--admin .submission-card__edited,
+  .page--audit .submission-card__time,
+  .page--audit .submission-card__edited,
+  .page--override .submission-card__time,
+  .page--override .submission-card__edited {
+    color: #a8a8b0;
+  }
+
+  .page--moderate .panel__message,
+  .page--admin .panel__message,
+  .page--audit .panel__message,
+  .page--override .panel__message {
+    color: #e8e8ec;
+  }
+
+  .page--moderate .form-input,
+  .page--moderate .form-input--bordered,
+  .page--moderate select.form-input--bordered,
+  .page--moderate textarea.form-input,
+  .page--moderate .submission-card__textarea,
+  .page--admin .form-input,
+  .page--admin .form-input--bordered,
+  .page--admin select.form-input--bordered,
+  .page--admin textarea.form-input,
+  .page--admin .submission-card__textarea,
+  .page--audit .form-input,
+  .page--audit .form-input--bordered,
+  .page--audit select.form-input--bordered,
+  .page--audit textarea.form-input,
+  .page--audit .submission-card__textarea,
+  .page--override .form-input,
+  .page--override .form-input--bordered,
+  .page--override select.form-input--bordered,
+  .page--override textarea.form-input,
+  .page--override .submission-card__textarea {
+    background: #2a2a32;
+    color: #e8e8ec;
+    border: 1px solid #444;
+  }
+
+  .page--moderate .panel,
+  .page--moderate .panel--muted,
+  .page--moderate .panel--form,
+  .page--admin .panel,
+  .page--admin .panel--muted,
+  .page--admin .panel--form,
+  .page--audit .panel,
+  .page--audit .panel--muted,
+  .page--audit .panel--form,
+  .page--override .panel,
+  .page--override .panel--muted,
+  .page--override .panel--form {
+    background: #1e1e26;
+    border-color: #3a3a44;
+  }
+
+  .page--moderate .submission-card,
+  .page--admin .submission-card,
+  .page--audit .submission-card,
+  .page--override .submission-card {
+    background: #1e1e26;
+    border-color: #3a3a44;
+  }
+
+  .page--moderate .submission-card--flagged,
+  .page--admin .submission-card--flagged,
+  .page--audit .submission-card--flagged,
+  .page--override .submission-card--flagged {
+    background: #2a2418;
+    border-color: #b8860b;
+  }
+
+  .page--moderate .submission-card__highlight,
+  .page--admin .submission-card__highlight,
+  .page--audit .submission-card__highlight,
+  .page--override .submission-card__highlight {
+    background: #4a2028;
+    color: #ff8a8a;
+  }
+
+  .page--moderate .admin-card,
+  .page--admin .admin-card,
+  .page--audit .admin-card,
+  .page--override .admin-card {
+    background: #1e1e26;
+    border-color: #3a3a44;
+    color: #e8e8ec;
+  }
+
+  .page--moderate .admin-card__title,
+  .page--admin .admin-card__title,
+  .page--audit .admin-card__title,
+  .page--override .admin-card__title {
+    color: var(--sg-red, #ef3340);
+  }
+
+  .page--moderate .data-table__head,
+  .page--admin .data-table__head,
+  .page--audit .data-table__head,
+  .page--override .data-table__head {
+    background: #2a2a32;
+  }
+
+  .page--moderate .data-table__row,
+  .page--admin .data-table__row,
+  .page--audit .data-table__row,
+  .page--override .data-table__row {
+    border-bottom-color: #3a3a44;
+  }
+
+  .page--moderate .btn--ghost,
+  .page--admin .btn--ghost,
+  .page--audit .btn--ghost,
+  .page--override .btn--ghost {
+    border-color: #555;
+    color: #e8e8ec;
+    background: transparent;
+  }
+
+  .page--moderate .btn--cancel,
+  .page--admin .btn--cancel,
+  .page--audit .btn--cancel,
+  .page--override .btn--cancel {
+    background: #444;
+    color: #e8e8ec;
+  }
+
+  .page--moderate .link-brand,
+  .page--moderate .link-back,
+  .page--admin .link-brand,
+  .page--admin .link-back,
+  .page--audit .link-brand,
+  .page--audit .link-back,
+  .page--override .link-brand,
+  .page--override .link-back {
+    color: var(--sg-red, #ef3340);
+  }
+}

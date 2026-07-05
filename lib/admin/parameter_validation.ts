@@ -25,9 +25,23 @@ export function validateParameterValue(key: string, value: string): string | nul
       }
       return null;
     case "auto_moderator_word_list":
+      // Bound the stored list so per-message moderation cannot be made pathological.
+      if (value.length > 10_000) return "auto_moderator_word_list is too large";
       return null;
-    case "default_placeholder_image":
+    case "default_placeholder_image": {
+      const v = value.trim();
+      if (v === "") return null;
+      if (v.length > 500) return "default_placeholder_image is too long";
+      // Same-origin storage path set by the upload flow, e.g. /placeholders/default.jpg.
+      // Reject data:/javascript: and other schemes that could render on the display wall.
+      const isSafeStoragePath =
+        /^\/(placeholders|overrides)\/[\w.\-/]+\.(jpg|jpeg|png)$/i.test(v) &&
+        !v.includes("..");
+      if (!isSafeStoragePath) {
+        return "default_placeholder_image must be an uploaded placeholder path";
+      }
       return null;
+    }
     case "pow_challenge_enabled":
       if (value !== "true" && value !== "false") {
         return "pow_challenge_enabled must be 'true' or 'false'";
@@ -80,6 +94,16 @@ export function validateParameterValue(key: string, value: string): string | nul
         return "uploads_enabled must be 'true' or 'false'";
       }
       return null;
+    case "display_join_bar_position":
+      if (value !== "top" && value !== "bottom") {
+        return "display_join_bar_position must be 'top' or 'bottom'";
+      }
+      return null;
+    case "display_corner_qr_enabled":
+      if (value !== "true" && value !== "false") {
+        return "display_corner_qr_enabled must be 'true' or 'false'";
+      }
+      return null;
     default:
       return `Unknown parameter key: ${key}`;
   }
@@ -107,6 +131,19 @@ export function seededWordListJson(): string {
   return JSON.stringify([...SEEDED_DEFAULT_WORD_LIST]);
 }
 
+/** Append shipped default words missing from an existing list (preserves order and custom entries). */
+export function mergeMissingDefaultWords(existing: string[]): string[] {
+  const seen = new Set(existing);
+  const merged = [...existing];
+  for (const word of SEEDED_DEFAULT_WORD_LIST) {
+    if (!seen.has(word)) {
+      merged.push(word);
+      seen.add(word);
+    }
+  }
+  return merged;
+}
+
 export const PARAMETER_LABELS: Record<string, string> = {
   train_dwell_time: "Train dwell time (seconds)",
   message_prompt_text: "Upload message prompt",
@@ -120,6 +157,8 @@ export const PARAMETER_LABELS: Record<string, string> = {
   public_participant_url: "Public participant URL (banner + QR; empty = auto-detect)",
   system_killswitch_enabled: "Event killswitch (disable everything except login + admin)",
   uploads_enabled: "Public uploads enabled",
+  display_join_bar_position: "Join bar position (top or bottom of display)",
+  display_corner_qr_enabled: "Corner QR codes on the join bar",
 };
 
 export const PARAMETER_CATEGORIES: Record<string, string> = {
@@ -135,4 +174,6 @@ export const PARAMETER_CATEGORIES: Record<string, string> = {
   public_participant_url: "Display",
   system_killswitch_enabled: "Event",
   uploads_enabled: "Event",
+  display_join_bar_position: "Display",
+  display_corner_qr_enabled: "Display",
 };

@@ -59,7 +59,12 @@ export interface Repository {
   // System config operations
   getSystemConfig(key: string): Promise<SystemConfig | null>;
   getAllSystemConfigs(): Promise<SystemConfig[]>;
-  upsertSystemConfig(key: string, value: string, updatedBy: string): Promise<SystemConfig>;
+  upsertSystemConfig(
+    key: string,
+    value: string,
+    updatedBy: string,
+    defaultValue?: string,
+  ): Promise<SystemConfig>;
   resetSystemConfigToDefault(key: string): Promise<SystemConfig>;
 
   // Audit log operations

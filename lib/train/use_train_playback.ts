@@ -18,6 +18,12 @@ import {
   resolvePublicParticipantUrl,
 } from "../display/public_participant_url.ts";
 import {
+  DEFAULT_DISPLAY_BAR_CONFIG,
+  type DisplayBarConfig,
+  parseCornerQrEnabled,
+  parseJoinBarPosition,
+} from "../display/display_bar_config.ts";
+import {
   addApproved,
   applyServerWindow,
   getCanonicalCount,
@@ -96,8 +102,11 @@ export interface UseTrainPlaybackResult {
   retryBootstrap: () => void;
   connectionStatus: ConnectionStatus;
   overrideState: OverrideState;
+  /** True when the latest override command should skip fade (panic blank). */
+  overrideInstant: boolean;
   reloadGeneration: number;
   publicParticipantUrl: PublicParticipantUrl | null;
+  displayBarConfig: DisplayBarConfig;
   setOrchestratorBusy: (busy: boolean) => void;
   clearOrchestratorState: () => void;
   acknowledgeReconcileCatchUp: () => void;
@@ -121,9 +130,13 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
   const [bootstrapAttempt, setBootstrapAttempt] = useState(0);
   const [reconcileGeneration, setReconcileGeneration] = useState(0);
   const [overrideState, setOverrideState] = useState<OverrideState>({ type: "normal" });
+  const [overrideInstant, setOverrideInstant] = useState(false);
   const [reloadGeneration, setReloadGeneration] = useState(0);
   const [publicParticipantUrl, setPublicParticipantUrl] = useState<PublicParticipantUrl | null>(
     null,
+  );
+  const [displayBarConfig, setDisplayBarConfig] = useState<DisplayBarConfig>(
+    DEFAULT_DISPLAY_BAR_CONFIG,
   );
 
   const isPlayingRef = useRef(isPlaying);
@@ -195,7 +208,10 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
       const res = await fetchWithRetry("/api/concourse/override-state");
       if (!res.ok) return;
       const override = await res.json();
-      if (override) setOverrideState(override as OverrideState);
+      if (override) {
+        setOverrideState(override as OverrideState);
+        setOverrideInstant(false);
+      }
     } catch {
       // ignore — banner shows reconnect state
     }
@@ -298,6 +314,11 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
           } else {
             setPublicParticipantUrl(null);
           }
+          if (data.displayBarConfig) {
+            setDisplayBarConfig(data.displayBarConfig as DisplayBarConfig);
+          } else {
+            setDisplayBarConfig(DEFAULT_DISPLAY_BAR_CONFIG);
+          }
         } else {
           setBootstrapError("Could not load the display. Please try again.");
         }
@@ -364,12 +385,17 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
       if (!playback) return;
       setIsPlaying(playback.isPlaying);
       if (orchestratorBusyRef.current || !playback.window?.length) return;
+      // Spec §2.9 playback-sync guard: never displace a pending command target.
+      // Jump SSEs arrive immediately before their companion playback_state;
+      // overwriting here would drop allowWhilePaused and strand paused clients.
+      if (latestTargetRef.current !== null) return;
       if (windowsIdentityEqual(viewToSteps(trainViewRef.current), playback.window)) return;
       bumpReconcile(playback.window, playback.currentCabin ?? 0, false);
     },
     display_override: (event) => {
       const command = parseSseData<DisplayOverrideCommand>(event);
       if (command) {
+        setOverrideInstant(command.instant === true);
         setOverrideState(mapCommandToOverrideState(command.type, command.imageUrl));
       }
     },
@@ -380,8 +406,20 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
     },
     system_config_changed: (event) => {
       const cfg = parseSseData<{ key: string; value: string }>(event);
-      if (!cfg || cfg.key !== "public_participant_url") return;
-      setPublicParticipantUrl(resolvePublicParticipantUrl(cfg.value));
+      if (!cfg) return;
+      if (cfg.key === "public_participant_url") {
+        setPublicParticipantUrl(resolvePublicParticipantUrl(cfg.value));
+      } else if (cfg.key === "display_join_bar_position") {
+        setDisplayBarConfig((prev) => ({
+          ...prev,
+          joinBarPosition: parseJoinBarPosition(cfg.value),
+        }));
+      } else if (cfg.key === "display_corner_qr_enabled") {
+        setDisplayBarConfig((prev) => ({
+          ...prev,
+          cornerQrEnabled: parseCornerQrEnabled(cfg.value),
+        }));
+      }
     },
   };
 
@@ -443,8 +481,10 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
     retryBootstrap,
     connectionStatus,
     overrideState,
+    overrideInstant,
     reloadGeneration,
     publicParticipantUrl,
+    displayBarConfig,
     setOrchestratorBusy,
     clearOrchestratorState,
     acknowledgeReconcileCatchUp,

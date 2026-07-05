@@ -132,11 +132,16 @@ Deno.test({
     assertEquals(html.includes("width=device-width"), true);
     assertEquals(html.includes("viewport-fit=cover"), true);
     assertEquals(html.includes("upload") || html.includes("Upload"), true);
-    const css = await Deno.readTextFile("static/upload.css");
-    assertEquals(css.includes("upload-privacy-notice"), true);
+    const uploadCss = await Deno.readTextFile("static/upload.css");
+    const appCss = await Deno.readTextFile("static/app.css");
+    assertEquals(uploadCss.includes("upload-privacy-notice"), true);
+    assertEquals(uploadCss.includes("prefers-color-scheme: dark"), true);
+    assertEquals(appCss.includes("prefers-color-scheme: dark"), true);
+    assertEquals(appCss.includes(".page--moderate"), true);
+    assertEquals(appCss.includes(".page--admin"), true);
     assertEquals(
-      css.includes("btn--touch") ||
-        (await Deno.readTextFile("static/app.css")).includes("btn--touch"),
+      uploadCss.includes("btn--touch") ||
+        appCss.includes("btn--touch"),
       true,
     );
     await teardownTestDb();

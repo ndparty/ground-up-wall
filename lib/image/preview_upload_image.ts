@@ -3,6 +3,7 @@ import {
   decodeUploadImage,
   UploadImageError,
 } from "./decode_upload_image.ts";
+import { decodeImageSource } from "./decode_image_source.ts";
 import { isHeicFamily, resolveUploadImageMime } from "./upload_image_types.ts";
 
 const PREVIEW_MAX_WIDTH = 800;
@@ -18,32 +19,27 @@ export function previewRepairUsesHeicDecode(file: File): boolean {
 }
 
 async function bitmapToPreviewBlob(source: File | Blob): Promise<Blob> {
-  let img: ImageBitmap;
+  const img = await decodeImageSource(source);
   try {
-    img = await createImageBitmap(source);
-  } catch {
-    throw new UploadImageError(DECODE_IMAGE_FAILED_MESSAGE);
-  }
-
-  const ratio = Math.min(PREVIEW_MAX_WIDTH / img.width, 1);
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.round(img.width * ratio);
-  canvas.height = Math.round(img.height * ratio);
-  const ctx = canvas.getContext("2d");
-  if (!ctx) {
+    const ratio = Math.min(PREVIEW_MAX_WIDTH / img.width, 1);
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(img.width * ratio);
+    canvas.height = Math.round(img.height * ratio);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      throw new UploadImageError(DECODE_IMAGE_FAILED_MESSAGE, "canvas");
+    }
+    ctx.drawImage(img.source, 0, 0, canvas.width, canvas.height);
+    return await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob(
+        (b) => b ? resolve(b) : reject(new UploadImageError(DECODE_IMAGE_FAILED_MESSAGE, "encode")),
+        "image/jpeg",
+        PREVIEW_QUALITY,
+      );
+    });
+  } finally {
     img.close();
-    throw new UploadImageError(DECODE_IMAGE_FAILED_MESSAGE);
   }
-  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-  const blob = await new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob(
-      (b) => (b ? resolve(b) : reject(new UploadImageError(DECODE_IMAGE_FAILED_MESSAGE))),
-      "image/jpeg",
-      PREVIEW_QUALITY,
-    );
-  });
-  img.close();
-  return blob;
 }
 
 export async function repairPreviewUrl(file: File): Promise<string> {
