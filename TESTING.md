@@ -2,10 +2,11 @@
 
 ## Overview
 
-This project supports two testing modes:
+This project supports three testing modes:
 
 1. **Mock Database (CI)** - Fast, no PostgreSQL required
 2. **PostgreSQL (Local Development)** - Full integration testing
+3. **Browser E2E (Playwright)** - Real browser-based UI testing
 
 ## CI Pipeline (GitHub Actions)
 
@@ -20,6 +21,7 @@ The CI pipeline uses the **mock database** by default:
 - **Pull Requests**: Smoke tests (`deno task test:e2e:smoke`)
 - **Main Branch**: Full test suite (`deno task test`)
 - **All builds**: Lint and format checks (`deno task check`)
+- **Browser tests**: Run separately via `deno task test:e2e:browser` (requires Chromium)
 
 ## Local Development
 
@@ -102,15 +104,68 @@ deno task test
 # Run only unit tests (no e2e)
 deno task test:unit
 
-# Run only e2e tests
+# Run only e2e tests (API-level, handler-based)
 deno task test:e2e
 
 # Run smoke tests only
 deno task test:e2e:smoke
 
+# Run browser E2E tests (Playwright, requires Chromium installed)
+deno task test:e2e:browser
+
 # Run with mock database
 USE_MOCK_DB=true deno task test
 ```
+
+## Browser E2E Tests (Playwright)
+
+Browser tests use **Playwright** to validate UI behaviour in a real Chromium browser. They are
+mapped directly to the user stories in `docs/ai-dlc/inception/user-stories/stories.md`.
+
+### Test Files
+
+| File                                             | Stories Covered                   | Feature                |
+| ------------------------------------------------ | --------------------------------- | ---------------------- |
+| `tests/e2e-browser/upload.feature.spec.ts`       | US-01, US-02, US-02a              | Upload Page            |
+| `tests/e2e-browser/moderation.feature.spec.ts`   | US-03, US-04, US-05, US-06, US-12 | Moderate Photos        |
+| `tests/e2e-browser/display.feature.spec.ts`      | US-07, US-08, US-15               | Display Wall           |
+| `tests/e2e-browser/admin-users.feature.spec.ts`  | US-09, US-10, US-16, US-18        | Admin — Manage Users   |
+| `tests/e2e-browser/admin-config.feature.spec.ts` | US-14, US-17, US-19               | Admin — Config & Audit |
+| `tests/e2e-browser/password.feature.spec.ts`     | US-11                             | Change Password        |
+
+### Prerequisites
+
+Playwright and Chromium must be installed:
+
+```bash
+# Install Playwright (already in deno.json imports)
+deno add npm:playwright
+
+# Install Chromium browser binary
+npx playwright install chromium
+```
+
+### Running
+
+```bash
+# Run all browser tests
+deno task test:e2e:browser
+
+# Run a specific feature file
+deno test -P --allow-run --allow-ffi tests/e2e-browser/upload.feature.spec.ts
+```
+
+### Test Structure
+
+Each test file follows this pattern:
+
+1. **Setup**: Start a dev server subprocess and launch Playwright browser
+2. **Tests**: One `Deno.test` per scenario, named with the US ID (e.g.
+   `US-01 — upload form has all required fields`)
+3. **Teardown**: Close browser and stop server
+
+Tests use `sanitizeResources: false` and `sanitizeOps: false` because Playwright manages its own
+async lifecycle outside Deno's scope tracking.
 
 ## When to Use Each Mode
 

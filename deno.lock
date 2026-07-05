@@ -47,6 +47,8 @@
     "npm:esbuild@~0.25.5": "0.25.7",
     "npm:heic-to@^1.5.2": "1.5.2",
     "npm:imagescript@1.3.0": "1.3.0",
+    "npm:playwright@*": "1.61.1",
+    "npm:playwright@^1.61.1": "1.61.1",
     "npm:preact-render-to-string@^6.6.3": "6.7.0_preact@10.29.2",
     "npm:preact-render-to-string@^6.6.7": "6.7.0_preact@10.29.2",
     "npm:preact@^10.28.2": "10.29.2",
@@ -373,11 +375,30 @@
       "scripts": true,
       "bin": true
     },
+    "fsevents@2.3.2": {
+      "integrity": "sha512-xiqMQR4xAeHTuB9uWm+fFRcIOgKBMiOBP+eXiyT7jsgVCq1bkVygt00oASowB7EdtpOHaaPgKt812P9ab+DDKA==",
+      "os": ["darwin"],
+      "scripts": true
+    },
     "heic-to@1.5.2": {
       "integrity": "sha512-8Fns+lZHAWmz5U5IUxDeXKwIf3foBoKNPLxxFY4B0MkLjNuomEIHCoDbDE+x/llFK3NCEO1cu4+n3iUKY+Svmw=="
     },
     "imagescript@1.3.0": {
       "integrity": "sha512-lCYzQrWzdnA68K03oMj/BUlBJrVBnslzDOgGFymAp49NmdGEJxGeN7sHh5mCva0nQkq+kkKSuru2zLf1m04+3A=="
+    },
+    "playwright-core@1.61.1": {
+      "integrity": "sha512-h7Qlt6m4REp25qvIdvbDtVmD4LqVXfpRxhORv9L0jzETM05p4fuPJ3dKyuSXQxDSbXnmS79HAgi9589lGSpLkg==",
+      "bin": true
+    },
+    "playwright@1.61.1": {
+      "integrity": "sha512-DWnY5o3YbLWK4GovuAVwpqL+1VwGNdUGrRr++8j8PtQQzvAVZUIMjKQ90fY689sEJZJBbZVw1rXaOKSTitkzPQ==",
+      "dependencies": [
+        "playwright-core"
+      ],
+      "optionalDependencies": [
+        "fsevents"
+      ],
+      "bin": true
     },
     "preact-render-to-string@6.7.0_preact@10.29.2": {
       "integrity": "sha512-Z4WR8fmLMRpdYqJ9i7vrlXSsSrxVJydwrkEXHapexfARbWfGb7vGcnvNQnIzN0cXciMVOlz/XLoiMCi9gUsy9Q==",
@@ -448,6 +469,7 @@
       "npm:@preact/signals@^2.9.0",
       "npm:heic-to@^1.5.2",
       "npm:imagescript@1.3.0",
+      "npm:playwright@^1.61.1",
       "npm:preact-render-to-string@^6.6.7",
       "npm:preact@^10.29.2",
       "npm:qrcode-generator@^1.4.4"
