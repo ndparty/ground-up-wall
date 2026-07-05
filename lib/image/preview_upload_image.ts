@@ -32,8 +32,7 @@ async function bitmapToPreviewBlob(source: File | Blob): Promise<Blob> {
     ctx.drawImage(img.source, 0, 0, canvas.width, canvas.height);
     return await new Promise<Blob>((resolve, reject) => {
       canvas.toBlob(
-        (b) =>
-          b ? resolve(b) : reject(new UploadImageError(DECODE_IMAGE_FAILED_MESSAGE, "encode")),
+        (b) => b ? resolve(b) : reject(new UploadImageError(DECODE_IMAGE_FAILED_MESSAGE, "encode")),
         "image/jpeg",
         PREVIEW_QUALITY,
       );

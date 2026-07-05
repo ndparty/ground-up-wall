@@ -29,10 +29,7 @@ import {
   parseJoinBarPosition,
 } from "../display/display_bar_config.ts";
 import { isMessageValid, type MessageLengthConfig } from "../validation/message_length.ts";
-import {
-  MAX_SOCIAL_HANDLE_LENGTH,
-  MAX_SUBMITTER_NAME_LENGTH,
-} from "../api/submission_request.ts";
+import { MAX_SOCIAL_HANDLE_LENGTH, MAX_SUBMITTER_NAME_LENGTH } from "../api/submission_request.ts";
 import type {
   AuditEntry,
   AuditFilter,

@@ -874,8 +874,12 @@ body.display-wall-mode main {
 }
 
 @keyframes display-wall-override-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .display-wall__override-panel--under {

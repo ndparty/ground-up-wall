@@ -184,7 +184,9 @@ const TrainCabin = forwardRef<HTMLElement, TrainCabinProps>(function TrainCabin(
                 {(submission?.social_handle || onEditField) && (
                   <p
                     class={`train-cabin__handle${
-                      !submission?.social_handle && onEditField ? " train-cabin__handle--placeholder" : ""
+                      !submission?.social_handle && onEditField
+                        ? " train-cabin__handle--placeholder"
+                        : ""
                     }`}
                     {...editableFieldProps("handle", onEditField)}
                   >

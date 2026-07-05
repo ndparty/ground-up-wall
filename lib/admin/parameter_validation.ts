@@ -34,7 +34,8 @@ export function validateParameterValue(key: string, value: string): string | nul
       if (v.length > 500) return "default_placeholder_image is too long";
       // Same-origin storage path set by the upload flow, e.g. /placeholders/default.jpg.
       // Reject data:/javascript: and other schemes that could render on the display wall.
-      const isSafeStoragePath = /^\/(placeholders|overrides)\/[\w.\-/]+\.(jpg|jpeg|png)$/i.test(v) &&
+      const isSafeStoragePath =
+        /^\/(placeholders|overrides)\/[\w.\-/]+\.(jpg|jpeg|png)$/i.test(v) &&
         !v.includes("..");
       if (!isSafeStoragePath) {
         return "default_placeholder_image must be an uploaded placeholder path";

@@ -4,10 +4,7 @@ import {
   type DecodeImageDeps,
   decodeImageSource,
 } from "./decode_image_source.ts";
-import {
-  DECODE_IMAGE_FAILED_MESSAGE,
-  UploadImageError,
-} from "./decode_upload_image.ts";
+import { DECODE_IMAGE_FAILED_MESSAGE, UploadImageError } from "./decode_upload_image.ts";
 
 function fakeSource(label: string): DecodedImageSource {
   return {
@@ -18,9 +15,11 @@ function fakeSource(label: string): DecodedImageSource {
   };
 }
 
-function makeDeps(overrides: Partial<DecodeImageDeps> & {
-  bitmapResults?: Array<"ok" | "fail">;
-}): { deps: DecodeImageDeps; calls: { bitmap: number; element: number; waits: number } } {
+function makeDeps(
+  overrides: Partial<DecodeImageDeps> & {
+    bitmapResults?: Array<"ok" | "fail">;
+  },
+): { deps: DecodeImageDeps; calls: { bitmap: number; element: number; waits: number } } {
   const calls = { bitmap: 0, element: 0, waits: 0 };
   const bitmapResults = overrides.bitmapResults ?? [];
   const deps: DecodeImageDeps = {
