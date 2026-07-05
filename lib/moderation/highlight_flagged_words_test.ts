@@ -27,3 +27,21 @@ Deno.test("testCaseInsensitiveHighlight", () => {
   assertEquals(segments[0], { text: "HELL", highlighted: true });
   assertEquals(segments[1], { text: " yeah", highlighted: false });
 });
+
+Deno.test("testSeparatorVariantHighlighted", () => {
+  const segments = highlightFlaggedWords("what the f*ck", ["fck"]);
+  assertEquals(segments[0], { text: "what the ", highlighted: false });
+  assertEquals(segments[1], { text: "f*ck", highlighted: true });
+});
+
+Deno.test("testSpacedVariantHighlighted", () => {
+  const segments = highlightFlaggedWords("s h i t happens", ["shit"]);
+  assertEquals(segments[0], { text: "s h i t", highlighted: true });
+  assertEquals(segments[1], { text: " happens", highlighted: false });
+});
+
+Deno.test("testDottedVariantHighlighted", () => {
+  const segments = highlightFlaggedWords("f.u.c.k this", ["fuck"]);
+  assertEquals(segments[0], { text: "f.u.c.k", highlighted: true });
+  assertEquals(segments[1], { text: " this", highlighted: false });
+});

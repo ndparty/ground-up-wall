@@ -63,6 +63,7 @@ body.display-wall-mode main {
   display: flex;
   align-items: center;
   overflow: hidden;
+  padding-top: 24px;
 }
 
 .display-wall__stage-outer {
@@ -73,6 +74,7 @@ body.display-wall-mode main {
   justify-content: center;
   overflow-x: hidden;
   overflow-y: visible;
+  padding-top: 24px;
   padding-bottom: calc(var(--wheel-drop) + var(--rail-height) + 12px);
 }
 
@@ -112,7 +114,7 @@ body.display-wall-mode main {
   gap: var(--cabin-gap);
   will-change: transform;
   position: relative;
-  margin-top: -3px;
+  margin-top: 4px;
   padding-bottom: calc(var(--wheel-drop) + var(--rail-height) + 4px);
 }
 
@@ -216,7 +218,7 @@ body.display-wall-mode main {
 /* Roof band — MRT-style station sign sits inside. */
 .train-cabin__roof {
   flex: 0 0 auto;
-  min-height: 52px;
+  min-height: 46px;
   padding: 0.4rem 0.5rem;
   background: linear-gradient(180deg, #a8b0ba 0%, var(--mrt-roof) 55%, #727b87 100%);
   border-bottom: 8px solid var(--sg-red);
@@ -229,42 +231,64 @@ body.display-wall-mode main {
 
 /* --- Station sign shared --- */
 .train-cabin__sign {
+  --sign-logo-height: 32px;
+  --sign-logo-height-lrt: 40px;
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  width: calc(100% - 2.5rem);
-  margin: 0 1.25rem;
-  min-height: 40px;
-  padding: 0.3rem 0.5rem;
+  width: calc(100% - 3rem);
+  margin: 0 1.5rem;
+  min-height: 36px;
+  padding: 0.28rem 0.85rem 0.6rem;
   border-radius: 4px;
 }
 
-.train-cabin__sign-logo {
+.train-cabin__sign-logos {
   flex: 0 0 auto;
-  width: 26px;
-  height: 26px;
-  background: #f5c518;
-  border-radius: 50%;
-  position: relative;
-}
-
-.train-cabin__sign-logo::after {
-  content: "S";
-  position: absolute;
-  inset: 0;
   display: flex;
   align-items: center;
-  justify-content: center;
-  font-weight: 900;
-  font-size: 0.8rem;
-  color: #1a1a1a;
+  gap: 0.35rem;
+  overflow: visible;
+}
+
+.train-cabin__sign-logos:has(
+  .train-cabin__sign-system-logo--mrt + .train-cabin__sign-system-logo--lrt
+) {
+  gap: 0.55rem;
+}
+
+.train-cabin__sign-system-logo {
+  color: #fff;
+  display: block;
+  flex-shrink: 0;
+  overflow: visible;
+  height: var(--sign-logo-height);
+  width: auto;
+}
+
+.train-cabin__sign-system-logo--mrt {
+  aspect-ratio: 17.10 / 10.57;
+}
+
+.train-cabin__sign-system-logo--lrt {
+  height: var(--sign-logo-height-lrt);
+  aspect-ratio: 253.87 / 485.07;
+  margin-right: 0.25rem;
+  transform: translateY(2px);
+}
+
+.train-cabin__sign-name-wrap {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  padding-bottom: 2px;
 }
 
 .train-cabin__sign-name {
-  flex: 1;
-  min-width: 0;
-  font-size: 1.2rem;
+  display: block;
+  font-size: 1.35rem;
   font-weight: 700;
+  line-height: 1.2;
   letter-spacing: 0.01em;
   color: #fff;
   overflow: hidden;

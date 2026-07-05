@@ -124,6 +124,20 @@ export default function UploadForm({
   const decodedUploadRef = useRef<Promise<File | Blob> | null>(null);
   /** Settled when the preview pipeline finishes; submit awaits it so two heavy decodes never run concurrently. */
   const previewJobRef = useRef<Promise<void>>(Promise.resolve());
+  const messageRef = useRef<HTMLTextAreaElement>(null);
+  const nameRef = useRef<HTMLInputElement>(null);
+  const socialRef = useRef<HTMLInputElement>(null);
+
+  function focusFormField(field: "message" | "name" | "handle") {
+    const el = field === "message"
+      ? messageRef.current
+      : field === "name"
+      ? nameRef.current
+      : socialRef.current;
+    if (!el) return;
+    el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    el.focus();
+  }
 
   useEffect(() => {
     const profile = loadFormProfile();
@@ -474,6 +488,7 @@ export default function UploadForm({
                 destination={previewDestination}
                 isActive
                 onPhotoError={() => void handlePreviewError()}
+                onEditField={focusFormField}
               />
             </div>
           )}
@@ -482,6 +497,7 @@ export default function UploadForm({
         <label data-field="message" class="form-label">
           Message
           <textarea
+            ref={messageRef}
             value={message}
             onInput={(e) => applyMessageInput(e.currentTarget as HTMLTextAreaElement)}
             onKeyDown={handleMessageKeyDown}
@@ -499,6 +515,7 @@ export default function UploadForm({
         <label data-field="submitter_name" class="form-label">
           Your name
           <input
+            ref={nameRef}
             value={submitterName}
             onInput={(e) => {
               const value = (e.target as HTMLInputElement).value;
@@ -513,9 +530,10 @@ export default function UploadForm({
           )}
         </label>
 
-        <label class="form-label">
+        <label data-field="social_handle" class="form-label">
           Instagram handle (optional)
           <input
+            ref={socialRef}
             value={socialHandle}
             onInput={(e) => {
               const value = (e.target as HTMLInputElement).value;

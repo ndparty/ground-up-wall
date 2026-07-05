@@ -73,6 +73,10 @@ export const PENDING_DEMO_TEMPLATES: DemoSubmissionTemplate[] = [
   { message: "Rain won't make me pissed, still celebrating!", submitterName: "Kelvin Soh" },
   { message: "Heartlands united tonight", submitterName: "Kenneth Teo", socialHandle: "@kenteo" },
   { message: "Majulah Singapura!", submitterName: "Grace Tan" },
+  // flagged: separator evasion "f*ck"
+  { message: "What the f*ck, best fireworks ever!", submitterName: "Ian Koh" },
+  // flagged: abbrev "wtf"
+  { message: "wtf this parade is amazing", submitterName: "Nadia Yusof" },
 ];
 
 export function getPendingDemoContent(index: number): DemoSubmissionTemplate {

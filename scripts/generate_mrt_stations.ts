@@ -22,6 +22,8 @@ const OUT_PATH = new URL("../lib/copy/mrt_stations.generated.ts", import.meta.ur
 export interface StationEntry {
   name: string;
   codes: string[];
+  onMrtList: boolean;
+  onLrtList: boolean;
 }
 
 function normalizeName(raw: string): string | null {
@@ -58,7 +60,10 @@ export function parseCodesFromLine(line: string): string[] {
 }
 
 /** Extract stations with line codes from Wikipedia "In operation" wikitext tables. */
-export function parseOperationalStations(wikitext: string): StationEntry[] {
+export function parseOperationalStations(
+  wikitext: string,
+  list: "mrt" | "lrt",
+): StationEntry[] {
   const entries: StationEntry[] = [];
   const inOpMatch = wikitext.match(/={2,3}\s*In operation\s*={2,3}/i);
   const inOp = inOpMatch?.index ?? -1;
@@ -87,7 +92,9 @@ export function parseOperationalStations(wikitext: string): StationEntry[] {
       flush();
       const rowLink = trimmed.match(/\[\[[^\]|]+\|([^\]|*]+)\]\]/);
       const name = rowLink ? normalizeName(rowLink[1]!) : null;
-      current = name ? { name, codes: [] } : null;
+      current = name
+        ? { name, codes: [], onMrtList: list === "mrt", onLrtList: list === "lrt" }
+        : null;
       continue;
     }
 
@@ -100,7 +107,12 @@ export function parseOperationalStations(wikitext: string): StationEntry[] {
       const name = rowLink ? normalizeName(rowLink[1]!) : null;
       if (name) {
         flush();
-        current = { name, codes: [] };
+        current = {
+          name,
+          codes: [],
+          onMrtList: list === "mrt",
+          onLrtList: list === "lrt",
+        };
         continue;
       }
     }
@@ -142,8 +154,15 @@ export function mergeStationEntries(entries: StationEntry[]): StationEntry[] {
     const existing = byKey.get(key);
     if (existing) {
       existing.codes = [...new Set([...existing.codes, ...entry.codes])];
+      existing.onMrtList = existing.onMrtList || entry.onMrtList;
+      existing.onLrtList = existing.onLrtList || entry.onLrtList;
     } else {
-      byKey.set(key, { name: entry.name, codes: [...new Set(entry.codes)] });
+      byKey.set(key, {
+        name: entry.name,
+        codes: [...new Set(entry.codes)],
+        onMrtList: entry.onMrtList,
+        onLrtList: entry.onLrtList,
+      });
     }
   }
   const merged = [...byKey.values()];
@@ -159,7 +178,7 @@ function renderTs(stations: StationEntry[], date: string): string {
     .map((s) =>
       `  { name: ${JSON.stringify(s.name)}, codes: [${
         s.codes.map((c) => JSON.stringify(c)).join(", ")
-      }] },`
+      }], onMrtList: ${s.onMrtList}, onLrtList: ${s.onLrtList} },`
     )
     .join("\n");
   return `/**
@@ -174,6 +193,8 @@ export interface GeneratedStationEntry {
   name: string;
   /** Line codes in alphabetical order (e.g. Dhoby Ghaut: CC1, NE6, NS24). */
   codes: readonly string[];
+  onMrtList: boolean;
+  onLrtList: boolean;
 }
 
 export const MRT_LRT_STATION_ENTRIES: readonly GeneratedStationEntry[] = [
@@ -192,8 +213,8 @@ export async function generateMrtStations(): Promise<{ count: number; path: stri
     fetchWikitext("List_of_Singapore_LRT_stations"),
   ]);
   const merged = mergeStationEntries([
-    ...parseOperationalStations(mrtWiki),
-    ...parseOperationalStations(lrtWiki),
+    ...parseOperationalStations(mrtWiki, "mrt"),
+    ...parseOperationalStations(lrtWiki, "lrt"),
   ]);
 
   const withCodes = merged.filter((s) => s.codes.length > 0);

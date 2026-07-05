@@ -8,7 +8,11 @@ import {
   QR_CABIN_NAME,
 } from "../lib/defaults/app_defaults.ts";
 import { stationLineBadges } from "../lib/copy/station_lines.ts";
+import { stationSystemLogos } from "../lib/copy/mrt_stations.ts";
+import { TransitSystemLogo } from "../lib/copy/TransitSystemLogo.tsx";
 import { fitTextClass, fitTextDataRem, useFitText } from "../lib/hooks/use_fit_text.ts";
+
+export type TrainCabinEditField = "message" | "name" | "handle";
 
 export interface TrainCabinProps {
   kind: "post" | "qr";
@@ -21,6 +25,32 @@ export interface TrainCabinProps {
   /** Full origin encoded into the QR code (e.g. "https://wall.example.com"). */
   qrUrl?: string;
   onPhotoError?: () => void;
+  /** Upload preview: tap/click cabin text to focus the matching form field. */
+  onEditField?: (field: TrainCabinEditField) => void;
+}
+
+function editableFieldProps(
+  field: TrainCabinEditField,
+  onEditField?: (field: TrainCabinEditField) => void,
+) {
+  if (!onEditField) return {};
+  const labels: Record<TrainCabinEditField, string> = {
+    message: "Edit message",
+    name: "Edit name",
+    handle: "Edit Instagram handle",
+  };
+  return {
+    role: "button" as const,
+    tabIndex: 0,
+    "aria-label": labels[field],
+    onClick: () => onEditField(field),
+    onKeyDown: (e: KeyboardEvent) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        onEditField(field);
+      }
+    },
+  };
 }
 
 /**
@@ -32,16 +62,26 @@ function StationSign({ name, variant }: { name: string; variant: "station" | "si
   if (variant === "simple") {
     return (
       <div class={`train-cabin__sign train-cabin__sign--simple`}>
-        <span class="train-cabin__sign-logo" aria-hidden="true" />
-        <span class="train-cabin__sign-name">{name}</span>
+        <span class="train-cabin__sign-logos" aria-hidden="true">
+          <TransitSystemLogo kind="mrt" />
+        </span>
+        <span class="train-cabin__sign-name-wrap">
+          <span class="train-cabin__sign-name">{name}</span>
+        </span>
       </div>
     );
   }
 
   const badges = stationLineBadges(name);
+  const logos = stationSystemLogos(name);
   return (
     <div class={`train-cabin__sign train-cabin__sign--station`}>
-      <span class="train-cabin__sign-name">{name}</span>
+      <span class="train-cabin__sign-logos" aria-hidden="true">
+        {logos.map((kind) => <TransitSystemLogo key={kind} kind={kind} />)}
+      </span>
+      <span class="train-cabin__sign-name-wrap">
+        <span class="train-cabin__sign-name">{name}</span>
+      </span>
       {badges.length > 0 && (
         <span class="train-cabin__sign-line-pill" aria-hidden="true">
           {badges.map((badge) => (
@@ -59,7 +99,7 @@ function StationSign({ name, variant }: { name: string; variant: "station" | "si
 }
 
 const TrainCabin = forwardRef<HTMLElement, TrainCabinProps>(function TrainCabin(
-  { kind, submission, destination, isActive, isAnimating, qrUrl, onPhotoError },
+  { kind, submission, destination, isActive, isAnimating, qrUrl, onPhotoError, onEditField },
   ref,
 ) {
   const roofLabel = kind === "qr" ? QR_CABIN_DESTINATION : (destination ?? "—");
@@ -125,7 +165,11 @@ const TrainCabin = forwardRef<HTMLElement, TrainCabinProps>(function TrainCabin(
             )
             : (
               <>
-                <div class="train-cabin__message-wrap" ref={wrapRef}>
+                <div
+                  class="train-cabin__message-wrap"
+                  ref={wrapRef}
+                  {...editableFieldProps("message", onEditField)}
+                >
                   <p
                     ref={textRef}
                     class={`train-cabin__message ${fitTextClass(sizeRem)}`}
@@ -134,9 +178,18 @@ const TrainCabin = forwardRef<HTMLElement, TrainCabinProps>(function TrainCabin(
                     {submission?.message}
                   </p>
                 </div>
-                <p class="train-cabin__name">{submission?.submitter_name}</p>
-                {submission?.social_handle && (
-                  <p class="train-cabin__handle">{submission.social_handle}</p>
+                <p class="train-cabin__name" {...editableFieldProps("name", onEditField)}>
+                  {submission?.submitter_name}
+                </p>
+                {(submission?.social_handle || onEditField) && (
+                  <p
+                    class={`train-cabin__handle${
+                      !submission?.social_handle && onEditField ? " train-cabin__handle--placeholder" : ""
+                    }`}
+                    {...editableFieldProps("handle", onEditField)}
+                  >
+                    {submission?.social_handle || "@instagram"}
+                  </p>
                 )}
               </>
             )}

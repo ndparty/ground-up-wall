@@ -9,6 +9,7 @@ import {
   MRT_LRT_STATION_ENTRIES,
   MRT_LRT_STATIONS,
 } from "../lib/copy/mrt_stations.generated.ts";
+import { stationSystemLogos } from "../lib/copy/mrt_stations.ts";
 
 const SAMPLE_MRT_WIKITEXT = `
 == In operation ==
@@ -53,21 +54,21 @@ const SAMPLE_LRT_WIKITEXT = `
 `;
 
 Deno.test("parseOperationalStations extracts names with codes and stops before Under construction", () => {
-  const entries = parseOperationalStations(SAMPLE_MRT_WIKITEXT);
+  const entries = parseOperationalStations(SAMPLE_MRT_WIKITEXT, "mrt");
   assertEquals(entries, [
-    { name: "Jurong East", codes: ["NS1", "EW24"] },
-    { name: "Dhoby Ghaut", codes: ["NS24", "NE6", "CC1"] },
-    { name: "Bukit Panjang", codes: ["BP6", "DT1"] },
-    { name: "Tanah Merah", codes: ["EW4", "CG"] },
-    { name: "Tagore", codes: [] },
+    { name: "Jurong East", codes: ["NS1", "EW24"], onMrtList: true, onLrtList: false },
+    { name: "Dhoby Ghaut", codes: ["NS24", "NE6", "CC1"], onMrtList: true, onLrtList: false },
+    { name: "Bukit Panjang", codes: ["BP6", "DT1"], onMrtList: true, onLrtList: false },
+    { name: "Tanah Merah", codes: ["EW4", "CG"], onMrtList: true, onLrtList: false },
+    { name: "Tagore", codes: [], onMrtList: true, onLrtList: false },
   ]);
 });
 
 Deno.test("parseOperationalStations extracts LRT pipe rows with hub codes", () => {
-  const entries = parseOperationalStations(SAMPLE_LRT_WIKITEXT);
+  const entries = parseOperationalStations(SAMPLE_LRT_WIKITEXT, "lrt");
   assertEquals(entries, [
-    { name: "Bakau", codes: ["SE3"] },
-    { name: "Sengkang", codes: ["STC", "NE16"] },
+    { name: "Bakau", codes: ["SE3"], onMrtList: false, onLrtList: true },
+    { name: "Sengkang", codes: ["STC", "NE16"], onMrtList: false, onLrtList: true },
   ]);
 });
 
@@ -82,13 +83,13 @@ Deno.test("parseCodesFromLine handles dash-joined templates and numberless codes
 
 Deno.test("mergeStationEntries unions codes across pages and sorts", () => {
   const merged = mergeStationEntries([
-    { name: "Sengkang", codes: ["NE16"] },
-    { name: "Sengkang", codes: ["STC", "NE16"] },
-    { name: "Bakau", codes: ["SE3"] },
+    { name: "Sengkang", codes: ["NE16"], onMrtList: true, onLrtList: false },
+    { name: "Sengkang", codes: ["STC", "NE16"], onMrtList: false, onLrtList: true },
+    { name: "Bakau", codes: ["SE3"], onMrtList: false, onLrtList: true },
   ]);
   assertEquals(merged, [
-    { name: "Bakau", codes: ["SE3"] },
-    { name: "Sengkang", codes: ["NE16", "STC"] },
+    { name: "Bakau", codes: ["SE3"], onMrtList: false, onLrtList: true },
+    { name: "Sengkang", codes: ["NE16", "STC"], onMrtList: true, onLrtList: true },
   ]);
 });
 
@@ -106,4 +107,24 @@ Deno.test("committed station list has expected size, known names, and codes", ()
   for (const entry of MRT_LRT_STATION_ENTRIES) {
     assertGreaterOrEqual(entry.codes.length, 1);
   }
+
+  const bakau = MRT_LRT_STATION_ENTRIES.find((s) => s.name === "Bakau");
+  assertEquals(bakau?.onMrtList, false);
+  assertEquals(bakau?.onLrtList, true);
+
+  const woodlands = MRT_LRT_STATION_ENTRIES.find((s) => s.name === "Woodlands");
+  assertEquals(woodlands?.onMrtList, true);
+  assertEquals(woodlands?.onLrtList, false);
+
+  const sengkang = MRT_LRT_STATION_ENTRIES.find((s) => s.name === "Sengkang");
+  assertEquals(sengkang?.onMrtList, true);
+  assertEquals(sengkang?.onLrtList, true);
+});
+
+Deno.test("stationSystemLogos returns MRT first for interchanges and defaults to MRT", () => {
+  assertEquals(stationSystemLogos("Bakau"), ["lrt"]);
+  assertEquals(stationSystemLogos("Woodlands"), ["mrt"]);
+  assertEquals(stationSystemLogos("Sengkang"), ["mrt", "lrt"]);
+  assertEquals(stationSystemLogos("Punggol"), ["mrt", "lrt"]);
+  assertEquals(stationSystemLogos("Unknown Station"), ["mrt"]);
 });

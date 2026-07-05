@@ -134,6 +134,7 @@ Deno.test({
     assertEquals(html.includes("upload") || html.includes("Upload"), true);
     const css = await Deno.readTextFile("static/upload.css");
     assertEquals(css.includes("upload-privacy-notice"), true);
+    assertEquals(css.includes("prefers-color-scheme: dark"), true);
     assertEquals(
       css.includes("btn--touch") ||
         (await Deno.readTextFile("static/app.css")).includes("btn--touch"),
