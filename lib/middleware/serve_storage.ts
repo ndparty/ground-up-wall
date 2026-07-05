@@ -64,9 +64,7 @@ export async function serveStorageFile(
     // Auth-gated prefixes must not be stored by shared/CDN caches (NFR-23);
     // only intentionally public placeholders may be cached publicly.
     const isProtected = AUTH_REQUIRED_PREFIXES.some((prefix) => relative.startsWith(prefix));
-    const cacheControl = isProtected
-      ? "private, no-store"
-      : "public, max-age=3600";
+    const cacheControl = isProtected ? "private, no-store" : "public, max-age=3600";
     return new Response(bytes, {
       headers: {
         "Content-Type": contentType(relative),

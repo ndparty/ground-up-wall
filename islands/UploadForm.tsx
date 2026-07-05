@@ -286,9 +286,7 @@ export default function UploadForm({
   /** Latest-selection decode of the photo; retries fresh if a cached attempt failed. */
   function getDecodedUpload(file: File): Promise<File | Blob> {
     const cached = decodedUploadRef.current;
-    const attempt = cached
-      ? cached.catch(() => decodeUploadImage(file))
-      : decodeUploadImage(file);
+    const attempt = cached ? cached.catch(() => decodeUploadImage(file)) : decodeUploadImage(file);
     decodedUploadRef.current = attempt;
     attempt.catch(() => {
       // Consumers surface the error; this guard only prevents unhandled rejections.

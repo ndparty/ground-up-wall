@@ -31,8 +31,7 @@ export async function compressImage(
     ctx.drawImage(img.source, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, outW, outH);
     const blob = await new Promise<Blob>((resolve, reject) => {
       canvas.toBlob(
-        (b) =>
-          b ? resolve(b) : reject(new UploadImageError(DECODE_IMAGE_FAILED_MESSAGE, "encode")),
+        (b) => b ? resolve(b) : reject(new UploadImageError(DECODE_IMAGE_FAILED_MESSAGE, "encode")),
         "image/jpeg",
         quality,
       );
