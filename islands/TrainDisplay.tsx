@@ -67,6 +67,7 @@ export default function TrainDisplay() {
     retryBootstrap,
     connectionStatus,
     overrideState,
+    overrideInstant,
     reloadGeneration,
     publicParticipantUrl,
     displayBarConfig,
@@ -81,6 +82,20 @@ export default function TrainDisplay() {
   const [highlightReady, setHighlightReady] = useState(true);
   const [jumpOverlaySteps, setJumpOverlaySteps] = useState<TrainStep[] | null>(null);
   const [cornerQrSize, setCornerQrSize] = useState(0);
+
+  const OVERRIDE_FADE_MS = 400;
+  type OverlayKind = "blank" | "placeholder";
+  const [overlayKind, setOverlayKind] = useState<OverlayKind | null>(null);
+  const [overlayVisible, setOverlayVisible] = useState(false);
+  const [overlayCutInstant, setOverlayCutInstant] = useState(false);
+  const [overlayCrossfade, setOverlayCrossfade] = useState<
+    { from: OverlayKind; snapshot: { kind: OverlayKind; imageUrl?: string } } | null
+  >(null);
+  const overlayFadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const overlayKindRef = useRef<OverlayKind | null>(null);
+  const overrideActiveRef = useRef(false);
+  const lastCornerQrSizeRef = useRef(0);
+  const placeholderImageUrlRef = useRef<string | undefined>(undefined);
 
   const baseUrl = publicParticipantUrl?.bannerHost ?? globalThis.location?.host ?? "";
   const originUrl = publicParticipantUrl?.qrOrigin ?? globalThis.location?.origin ?? "";
@@ -119,9 +134,101 @@ export default function TrainDisplay() {
     getCenterKey(trainView);
   const showControls = shouldShowTrainControls(userRole);
   const overrideView = resolveOverrideView(overrideState);
-  const showCornerQr = cornerQrEnabled && cornerQrSize > 0 && cornerQrDataUrl !== null;
+  overlayKindRef.current = overlayKind;
+  const overrideActive = overrideView !== "train" || overlayKind !== null;
+  overrideActiveRef.current = overrideActive;
+  const showChrome = overrideView === "train" && overlayKind === null;
+  const showJoinBar = overrideView === "train" || overlayKind !== null ||
+    overrideView === "blank" || overrideView === "placeholder";
+  const displayedCornerQrSize = overrideActive && lastCornerQrSizeRef.current > 0
+    ? lastCornerQrSizeRef.current
+    : cornerQrSize;
+  const showCornerQr = cornerQrEnabled && displayedCornerQrSize > 0 && cornerQrDataUrl !== null;
   /** Lift the floating train controls above the bar when it sits at the bottom. */
-  const joinBarClearancePx = joinBarAtBottom ? (showCornerQr ? cornerQrSize + 20 : 44) : 0;
+  const joinBarClearancePx = joinBarAtBottom ? (showCornerQr ? displayedCornerQrSize + 20 : 44) : 0;
+
+  useEffect(() => {
+    if (overlayFadeTimerRef.current) {
+      clearTimeout(overlayFadeTimerRef.current);
+      overlayFadeTimerRef.current = null;
+    }
+
+    const cleanup = () => {
+      if (overlayFadeTimerRef.current) {
+        clearTimeout(overlayFadeTimerRef.current);
+        overlayFadeTimerRef.current = null;
+      }
+    };
+
+    if (overrideView === "train") {
+      if (overlayKindRef.current === null) {
+        return cleanup;
+      }
+      setOverlayCrossfade(null);
+      setOverlayCutInstant(false);
+      setOverlayVisible(false);
+      overlayFadeTimerRef.current = setTimeout(() => {
+        setOverlayKind(null);
+        overlayFadeTimerRef.current = null;
+      }, OVERRIDE_FADE_MS);
+      return cleanup;
+    }
+
+    const kind = overrideView as OverlayKind;
+    const currentKind = overlayKindRef.current;
+    setOverlayCutInstant(overrideInstant);
+
+    if (currentKind === kind) {
+      return cleanup;
+    }
+
+    if (currentKind === null) {
+      setOverlayCrossfade(null);
+      setOverlayKind(kind);
+      if (overrideInstant) {
+        setOverlayVisible(true);
+      } else {
+        setOverlayVisible(false);
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => setOverlayVisible(true));
+        });
+      }
+      return cleanup;
+    }
+
+    if (overrideInstant) {
+      setOverlayCrossfade(null);
+      setOverlayKind(kind);
+      setOverlayVisible(true);
+      return cleanup;
+    }
+
+    setOverlayCrossfade({
+      from: currentKind,
+      snapshot: {
+        kind: currentKind,
+        imageUrl: currentKind === "placeholder" ? placeholderImageUrlRef.current : undefined,
+      },
+    });
+    setOverlayKind(kind);
+    setOverlayVisible(true);
+
+    return cleanup;
+  }, [overrideView, overrideInstant]);
+
+  useEffect(() => {
+    if (overrideState.type === "placeholder" && overrideState.imageUrl) {
+      placeholderImageUrlRef.current = overrideState.imageUrl;
+    }
+  }, [overrideState]);
+
+  useEffect(() => {
+    if (!overlayCrossfade) return;
+    const t = setTimeout(() => {
+      setOverlayCrossfade(null);
+    }, OVERRIDE_FADE_MS);
+    return () => clearTimeout(t);
+  }, [overlayCrossfade]);
 
   useEffect(() => {
     const dismissed = globalThis.localStorage?.getItem("display_wall_fullscreen_dismissed");
@@ -267,7 +374,7 @@ export default function TrainDisplay() {
     if (!stage || !track || !hasCabins) return;
 
     const ro = new ResizeObserver(() => {
-      if (isAnimatingRef.current) return;
+      if (isAnimatingRef.current || overrideActiveRef.current) return;
       tryInstantRecenterOn(centerKey);
     });
     ro.observe(stage);
@@ -277,10 +384,19 @@ export default function TrainDisplay() {
 
   /** Size corner QRs from the free space between the bar's edge and the train (never cover it). */
   useEffect(() => {
-    if (!cornerQrEnabled || !hasCabins || overrideView !== "train") {
+    if (!cornerQrEnabled || !hasCabins) {
       setCornerQrSize(0);
+      lastCornerQrSizeRef.current = 0;
       return;
     }
+
+    if (overrideActive) {
+      if (lastCornerQrSizeRef.current > 0) {
+        setCornerQrSize(lastCornerQrSizeRef.current);
+      }
+      return;
+    }
+
     const stage = stageRef.current;
     const track = trackRef.current;
     if (!stage || !track) return;
@@ -289,7 +405,9 @@ export default function TrainDisplay() {
       const rect = track.getBoundingClientRect();
       const viewportH = globalThis.innerHeight || 0;
       const freeSpace = joinBarAtBottom ? viewportH - rect.bottom : rect.top;
-      setCornerQrSize(computeCornerQrSize(freeSpace));
+      const size = computeCornerQrSize(freeSpace);
+      if (size > 0) lastCornerQrSizeRef.current = size;
+      setCornerQrSize(size);
     };
 
     measure();
@@ -301,7 +419,7 @@ export default function TrainDisplay() {
       ro.disconnect();
       globalThis.removeEventListener("resize", measure);
     };
-  }, [cornerQrEnabled, hasCabins, overrideView, joinBarAtBottom]);
+  }, [cornerQrEnabled, hasCabins, joinBarAtBottom, overrideView, overlayKind]);
 
   /** Recenter when idle (bootstrap / server sync); orchestrator recenters after each reconcile. */
   useLayoutEffect(() => {
@@ -539,6 +657,48 @@ export default function TrainDisplay() {
     dismissFullscreenPrompt();
   }
 
+  type OverridePanelSnapshot = { kind: OverlayKind; imageUrl?: string };
+  type OverridePanelPhase = "static" | "under" | "over";
+
+  function renderOverridePanel(
+    snapshot: OverridePanelSnapshot,
+    phase: OverridePanelPhase,
+    key?: string,
+  ) {
+    const classes = ["display-wall__override-panel"];
+    if (phase === "under") {
+      classes.push("display-wall__override-panel--under");
+    } else if (phase === "over") {
+      classes.push("display-wall__override-panel--over");
+    }
+
+    const content = snapshot.kind === "blank"
+      ? <div class="display-wall__override-blank" />
+      : snapshot.imageUrl
+      ? (
+        <div class="display-wall__override-placeholder">
+          <img src={snapshot.imageUrl} alt="Placeholder" />
+        </div>
+      )
+      : (
+        <div class="display-wall__empty">
+          <img src="/logo-dark.png" alt="National Day" class="display-wall__logo" />
+        </div>
+      );
+
+    return <div key={key} class={classes.join(" ")}>{content}</div>;
+  }
+
+  const incomingPanel: OverridePanelSnapshot = overlayCrossfade
+    ? {
+      kind: overrideView as OverlayKind,
+      imageUrl: overrideView === "placeholder" ? overrideState.imageUrl : undefined,
+    }
+    : {
+      kind: overlayKind!,
+      imageUrl: overlayKind === "placeholder" ? overrideState.imageUrl : undefined,
+    };
+
   return (
     <div
       class="display-wall"
@@ -562,7 +722,7 @@ export default function TrainDisplay() {
         </div>
       )}
 
-      {baseUrl && overrideView === "train" && (
+      {baseUrl && showJoinBar && (
         <div
           class={`display-wall__join-bar${
             joinBarAtBottom ? " display-wall__join-bar--bottom" : ""
@@ -575,7 +735,7 @@ export default function TrainDisplay() {
               src={cornerQrDataUrl!}
               alt=""
               decoding="async"
-              style={{ width: `${cornerQrSize}px`, height: `${cornerQrSize}px` }}
+              style={{ width: `${displayedCornerQrSize}px`, height: `${displayedCornerQrSize}px` }}
             />
           )}
           <span class="display-wall__join-text">
@@ -587,7 +747,7 @@ export default function TrainDisplay() {
               src={cornerQrDataUrl!}
               alt=""
               decoding="async"
-              style={{ width: `${cornerQrSize}px`, height: `${cornerQrSize}px` }}
+              style={{ width: `${displayedCornerQrSize}px`, height: `${displayedCornerQrSize}px` }}
             />
           )}
         </div>
@@ -628,23 +788,27 @@ export default function TrainDisplay() {
         </div>
       )}
 
-      {overrideView === "blank" && <div class="display-wall__override-blank" />}
-
-      {overrideView === "placeholder" && (
-        overrideState.imageUrl
-          ? (
-            <div class="display-wall__override-placeholder">
-              <img src={overrideState.imageUrl} alt="Placeholder" />
-            </div>
-          )
-          : (
-            <div class="display-wall__empty">
-              <img src="/logo-dark.png" alt="National Day" class="display-wall__logo" />
-            </div>
-          )
+      {overlayKind !== null && (
+        <div
+          class={`display-wall__override-layer${
+            overlayVisible ? " display-wall__override-layer--visible" : ""
+          }${overlayCutInstant ? " display-wall__override-layer--instant" : ""}`}
+          aria-hidden={!overlayVisible}
+        >
+          {overlayCrossfade &&
+            renderOverridePanel(
+              overlayCrossfade.snapshot,
+              "under",
+              `under-${overlayCrossfade.from}-${overlayCrossfade.snapshot.imageUrl ?? "logo"}`,
+            )}
+          {renderOverridePanel(
+            incomingPanel,
+            overlayCrossfade ? "over" : "static",
+          )}
+        </div>
       )}
 
-      {overrideView === "train" && !hasCabins && (
+      {overrideView === "train" && overlayKind === null && !hasCabins && (
         <div class="display-wall__empty">
           <div class="display-wall__sparkles" aria-hidden="true" />
           <img src="/logo-dark.png" alt="National Day" class="display-wall__logo" />
@@ -655,7 +819,7 @@ export default function TrainDisplay() {
         </div>
       )}
 
-      {overrideView === "train" && hasCabins && (
+      {hasCabins && (
         <div class="display-wall__stage-outer">
           <div class="display-wall__stage-fade display-wall__stage-fade--left" aria-hidden="true" />
           <div
@@ -694,7 +858,7 @@ export default function TrainDisplay() {
         </div>
       )}
 
-      {showControls && hasCabins && (
+      {showControls && hasCabins && showChrome && (
         <TrainControls
           isPlaying={isPlaying}
           onPause={() => void pauseTrain()}

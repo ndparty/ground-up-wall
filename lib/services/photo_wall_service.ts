@@ -851,7 +851,7 @@ export class PhotoWallService {
   }
 
   async panicDisplay(userId: string): Promise<void> {
-    await this.realtime.publish("display_override:command", { type: "blank" });
+    await this.realtime.publish("display_override:command", { type: "blank", instant: true });
     if (this.playbackInitialized) {
       this.playback.pauseForOverride();
     }

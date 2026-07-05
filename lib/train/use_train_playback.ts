@@ -102,6 +102,8 @@ export interface UseTrainPlaybackResult {
   retryBootstrap: () => void;
   connectionStatus: ConnectionStatus;
   overrideState: OverrideState;
+  /** True when the latest override command should skip fade (panic blank). */
+  overrideInstant: boolean;
   reloadGeneration: number;
   publicParticipantUrl: PublicParticipantUrl | null;
   displayBarConfig: DisplayBarConfig;
@@ -128,6 +130,7 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
   const [bootstrapAttempt, setBootstrapAttempt] = useState(0);
   const [reconcileGeneration, setReconcileGeneration] = useState(0);
   const [overrideState, setOverrideState] = useState<OverrideState>({ type: "normal" });
+  const [overrideInstant, setOverrideInstant] = useState(false);
   const [reloadGeneration, setReloadGeneration] = useState(0);
   const [publicParticipantUrl, setPublicParticipantUrl] = useState<PublicParticipantUrl | null>(
     null,
@@ -205,7 +208,10 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
       const res = await fetchWithRetry("/api/concourse/override-state");
       if (!res.ok) return;
       const override = await res.json();
-      if (override) setOverrideState(override as OverrideState);
+      if (override) {
+        setOverrideState(override as OverrideState);
+        setOverrideInstant(false);
+      }
     } catch {
       // ignore — banner shows reconnect state
     }
@@ -389,6 +395,7 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
     display_override: (event) => {
       const command = parseSseData<DisplayOverrideCommand>(event);
       if (command) {
+        setOverrideInstant(command.instant === true);
         setOverrideState(mapCommandToOverrideState(command.type, command.imageUrl));
       }
     },
@@ -474,6 +481,7 @@ export function useTrainPlayback(): UseTrainPlaybackResult {
     retryBootstrap,
     connectionStatus,
     overrideState,
+    overrideInstant,
     reloadGeneration,
     publicParticipantUrl,
     displayBarConfig,
