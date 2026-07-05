@@ -4,6 +4,8 @@ import { loadEnvFile } from "../lib/load_env.ts";
 import { PostgresRepository } from "../lib/repositories/postgres_repository.ts";
 import { MockRepository } from "../lib/repositories/mock_repository.ts";
 import { buildSystemDefaults, CONFIG_MIGRATIONS } from "../lib/defaults/app_defaults.ts";
+import { mergeMissingDefaultWords } from "../lib/admin/parameter_validation.ts";
+import { parseWordList } from "../lib/services/photo_wall_service.ts";
 import { isDeployedEnvironment } from "../lib/deployed.ts";
 import { runMigrations } from "./migrate.ts";
 
@@ -123,20 +125,32 @@ export async function runSeed(databaseUrl?: string): Promise<SeedResult> {
       const existing = await repo.getSystemConfig(config.key);
 
       if (!existing) {
-        await repo.upsertSystemConfig(config.key, config.value, "seed");
+        await repo.upsertSystemConfig(config.key, config.value, "seed", config.default_value);
         configsSeeded++;
-      } else {
-        const migration = CONFIG_MIGRATIONS[config.key];
-        const nextValue = migration && existing.value === migration.from
-          ? migration.to
-          : existing.value;
-        if (
-          existing.default_value !== config.default_value ||
-          nextValue !== existing.value
-        ) {
-          await repo.upsertSystemConfig(config.key, nextValue, "seed");
+        continue;
+      }
+
+      if (config.key === "auto_moderator_word_list") {
+        const merged = mergeMissingDefaultWords(parseWordList(existing.value));
+        const nextValue = JSON.stringify(merged);
+        const nextDefault = config.default_value;
+        if (nextValue !== existing.value || existing.default_value !== nextDefault) {
+          await repo.upsertSystemConfig(config.key, nextValue, "seed", nextDefault);
           configsUpdated++;
         }
+        continue;
+      }
+
+      const migration = CONFIG_MIGRATIONS[config.key];
+      const nextValue = migration && existing.value === migration.from
+        ? migration.to
+        : existing.value;
+      if (
+        existing.default_value !== config.default_value ||
+        nextValue !== existing.value
+      ) {
+        await repo.upsertSystemConfig(config.key, nextValue, "seed", config.default_value);
+        configsUpdated++;
       }
     }
 

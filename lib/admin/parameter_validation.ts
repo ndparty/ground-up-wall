@@ -130,6 +130,19 @@ export function seededWordListJson(): string {
   return JSON.stringify([...SEEDED_DEFAULT_WORD_LIST]);
 }
 
+/** Append shipped default words missing from an existing list (preserves order and custom entries). */
+export function mergeMissingDefaultWords(existing: string[]): string[] {
+  const seen = new Set(existing);
+  const merged = [...existing];
+  for (const word of SEEDED_DEFAULT_WORD_LIST) {
+    if (!seen.has(word)) {
+      merged.push(word);
+      seen.add(word);
+    }
+  }
+  return merged;
+}
+
 export const PARAMETER_LABELS: Record<string, string> = {
   train_dwell_time: "Train dwell time (seconds)",
   message_prompt_text: "Upload message prompt",

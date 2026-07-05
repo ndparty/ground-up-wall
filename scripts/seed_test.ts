@@ -138,3 +138,77 @@ Deno.test({
     }
   },
 });
+
+Deno.test({
+  name: "testSeedMergesMissingDefaultModerationWords",
+  ignore: useMock,
+  async fn() {
+    await cleanupTestData();
+    await runSeed(getTestDatabaseUrl());
+
+    const client = new Client(getTestDatabaseUrl());
+    await client.connect();
+    try {
+      await client.queryArray(
+        `UPDATE system_config SET value = $1, default_value = $1 WHERE key = 'auto_moderator_word_list'`,
+        ['["damn","customword"]'],
+      );
+    } finally {
+      await client.end();
+    }
+
+    const second = await runSeed(getTestDatabaseUrl());
+    assertEquals(second.configsUpdated >= 1, true);
+
+    const repo = await createTestRepository();
+    try {
+      const config = await repo.getSystemConfig("auto_moderator_word_list");
+      const words = JSON.parse(config?.value ?? "[]") as string[];
+      assertEquals(words.includes("damn"), true);
+      assertEquals(words.includes("customword"), true);
+      assertEquals(words.includes("hell"), true);
+      assertEquals(words.includes("crap"), true);
+    } finally {
+      await repo.close();
+      await cleanupTestData();
+    }
+  },
+});
+
+Deno.test({
+  name: "testSeedMigratesTrainDwellAndQrIntervalDefaults",
+  ignore: useMock,
+  async fn() {
+    await cleanupTestData();
+    await runSeed(getTestDatabaseUrl());
+
+    const client = new Client(getTestDatabaseUrl());
+    await client.connect();
+    try {
+      await client.queryArray(
+        `UPDATE system_config SET value = '10', default_value = '10' WHERE key = 'train_dwell_time'`,
+      );
+      await client.queryArray(
+        `UPDATE system_config SET value = '15', default_value = '15' WHERE key = 'qr_cabin_interval'`,
+      );
+    } finally {
+      await client.end();
+    }
+
+    const second = await runSeed(getTestDatabaseUrl());
+    assertEquals(second.configsUpdated >= 2, true);
+
+    const repo = await createTestRepository();
+    try {
+      const dwell = await repo.getSystemConfig("train_dwell_time");
+      const qr = await repo.getSystemConfig("qr_cabin_interval");
+      assertEquals(dwell?.value, "5");
+      assertEquals(dwell?.default_value, "5");
+      assertEquals(qr?.value, "10");
+      assertEquals(qr?.default_value, "10");
+    } finally {
+      await repo.close();
+      await cleanupTestData();
+    }
+  },
+});

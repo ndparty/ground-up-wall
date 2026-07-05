@@ -252,13 +252,14 @@ export class MockRepository implements Repository {
     key: string,
     value: string,
     updatedBy: string,
+    defaultValue?: string,
   ): Promise<SystemConfig> {
     const existing = systemConfigs.get(key);
     const now = new Date();
     const config: SystemConfig = {
       key,
       value,
-      default_value: existing?.default_value ?? value,
+      default_value: defaultValue ?? existing?.default_value ?? value,
       updated_at: now.toISOString(),
       updated_by: updatedBy,
     };

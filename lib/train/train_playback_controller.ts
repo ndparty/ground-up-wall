@@ -71,7 +71,7 @@ export class TrainPlaybackController {
   private state: Omit<TrainPlaybackState, "window"> = {
     isPlaying: true,
     currentCabin: 1,
-    dwellSeconds: 10,
+    dwellSeconds: 5,
     lastTransitionAt: Date.now(),
     cabinCount: 0,
   };

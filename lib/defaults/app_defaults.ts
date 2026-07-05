@@ -32,7 +32,7 @@ export interface SystemDefaultRow {
 export function buildSystemDefaults(): SystemDefaultRow[] {
   const wordList = seededWordListJson();
   return [
-    { key: "train_dwell_time", value: "10", default_value: "10" },
+    { key: "train_dwell_time", value: "5", default_value: "5" },
     {
       key: "message_prompt_text",
       value: DEFAULT_MESSAGE_PROMPT,
@@ -48,7 +48,7 @@ export function buildSystemDefaults(): SystemDefaultRow[] {
     { key: "default_placeholder_image", value: "", default_value: "" },
     { key: "pow_challenge_enabled", value: "true", default_value: "true" },
     { key: "pow_difficulty_bits", value: "16", default_value: "16" },
-    { key: "qr_cabin_interval", value: "15", default_value: "15" },
+    { key: "qr_cabin_interval", value: "10", default_value: "10" },
     { key: "public_participant_url", value: "", default_value: "" },
     { key: "system_killswitch_enabled", value: "false", default_value: "false" },
     { key: "uploads_enabled", value: "true", default_value: "true" },
@@ -60,4 +60,6 @@ export function buildSystemDefaults(): SystemDefaultRow[] {
 /** Keys whose live value is upgraded when still at the previous shipped default. */
 export const CONFIG_MIGRATIONS: Record<string, { from: string; to: string }> = {
   pow_challenge_enabled: { from: "false", to: "true" },
+  train_dwell_time: { from: "10", to: "5" },
+  qr_cabin_interval: { from: "15", to: "10" },
 };

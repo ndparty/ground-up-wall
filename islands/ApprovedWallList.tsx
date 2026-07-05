@@ -1,5 +1,9 @@
-import { useMemo, useState } from "preact/hooks";
+import { useEffect, useMemo, useState } from "preact/hooks";
 import type { Submission } from "../lib/types.ts";
+import {
+  loadApprovedListPrefs,
+  saveApprovedListPrefs,
+} from "../lib/moderation/approved_list_storage.ts";
 import { SubmissionCard } from "./ModerationQueue.tsx";
 
 const DEFAULT_PAGE_SIZE = 25;
@@ -41,9 +45,10 @@ export default function ApprovedWallList({
   onDelete: (sub: Submission) => Promise<void>;
   onShowOnDisplay: (cabinNumber: number) => Promise<void>;
 }) {
+  const storedPrefs = loadApprovedListPrefs();
   const [search, setSearch] = useState("");
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState<PageSizeOption>(DEFAULT_PAGE_SIZE);
+  const [page, setPage] = useState(storedPrefs.page);
+  const [pageSize, setPageSize] = useState<PageSizeOption>(storedPrefs.pageSize);
 
   const filtered = useMemo(
     () => approved.filter((sub) => matchesSearch(sub, search)),
@@ -58,14 +63,27 @@ export default function ApprovedWallList({
     safePage * effectivePageSize,
   );
 
+  useEffect(() => {
+    if (safePage !== page) {
+      setPage(safePage);
+      saveApprovedListPrefs({ page: safePage, pageSize });
+    }
+  }, [safePage, page, pageSize]);
+
+  function updatePage(next: number) {
+    setPage(next);
+    saveApprovedListPrefs({ page: next, pageSize });
+  }
+
   function handleSearchChange(value: string) {
     setSearch(value);
-    setPage(1);
+    updatePage(1);
   }
 
   function handlePageSizeChange(value: PageSizeOption) {
     setPageSize(value);
     setPage(1);
+    saveApprovedListPrefs({ page: 1, pageSize: value });
   }
 
   if (approved.length === 0) {
@@ -133,7 +151,7 @@ export default function ApprovedWallList({
           <button
             type="button"
             disabled={safePage <= 1}
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            onClick={() => updatePage(Math.max(1, safePage - 1))}
             class="btn btn--ghost"
           >
             Previous
@@ -144,7 +162,7 @@ export default function ApprovedWallList({
           <button
             type="button"
             disabled={safePage >= totalPages}
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            onClick={() => updatePage(Math.min(totalPages, safePage + 1))}
             class="btn btn--ghost"
           >
             Next
