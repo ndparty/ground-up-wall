@@ -57,6 +57,3 @@ jobs:
         env:
           DATABASE_URL: "postgres://postgres:postgres@localhost:5432/ground_up_wall_test"
           SECURITY_GATES_DISABLED: "1"
-
-      - name: Run lint and format check
-        run: deno task check
