@@ -21,7 +21,8 @@ The CI pipeline uses the **mock database** by default:
 - **Pull Requests**: Unit tests (`deno task test:unit`) + smoke tests (`deno task test:e2e:smoke`)
 - **Main Branch**: Unit tests (`deno task test:unit`) + smoke tests (`deno task test:e2e:smoke`)
 - **All builds**: Lint and format checks (`deno task check`)
-- **Browser tests**: Run separately in `e2e-browser.yml` via `deno task test:e2e:browser` (requires PostgreSQL + Chromium); they are excluded from `test:unit` and never run in the main CI workflow
+- **Browser tests**: Run separately in `e2e-browser.yml` via `deno task test:e2e:browser` (requires
+  PostgreSQL + Chromium); they are excluded from `test:unit` and never run in the main CI workflow
 
 ## Local Development
 
