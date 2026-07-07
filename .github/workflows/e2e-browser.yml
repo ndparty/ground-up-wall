@@ -1,0 +1,62 @@
+name: E2E Browser Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  e2e-browser:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ground_up_wall_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+        # Wait up to 100s for PostgreSQL to be ready
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: "2.8"
+
+      - name: Install Playwright dependencies
+        run: npx playwright install --with-deps chromium
+
+      - name: Wait for PostgreSQL
+        run: |
+          for i in {1..30}; do
+            if pg_isready -h localhost -p 5432 -U postgres; then
+              echo "PostgreSQL is ready"
+              exit 0
+            fi
+            echo "Waiting for PostgreSQL... ($i/30)"
+            sleep 2
+          done
+          echo "PostgreSQL not ready in time"
+          exit 1
+
+      - name: Run migrations
+        run: deno task db:migrate
+        env:
+          DATABASE_URL: "postgres://postgres:postgres@localhost:5432/ground_up_wall_test"
+
+      - name: Run browser E2E tests
+        run: deno task test:e2e:browser
+        env:
+          DATABASE_URL: "postgres://postgres:postgres@localhost:5432/ground_up_wall_test"
+          SECURITY_GATES_DISABLED: "1"
+
+      - name: Run lint and format check
+        run: deno task check
