@@ -18,10 +18,10 @@ The CI pipeline uses the **mock database** by default:
 
 ### What Runs in CI
 
-- **Pull Requests**: Smoke tests (`deno task test:e2e:smoke`)
-- **Main Branch**: Full test suite (`deno task test`)
+- **Pull Requests**: Unit tests (`deno task test:unit`) + smoke tests (`deno task test:e2e:smoke`)
+- **Main Branch**: Unit tests (`deno task test:unit`) + smoke tests (`deno task test:e2e:smoke`)
 - **All builds**: Lint and format checks (`deno task check`)
-- **Browser tests**: Run separately via `deno task test:e2e:browser` (requires Chromium)
+- **Browser tests**: Run separately in `e2e-browser.yml` via `deno task test:e2e:browser` (requires PostgreSQL + Chromium); they are excluded from `test:unit` and never run in the main CI workflow
 
 ## Local Development
 
@@ -126,12 +126,12 @@ mapped directly to the user stories in `docs/ai-dlc/inception/user-stories/stori
 
 | File                                             | Stories Covered                   | Feature                |
 | ------------------------------------------------ | --------------------------------- | ---------------------- |
-| `tests/e2e-browser/upload.feature.spec.ts`       | US-01, US-02, US-02a              | Upload Page            |
-| `tests/e2e-browser/moderation.feature.spec.ts`   | US-03, US-04, US-05, US-06, US-12 | Moderate Photos        |
-| `tests/e2e-browser/display.feature.spec.ts`      | US-07, US-08, US-15               | Display Wall           |
-| `tests/e2e-browser/admin-users.feature.spec.ts`  | US-09, US-10, US-16, US-18        | Admin — Manage Users   |
-| `tests/e2e-browser/admin-config.feature.spec.ts` | US-14, US-17, US-19               | Admin — Config & Audit |
-| `tests/e2e-browser/password.feature.spec.ts`     | US-11                             | Change Password        |
+| `tests/e2e-browser/upload.feature_test.ts`       | US-01, US-02, US-02a              | Upload Page            |
+| `tests/e2e-browser/moderation.feature_test.ts`   | US-03, US-04, US-05, US-06, US-12 | Moderate Photos        |
+| `tests/e2e-browser/display.feature_test.ts`      | US-07, US-08, US-15               | Display Wall           |
+| `tests/e2e-browser/admin-users.feature_test.ts`  | US-09, US-10, US-16, US-18        | Admin — Manage Users   |
+| `tests/e2e-browser/admin-config.feature_test.ts` | US-14, US-17, US-19               | Admin — Config & Audit |
+| `tests/e2e-browser/password.feature_test.ts`     | US-11                             | Change Password        |
 
 ### Prerequisites
 
@@ -152,7 +152,7 @@ npx playwright install chromium
 deno task test:e2e:browser
 
 # Run a specific feature file
-deno test -P --allow-run --allow-ffi tests/e2e-browser/upload.feature.spec.ts
+deno test -P --allow-run --allow-ffi tests/e2e-browser/upload.feature_test.ts
 ```
 
 ### Test Structure

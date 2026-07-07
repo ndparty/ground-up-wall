@@ -9,6 +9,9 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    # NOTE: Browser E2E tests (deno task test:e2e:browser) are intentionally
+    # excluded here and run only in e2e-browser.yml (which needs Postgres +
+    # Playwright). Do not add test:e2e:browser to this workflow.
     steps:
       - uses: actions/checkout@v4
 
