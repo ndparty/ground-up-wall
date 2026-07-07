@@ -29,7 +29,7 @@ Deno.test({
 
       // US-01: Form elements exist
       const photoInput = await page.$('input[type="file"][accept*="image"]');
-      const messageInput = await page.$('textarea[placeholder]');
+      const messageInput = await page.$("textarea[placeholder]");
       const nameInput = await page.$('label[data-field="submitter_name"] input');
       const submitButton = await page.$('button[type="submit"]');
 
