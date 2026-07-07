@@ -52,6 +52,11 @@ jobs:
         env:
           DATABASE_URL: "postgres://postgres:postgres@localhost:5432/ground_up_wall_test"
 
+      - name: Seed users and demo submissions
+        run: deno task db:seed && deno task db:seed:demos
+        env:
+          DATABASE_URL: "postgres://postgres:postgres@localhost:5432/ground_up_wall_test"
+
       - name: Run browser E2E tests
         run: deno task test:e2e:browser
         env:
