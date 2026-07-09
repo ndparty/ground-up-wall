@@ -90,6 +90,13 @@ Deno.test({
       await waitForConfigValue(page, "train_dwell_time", "10");
       await page.reload();
       await page.waitForSelector(".param-section", { timeout: 10_000 });
+      await page.waitForFunction(
+        () =>
+          (document.querySelector(
+            'input[aria-label="Train dwell time (seconds)"]',
+          ) as HTMLInputElement | null)?.value === "10",
+        { timeout: 10_000 },
+      );
       assertEquals(
         await page.locator('input[aria-label="Train dwell time (seconds)"]').inputValue(),
         "10",
