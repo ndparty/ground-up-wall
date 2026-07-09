@@ -203,10 +203,11 @@ Deno.test({
     const repo = await createTestRepository();
     try {
       await cleanupTestData();
-      const created = await repo.upsertSystemConfig("train_dwell_time", "15", "admin-1");
+      const created = await repo.upsertSystemConfig("train_dwell_time", "15", "admin-1", "5");
       assertEquals(created.value, "15");
       const updated = await repo.upsertSystemConfig("train_dwell_time", "20", "admin-1");
       assertEquals(updated.value, "20");
+      assertEquals(updated.default_value, "5");
     } finally {
       await cleanupTestData();
       await repo.close();
