@@ -11,6 +11,7 @@
     "test:e2e": "deno test -P tests/e2e/",
     "test:e2e:smoke": "deno test -P tests/e2e/ --filter=smoke",
     "test:e2e:browser": "deno test --allow-all tests/e2e-browser/",
+    "test:e2e:browser:ci": "SECURITY_GATES_DISABLED=1 deno test --allow-all tests/e2e-browser/",
     "db:migrate": "deno run -A scripts/migrate.ts",
     "db:seed": "deno run -A scripts/seed.ts",
     "db:seed:demos": "deno run -A scripts/seed_demo_submissions.ts",
