@@ -104,7 +104,7 @@ Deno.test({
             "US-02a: client validation prevents an unacknowledged request",
           );
           await captureVisualBaseline(page, "upload-acknowledgment-error-static", {
-            mask: [".station-sign"],
+            mask: [".train-cabin__sign"],
           });
 
           await page.locator('div[data-field="acknowledged"] input[type="checkbox"]').check();

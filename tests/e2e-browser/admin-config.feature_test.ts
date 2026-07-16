@@ -171,7 +171,12 @@ Deno.test({
           await page.waitForSelector(".param-section, .text-muted", { timeout: 10_000 });
 
           configSnapshot = await snapshotConfigs(page, MUTATED_KEYS);
-          await captureVisualBaseline(page, "admin-parameters-static");
+          await captureVisualBaseline(page, "admin-parameters-static", {
+            mask: [
+              '.panel--form:has([aria-label="display_override_state"])',
+              '.panel--form:has([aria-label="train_playback_state"])',
+            ],
+          });
 
           const dwellTimeInput = page.locator('input[aria-label="Train dwell time (seconds)"]');
           await dwellTimeInput.fill("10");
@@ -341,7 +346,7 @@ Deno.test({
             timeout: 10_000,
           });
           await captureVisualBaseline(displayPage, "admin-override-normal-static", {
-            mask: [".station-sign"],
+            mask: [".train-cabin__sign"],
           });
           await assertOverrideAuditActions(page);
         } catch (error) {
