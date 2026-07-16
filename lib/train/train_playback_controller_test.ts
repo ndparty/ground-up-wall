@@ -1,4 +1,5 @@
 import { assertEquals } from "@std/assert";
+import { createSeededRandom } from "../copy/mrt_stations.ts";
 import type { TrainCommand, TrainStep } from "../interfaces/realtime_service.ts";
 import { TrainPlaybackController } from "./train_playback_controller.ts";
 import { CENTER_SLOT, LEFT_RENDER, RIGHT_RENDER, WINDOW_LENGTH } from "./train_view_constants.ts";
@@ -7,7 +8,7 @@ function ids(n: number): string[] {
   return Array.from({ length: n }, (_, i) => `c${i + 1}`);
 }
 
-function createTestController(initialNow = 1_000) {
+function createTestController(initialNow = 1_000, stationRng?: () => number) {
   let now = initialNow;
   let scheduledDelay = -1;
   let scheduledFn: (() => void) | null = null;
@@ -24,6 +25,7 @@ function createTestController(initialNow = 1_000) {
       scheduledFn = null;
       scheduledDelay = -1;
     },
+    stationRng,
   });
 
   return {
@@ -57,6 +59,21 @@ Deno.test("initialize schedules tick when playing with cabins", () => {
   assertEquals(harness.scheduledDelay, 15_000);
   assertEquals(harness.controller.getState().currentCabin, 1);
   assertEquals(harness.controller.getState().window.length > 0, true);
+});
+
+Deno.test("seeded station RNG produces identical destination sequences", () => {
+  const first = createTestController(1_000, createSeededRandom(42));
+  const second = createTestController(1_000, createSeededRandom(42));
+
+  first.controller.initialize(10, ids(10));
+  second.controller.initialize(10, ids(10));
+  first.fireScheduled();
+  second.fireScheduled();
+
+  assertEquals(
+    first.controller.getState().window.map((step) => step.destination),
+    second.controller.getState().window.map((step) => step.destination),
+  );
 });
 
 Deno.test("advance emits next sequential post at right edge and moves center", () => {

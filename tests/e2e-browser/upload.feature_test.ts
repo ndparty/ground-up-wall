@@ -38,6 +38,7 @@ Deno.test({
       {
         viewport: { width: 375, height: 812 },
         successScreenshot: "upload-form",
+        visualBaseline: "upload-form",
       },
     );
   },

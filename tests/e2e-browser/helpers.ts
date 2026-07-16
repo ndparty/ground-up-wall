@@ -7,6 +7,7 @@ import { type Browser, chromium, type Page } from "playwright";
 import { assertEquals } from "@std/assert";
 import { attachConsole, captureFailure, captureSuccess, recordPass } from "./artifacts.ts";
 import { getBaseUrl, startServer, stopServer } from "./setup.ts";
+import { compareScreenshot } from "./visual.ts";
 
 export { getBaseUrl };
 
@@ -36,6 +37,8 @@ export type RunBrowserTestOptions = {
   acceptDialogs?: boolean;
   /** Writes success/<name>.png when E2E_CAPTURE_SUCCESS_SHOT=1 */
   successScreenshot?: string;
+  /** Compares the settled page against tests/e2e-browser/baselines/<name>.png. */
+  visualBaseline?: string;
 };
 
 /**
@@ -57,6 +60,9 @@ export async function runBrowserTest(
   }
   try {
     await fn({ page, browser });
+    if (opts.visualBaseline) {
+      await compareScreenshot(page, opts.visualBaseline);
+    }
     if (opts.successScreenshot) {
       await captureSuccess(page, opts.successScreenshot);
     }
@@ -85,6 +91,20 @@ export async function loginAs(
 
 export async function loginAsAdmin(page: Page): Promise<void> {
   await loginAs(page, ADMIN_USERNAME, ADMIN_PASSWORD);
+}
+
+export async function waitForTrackIdle(page: Page, timeout = 10_000): Promise<void> {
+  await page.waitForSelector(
+    '.display-wall__track[data-e2e-track-state="idle"]',
+    { timeout },
+  );
+}
+
+export async function waitForTrackSliding(page: Page, timeout = 5_000): Promise<void> {
+  await page.waitForSelector(
+    '.display-wall__track[data-e2e-track-state="sliding"]',
+    { timeout },
+  );
 }
 
 export async function assertRedirectsToLogin(

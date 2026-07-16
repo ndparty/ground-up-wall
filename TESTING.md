@@ -45,10 +45,17 @@ Root: `test-results/e2e-browser/` (env `E2E_ARTIFACTS_DIR`).
 | `success/display-wall.png`                                         | Green — after cabins visible                               |
 | `success/moderation-queue.png`                                     | Green — after queue ready                                  |
 | `success/upload-form.png`                                          | Green — after upload form fields visible                   |
+| `visual-diff/<name>.{actual,expected,diff}.png`                    | Visual baseline mismatch                                   |
 | `summary.json`                                                     | Always (`passed`, `failed`, `screenshots`, `sha`, `event`) |
 
 CI always sets `E2E_CAPTURE_SUCCESS_SHOT=1`. Locally, set that env only when you want success
 screenshots (default off to avoid filling disks).
+
+The three green screenshots also have committed visual baselines under
+`tests/e2e-browser/baselines/`. CI uses `pixelmatch` to compare settled pages against them and fails
+when more than 0.1% of pixels differ. These are static layout/CSS gates, not proof of motion.
+Display animation is verified separately by asserting that a jump enters `sliding`, changes the
+track transform, returns to `idle`, and advances the cabin status.
 
 #### Unit / smoke CI (`ci-*-…`)
 
@@ -200,10 +207,16 @@ deno task test:e2e:browser
 
 # Run a specific feature file
 deno test -P --allow-run --allow-ffi tests/e2e-browser/upload.feature_test.ts
+
+# Intentionally regenerate visual baselines (requires the same Postgres/seed setup)
+deno task test:e2e:baselines
 ```
 
 CI sets `SECURITY_GATES_DISABLED=1` on the browser workflow step (PoW/rate limits off). Local runs
 should match that when debugging CI-equivalent behaviour.
+
+Baseline updates should be generated on Linux matching `ubuntu-latest`, reviewed as images, and
+committed only for intentional UI changes. `E2E_STATION_SEED=42` stabilizes train destination names.
 
 ### Test Structure
 
@@ -267,6 +280,9 @@ Located in `lib/repositories/postgres_repository.ts`:
 | `SECURITY_GATES_DISABLED`  | Disable rate limits in tests               | `1` (set automatically)        |
 | `E2E_ARTIFACTS_DIR`        | Browser E2E artifact root                  | `test-results/e2e-browser`     |
 | `E2E_CAPTURE_SUCCESS_SHOT` | Write green success screenshots (`1` = on) | unset (off) locally; `1` in CI |
+| `E2E_STATION_SEED`         | Seed generated train station names         | unset; `42` in visual CI       |
+| `E2E_VISUAL`               | Compare pages with committed PNG baselines | unset; `1` in visual CI        |
+| `E2E_UPDATE_BASELINES`     | Rewrite PNG baselines instead of comparing | unset (off)                    |
 
 ## Troubleshooting
 

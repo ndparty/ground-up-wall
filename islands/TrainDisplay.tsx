@@ -829,6 +829,7 @@ export default function TrainDisplay() {
           >
             <div
               ref={trackRef}
+              data-e2e-track-state={isSliding ? "sliding" : "idle"}
               class={`display-wall__track${instantSnap ? " display-wall__track--instant" : ""}${
                 isSliding ? " display-wall__track--animating" : ""
               }`}

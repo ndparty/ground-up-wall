@@ -7,6 +7,8 @@ import {
   MODERATOR_PASSWORD,
   MODERATOR_USERNAME,
   runBrowserTest,
+  waitForTrackIdle,
+  waitForTrackSliding,
 } from "./helpers.ts";
 
 Deno.test({
@@ -75,31 +77,49 @@ Deno.test({
           );
           const afterLabel = (await pausePlayBtn.textContent())?.trim();
           assertEquals(afterLabel, "Play", "US-15: clicking Pause should switch control to Play");
-          await pausePlayBtn.click();
         }
 
+        await waitForTrackIdle(page);
+        const statusBefore =
+          (await page.locator(".train-controls__status").textContent())?.trim() ??
+            "";
+        const statusMatch = statusBefore.match(/\bCabin (\d+) of (\d+)\b/);
+        assertEquals(statusMatch !== null, true, "US-15: cabin status exposes current and total");
+        const currentCabin = Number(statusMatch?.[1]);
+        const totalCabins = Number(statusMatch?.[2]);
+        assertGreater(totalCabins, 1, "US-15: animation test needs more than one cabin");
+        const targetCabin = currentCabin === totalCabins ? 1 : currentCabin + 1;
+
+        const track = page.locator(".display-wall__track");
+        const transformBefore = await track.evaluate((element) =>
+          getComputedStyle(element).transform
+        );
         const jumpInput = page.locator('.train-controls__jump input[type="number"]');
         assertEquals(await jumpInput.count() > 0, true, "US-15: jump-to-cabin input should exist");
-        await jumpInput.fill("1");
+        await jumpInput.fill(String(targetCabin));
         await page.locator(".train-controls__jump .train-controls__btn").click();
+        await waitForTrackSliding(page);
         await page.waitForFunction(
-          () =>
-            /\bCabin \d+ of \d+\b/.test(
-              document.querySelector(".train-controls__status")?.textContent ?? "",
-            ),
+          (initialTransform) => {
+            const element = document.querySelector(".display-wall__track");
+            return element !== null && getComputedStyle(element).transform !== initialTransform;
+          },
+          transformBefore,
           { timeout: 5_000 },
         );
+        await waitForTrackIdle(page, 5_000);
         const statusAfter = (await page.locator(".train-controls__status").textContent())?.trim() ??
           "";
         assertEquals(
-          /\bCabin \d+ of \d+\b/.test(statusAfter),
-          true,
-          "US-15: cabin status should report current cabin position",
+          statusAfter,
+          `Cabin ${targetCabin} of ${totalCabins}`,
+          "US-15: animated jump settles on the requested cabin",
         );
       },
       {
         viewport: { width: 1920, height: 1080 },
         successScreenshot: "display-wall",
+        visualBaseline: "display-wall",
       },
     );
   },

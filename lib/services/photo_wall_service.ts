@@ -30,6 +30,7 @@ import {
 } from "../display/display_bar_config.ts";
 import { isMessageValid, type MessageLengthConfig } from "../validation/message_length.ts";
 import { MAX_SOCIAL_HANDLE_LENGTH, MAX_SUBMITTER_NAME_LENGTH } from "../api/submission_request.ts";
+import { createSeededRandom } from "../copy/mrt_stations.ts";
 import type {
   AuditEntry,
   AuditFilter,
@@ -55,6 +56,16 @@ export function parseWordList(value: string | undefined | null): string[] {
   return [...SEEDED_DEFAULT_WORD_LIST];
 }
 
+function stationRngFromEnv(): (() => number) | undefined {
+  const rawSeed = Deno.env.get("E2E_STATION_SEED");
+  if (rawSeed === undefined) return undefined;
+  const seed = Number(rawSeed);
+  if (!Number.isSafeInteger(seed)) {
+    throw new Error("E2E_STATION_SEED must be a safe integer");
+  }
+  return createSeededRandom(seed);
+}
+
 export class PhotoWallService {
   private readonly playback: TrainPlaybackController;
   private playbackInitialized = false;
@@ -73,6 +84,7 @@ export class PhotoWallService {
     private autoModerator: AutoModeratorService,
   ) {
     this.playback = new TrainPlaybackController({
+      stationRng: stationRngFromEnv(),
       publish: (command) => {
         void this.realtime.publish("train:command", command);
         this.publishPlaybackState();

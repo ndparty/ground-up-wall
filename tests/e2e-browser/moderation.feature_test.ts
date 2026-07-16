@@ -94,7 +94,10 @@ Deno.test({
           "US-05: authenticated moderation queue page renders",
         );
       },
-      { successScreenshot: "moderation-queue" },
+      {
+        successScreenshot: "moderation-queue",
+        visualBaseline: "moderation-queue",
+      },
     );
   },
 });
