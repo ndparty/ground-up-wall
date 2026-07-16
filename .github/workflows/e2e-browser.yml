@@ -85,7 +85,6 @@ jobs:
           E2E_STATION_SEED: "42"
           E2E_TRAIN_DWELL_SECONDS: "60"
           E2E_VISUAL: "1"
-          E2E_UPDATE_BASELINES: "1"
           GITHUB_SHA: ${{ github.sha }}
           GITHUB_EVENT_NAME: ${{ steps.meta.outputs.kind }}
 
