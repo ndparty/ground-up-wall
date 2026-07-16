@@ -60,7 +60,7 @@ Deno.test({
           "smoke: at least one cabin mounts",
         );
         await captureVisualBaseline(page, "smoke-display-wall-static", {
-          mask: [".display-wall__join-text", ".train-cabin__sign"],
+          mask: [".display-wall__join-text"],
         });
       },
       { viewport: { width: 1920, height: 1080 } },

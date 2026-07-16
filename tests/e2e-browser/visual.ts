@@ -5,9 +5,14 @@ import { artifactsRoot, safeName } from "./artifacts.ts";
 
 const BASELINES_DIR = "tests/e2e-browser/baselines";
 
-export type VisualCompareOptions = {
+export type PngCompareOptions = {
   maxDiffRatio?: number;
   threshold?: number;
+};
+
+export type VisualCompareOptions = PngCompareOptions & {
+  /** Keep paused/seeked animations at their current time instead of fast-forwarding them. */
+  animations?: "disabled" | "allow";
   /** CSS selector for an element capture; defaults to the full page. */
   selector?: string;
   /** CSS selectors whose volatile content is painted a deterministic gray. */
@@ -33,7 +38,7 @@ async function captureStablePng(
     ]);
   });
   const screenshotOptions = {
-    animations: "disabled",
+    animations: options.animations ?? "disabled",
     caret: "hide",
     mask: options.mask?.map((selector) => page.locator(selector)),
     maskColor: "#808080",
@@ -67,9 +72,20 @@ export async function compareScreenshot(
 ): Promise<void> {
   if (!visualComparisonsEnabled()) return;
 
+  const actualBytes = await captureStablePng(page, options);
+  await comparePng(name, actualBytes, options);
+}
+
+/** Compare already-rendered PNG bytes through the same baseline and diff pipeline. */
+export async function comparePng(
+  name: string,
+  actualBytes: Uint8Array,
+  options: PngCompareOptions = {},
+): Promise<void> {
+  if (!visualComparisonsEnabled()) return;
+
   const fileName = `${safeName(name)}.png`;
   const baselinePath = `${BASELINES_DIR}/${fileName}`;
-  const actualBytes = await captureStablePng(page, options);
 
   if (Deno.env.get("E2E_UPDATE_BASELINES") === "1") {
     await writePng(baselinePath, actualBytes);

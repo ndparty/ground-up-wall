@@ -1,4 +1,6 @@
 import { assertEquals, assertGreater } from "@std/assert";
+import { jumpSlideDurationMs } from "../../lib/train/slide_duration.ts";
+import { assertMonotonicTransform, composeFilmstrip, seekTransformAnimation } from "./animation.ts";
 import { createSubmissionFixture, moderateFixture } from "./fixtures.ts";
 import {
   ADMIN_PASSWORD,
@@ -14,6 +16,7 @@ import {
   waitForTrackIdle,
   waitForTrackSliding,
 } from "./helpers.ts";
+import { comparePng } from "./visual.ts";
 
 async function sendTrainCommand(
   page: import("playwright").Page,
@@ -132,7 +135,7 @@ Deno.test({
 
           await waitForTrackIdle(page);
           await captureVisualBaseline(page, "display-wall-playing-idle-static", {
-            mask: [".display-wall__join-text", ".train-cabin__sign"],
+            mask: [".display-wall__join-text"],
           });
           const statusBefore =
             (await page.locator(".train-controls__status").textContent())?.trim() ??
@@ -142,7 +145,7 @@ Deno.test({
           const currentCabin = Number(statusMatch?.[1]);
           const totalCabins = Number(statusMatch?.[2]);
           assertGreater(totalCabins, 1, "US-15: animation test needs more than one cabin");
-          const jumpDistance = Math.min(3, totalCabins - 1);
+          const jumpDistance = Math.min(9, totalCabins - 1);
           const targetCabin = (currentCabin - 1 + jumpDistance) % totalCabins + 1;
 
           const track = page.locator(".display-wall__track");
@@ -166,7 +169,53 @@ Deno.test({
             transformBefore,
             { timeout: 5_000 },
           );
+          const seeked = await seekTransformAnimation(
+            page,
+            ".display-wall__track",
+            ".display-wall__stage",
+          );
+          const travelledSlots = Math.abs(seeked.endX - seeked.startX) / seeked.slotPitchPx;
+          const animationSteps = Math.round(travelledSlots);
+          assertEquals(
+            Math.abs(travelledSlots - animationSteps) <= 0.05 && animationSteps > 0,
+            true,
+            "FR-20: jump travels a whole number of cabin slots",
+          );
+          assertEquals(
+            seeked.durationMs,
+            jumpSlideDurationMs(animationSteps),
+            "FR-20: jump transition uses the configured distance-based duration",
+          );
+          assertEquals(seeked.easing, "ease-in-out", "FR-20: jump transition uses smooth easing");
+          assertMonotonicTransform(seeked.samples);
+          assertEquals(
+            seeked.endCenterOffset <= 1.5,
+            true,
+            "FR-20: the final seeked frame centers a cabin without an end snap",
+          );
+          if (seeked.keyframePngs.length > 0) {
+            await comparePng(
+              "display-wall-jump-animation-filmstrip",
+              await composeFilmstrip(seeked.keyframePngs, 8, 1),
+            );
+          }
           await waitForTrackIdle(page, 5_000);
+          const settledCenterOffset = await page.evaluate(() => {
+            const stage = document.querySelector<HTMLElement>(".display-wall__stage");
+            const active = document.querySelector<HTMLElement>(".train-cabin-wrap--active");
+            if (!stage || !active) return Number.POSITIVE_INFINITY;
+            const stageRect = stage.getBoundingClientRect();
+            const activeRect = active.getBoundingClientRect();
+            return Math.abs(
+              activeRect.left + activeRect.width / 2 -
+                (stageRect.left + stageRect.width / 2),
+            );
+          });
+          assertEquals(
+            settledCenterOffset <= 1.5,
+            true,
+            "FR-20: the settled active cabin remains centered after animation commit",
+          );
           const statusAfter =
             (await page.locator(".train-controls__status").textContent())?.trim() ??
               "";
@@ -176,7 +225,7 @@ Deno.test({
             "US-15: animated jump settles on the requested cabin",
           );
           await captureVisualBaseline(page, "display-wall-post-jump-static", {
-            mask: [".display-wall__join-text", ".train-cabin__sign"],
+            mask: [".display-wall__join-text"],
           });
 
           await pausePlayBtn.click();
@@ -189,10 +238,10 @@ Deno.test({
           );
           await waitForTrackIdle(page);
           await captureVisualBaseline(page, "display-wall-paused-static", {
-            mask: [".display-wall__join-text", ".train-cabin__sign"],
+            mask: [".display-wall__join-text"],
           });
           await captureVisualBaseline(page, "display-wall", {
-            mask: [".display-wall__join-text", ".train-cabin__sign"],
+            mask: [".display-wall__join-text"],
           });
         } catch (error) {
           testFailure = error;

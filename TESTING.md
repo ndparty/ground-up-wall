@@ -57,12 +57,21 @@ screenshots (default off to avoid filling disks).
 
 Committed visual baselines under `tests/e2e-browser/baselines/` cover every browser feature file:
 upload idle/error/success, login and moderation states, display playing/paused/post-jump, admin
-users/config/audit/override states, password banners, and public/protected smoke shells. CI uses
-`pixelmatch` and fails when more than 0.1% of pixels differ. Volatile timestamps are masked gray at
-capture time. These are settled layout/CSS gates, not proof of motion or realtime delivery.
-Animation is verified separately by asserting `sliding` → transform delta → `idle`; realtime
-coverage approves a unique fixture while the display remains open, jumps to it within 30 seconds,
-then verifies refresh restores the server-authoritative list, position, and play/pause state.
+users/config/audit/override states, password banners, public/protected smoke shells, and a station
+sign matrix spanning MRT, LRT, dual-system, one-to-three line badges, long names, and narrow widths.
+CI uses `pixelmatch` and fails when more than 0.1% of pixels differ. Only genuinely volatile
+content, such as timestamps and the random local join URL, is masked gray; station signs are
+rendered and compared directly.
+
+Animation has two complementary gates. The runtime test asserts `sliding` → transform delta → `idle`
+and the requested final cabin. The frame-accurate gate pauses a clone of the live transform
+transition, seeks every nominal 60 Hz timeline point to verify monotonic movement, duration, easing,
+endpoints, and centering, then compares a labeled 0/25/50/75/100% storyboard baseline. Timeline
+seeking proves interpolation and visual correctness, not actual frame delivery or freedom from
+hardware jank. NFR-03 still requires profiling on representative display hardware (or a dedicated
+performance runner). Realtime coverage approves a unique fixture while the display remains open,
+verifies it appears within 30 seconds, then verifies refresh restores the server-authoritative list,
+position, and play/pause state.
 
 #### Unit / smoke CI (`ci-*-…`)
 
@@ -184,15 +193,16 @@ will race on auth/config mutations.
 
 ### Test Files
 
-| File                                             | Executable browser coverage                                                        | Feature                |
-| ------------------------------------------------ | ---------------------------------------------------------------------------------- | ---------------------- |
-| `tests/e2e-browser/upload.feature_test.ts`       | US-01/02/02a form, client + server acknowledgment rejection, upload → queue        | Upload Page            |
-| `tests/e2e-browser/moderation.feature_test.ts`   | US-03/04/05/06/12 login, queue, edit/approve/reject/delete, flagged fixture, audit | Moderate Photos        |
-| `tests/e2e-browser/display.feature_test.ts`      | US-07/08/15 auth, animation, realtime approval, authoritative refresh              | Display Wall           |
-| `tests/e2e-browser/admin-users.feature_test.ts`  | US-09/10/16/18 create/toggle/delete with verified cleanup                          | Admin — Manage Users   |
-| `tests/e2e-browser/admin-config.feature_test.ts` | US-14/17/19 validation, audit, live override effects, verified restoration         | Admin — Config & Audit |
-| `tests/e2e-browser/password.feature_test.ts`     | US-11 success/error states; probes known credentials and restores original         | Change Password        |
-| `tests/e2e-browser/nfr.feature_test.ts`          | Static public/protected/read-only smoke only — not NFR acceptance                  | Structural smoke       |
+| File                                              | Executable browser coverage                                                        | Feature                |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------- | ---------------------- |
+| `tests/e2e-browser/upload.feature_test.ts`        | US-01/02/02a form, client + server acknowledgment rejection, upload → queue        | Upload Page            |
+| `tests/e2e-browser/moderation.feature_test.ts`    | US-03/04/05/06/12 login, queue, edit/approve/reject/delete, flagged fixture, audit | Moderate Photos        |
+| `tests/e2e-browser/display.feature_test.ts`       | US-07/08/15 auth, animation, realtime approval, authoritative refresh              | Display Wall           |
+| `tests/e2e-browser/admin-users.feature_test.ts`   | US-09/10/16/18 create/toggle/delete with verified cleanup                          | Admin — Manage Users   |
+| `tests/e2e-browser/admin-config.feature_test.ts`  | US-14/17/19 validation, audit, live override effects, verified restoration         | Admin — Config & Audit |
+| `tests/e2e-browser/password.feature_test.ts`      | US-11 success/error states; probes known credentials and restores original         | Change Password        |
+| `tests/e2e-browser/nfr.feature_test.ts`           | Static public/protected/read-only smoke only — not NFR acceptance                  | Structural smoke       |
+| `tests/e2e-browser/station-sign.feature_test.tsx` | MRT/LRT/logo/badge/name-length matrices at normal and narrow widths                | Station signage        |
 
 ### Prerequisites
 
@@ -225,7 +235,9 @@ should match that when debugging CI-equivalent behaviour.
 Baseline updates should be generated on Linux matching `ubuntu-latest`, reviewed as images, and
 committed only for intentional UI changes. `E2E_STATION_SEED=42` stabilizes train destination names;
 `E2E_TRAIN_DWELL_SECONDS=60` prevents automatic ticks racing static captures. The animation test
-still triggers a jump explicitly.
+still triggers a jump explicitly. Station destinations are not masked: the seeded full-display
+captures and dedicated station-sign matrix intentionally gate their logos, names, line badges,
+spacing, and truncation.
 
 For a Linux-compatible update, manually dispatch **E2E Browser Tests** with `update-baselines=true`,
 download `generated-baselines/` from the debug pack, replace the committed files under
@@ -235,7 +247,9 @@ enable baseline update mode on ordinary pull-request or push runs.
 Fixed baseline viewports are **375×812** for participant upload/mobile smoke and **1920×1080** for
 the display wall. Other admin/moderation/password surfaces use the harness default **1280×800**.
 Baseline names ending in `-static` are captured only after the island is ready and any train track
-is idle. Dynamic list timestamps are masked rather than accepted as pixel noise.
+is idle. The animation storyboard is produced non-realtime by seeking exact transition times and is
+therefore deterministic across runner speeds. Dynamic list timestamps are masked rather than
+accepted as pixel noise.
 
 ### Test Structure
 

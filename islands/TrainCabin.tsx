@@ -58,7 +58,7 @@ function editableFieldProps(
  * left-aligned in normal case, real line designators (any count) concatenated
  * in a white-bordered pill on the right. QR cabins keep the "simple" variant.
  */
-function StationSign({ name, variant }: { name: string; variant: "station" | "simple" }) {
+export function StationSign({ name, variant }: { name: string; variant: "station" | "simple" }) {
   if (variant === "simple") {
     return (
       <div class={`train-cabin__sign train-cabin__sign--simple`}>
@@ -98,7 +98,7 @@ function StationSign({ name, variant }: { name: string; variant: "station" | "si
   );
 }
 
-const TrainCabin = forwardRef<HTMLElement, TrainCabinProps>(function TrainCabin(
+const TrainCabin = forwardRef<HTMLDivElement, TrainCabinProps>(function TrainCabin(
   { kind, submission, destination, isActive, isAnimating, qrUrl, onPhotoError, onEditField },
   ref,
 ) {
