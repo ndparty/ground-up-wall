@@ -79,7 +79,8 @@ self-contained report. The animation storyboard and station-sign matrix appear f
 evidence; the filmstrip remains at native resolution in a horizontally scrollable viewer so its
 train text stays inspectable. The remaining passing comparisons follow in a compact gallery. This
 makes a green run visually reviewable without waiting for a deliberate mismatch or downloading
-baseline files.
+baseline files. The large pixelated numbers in the train windows are intentional deterministic
+demo-photo identifiers, not message text.
 
 #### Unit / smoke CI (`ci-*-…`)
 
