@@ -120,19 +120,27 @@ USE_MOCK_DB=true deno task test
 
 ## Browser E2E Tests (Playwright)
 
-Browser tests use **Playwright** to validate UI behaviour in a real Chromium browser. They are
-mapped directly to the user stories in `docs/ai-dlc/inception/user-stories/stories.md`.
+Browser tests use **Playwright** to validate UI behaviour in a real Chromium browser. They exercise
+selected user-story paths from `docs/ai-dlc/inception/user-stories/stories.md`.
+
+**Honest coverage:** inclusion in the table below means the check is **runnable and documented**,
+not that every related user story or NFR is fully accepted. Soft-pass / skipped paths are treated as
+unproven. NFR file is **smoke-only** (demoted) until real budgets exist.
+
+Browser E2E **must run serially** (`deno task test:e2e:browser` sets `--parallel=false`). Parallel
+workers share one Postgres and will race on auth/config mutations.
 
 ### Test Files
 
-| File                                             | Stories Covered                   | Feature                |
+| File                                             | Stories / notes                   | Feature                |
 | ------------------------------------------------ | --------------------------------- | ---------------------- |
 | `tests/e2e-browser/upload.feature_test.ts`       | US-01, US-02, US-02a              | Upload Page            |
 | `tests/e2e-browser/moderation.feature_test.ts`   | US-03, US-04, US-05, US-06, US-12 | Moderate Photos        |
 | `tests/e2e-browser/display.feature_test.ts`      | US-07, US-08, US-15               | Display Wall           |
 | `tests/e2e-browser/admin-users.feature_test.ts`  | US-09, US-10, US-16, US-18        | Admin — Manage Users   |
 | `tests/e2e-browser/admin-config.feature_test.ts` | US-14, US-17, US-19               | Admin — Config & Audit |
-| `tests/e2e-browser/password.feature_test.ts`     | US-11                             | Change Password        |
+| `tests/e2e-browser/password.feature_test.ts`     | US-11 (seeded `pwdchange` user)   | Change Password        |
+| `tests/e2e-browser/nfr.feature_test.ts`          | Smoke only — not NFR acceptance   | Structural smoke       |
 
 ### Prerequisites
 
@@ -149,24 +157,30 @@ npx playwright install chromium
 ### Running
 
 ```bash
-# Run all browser tests
+# Run all browser tests (serial — required)
 deno task test:e2e:browser
 
 # Run a specific feature file
-deno test -P --allow-run --allow-ffi tests/e2e-browser/upload.feature_test.ts
+deno test -P --allow-run --allow-ffi --parallel=false tests/e2e-browser/upload.feature_test.ts
 ```
+
+CI sets `SECURITY_GATES_DISABLED=1` on the browser workflow step (PoW/rate limits off). Local runs
+should match that when debugging CI-equivalent behaviour.
 
 ### Test Structure
 
 Each test file follows this pattern:
 
-1. **Setup**: Start a dev server subprocess and launch Playwright browser
-2. **Tests**: One `Deno.test` per scenario, named with the US ID (e.g.
-   `US-01 — upload form has all required fields`)
-3. **Teardown**: Close browser and stop server
+1. **Setup**: Start an **in-process** Fresh HTTP server (`setup.ts` + `Deno.serve`) and launch
+   Playwright Chromium — not a separate subprocess
+2. **Tests**: One or more `Deno.test` cases named with the US ID (or `smoke (NFR demoted): …`)
+3. **Teardown**: Close browser, restore mutated config/password where applicable, stop server
 
 Tests use `sanitizeResources: false` and `sanitizeOps: false` because Playwright manages its own
 async lifecycle outside Deno's scope tracking.
+
+Shared login lives in `tests/e2e-browser/helpers.ts` and **fails hard** via `waitForURL` if still on
+`/masuk` (no soft-pass).
 
 ## When to Use Each Mode
 
