@@ -1,6 +1,7 @@
 import type { Page } from "playwright";
 import pixelmatch from "pixelmatch";
 import { PNG } from "pngjs";
+import { Buffer } from "node:buffer";
 import { artifactsRoot, safeName } from "./artifacts.ts";
 
 const BASELINES_DIR = "tests/e2e-browser/baselines";
@@ -72,8 +73,8 @@ export async function compareScreenshot(
     throw error;
   }
 
-  const actual = PNG.sync.read(actualBytes);
-  const expected = PNG.sync.read(expectedBytes);
+  const actual = PNG.sync.read(Buffer.from(actualBytes));
+  const expected = PNG.sync.read(Buffer.from(expectedBytes));
   const diffDir = `${artifactsRoot()}/visual-diff`;
   const stem = `${diffDir}/${safeName(name)}`;
 
