@@ -5,10 +5,16 @@ on:
     branches: [main]
   pull_request:
     branches: [main, integration/all-features]
+  release:
+    types: [published]
+  workflow_dispatch:
 
 jobs:
   test:
     runs-on: ubuntu-latest
+    # NOTE: Browser E2E tests (deno task test:e2e:browser) are intentionally
+    # excluded here and run only in e2e-browser.yml (which needs Postgres +
+    # Playwright). Do not add test:e2e:browser to this workflow.
     steps:
       - uses: actions/checkout@v4
 
@@ -16,29 +22,61 @@ jobs:
         with:
           deno-version: "2.8"
 
-      - name: Run unit tests with mock database (PR)
-        if: github.event_name == 'pull_request'
-        env:
-          USE_MOCK_DB: "true"
-        run: deno task test:unit
+      - name: Artifact metadata
+        id: meta
+        run: |
+          case "${{ github.event_name }}" in
+            pull_request) KIND=pr ;;
+            push) KIND=push ;;
+            release) KIND=release ;;
+            *) KIND=manual ;;
+          esac
+          echo "kind=$KIND" >> "$GITHUB_OUTPUT"
+          echo "sha7=${GITHUB_SHA:0:7}" >> "$GITHUB_OUTPUT"
 
-      - name: Run smoke tests with mock database (PR)
-        if: github.event_name == 'pull_request'
-        env:
-          USE_MOCK_DB: "true"
-        run: deno task test:e2e:smoke
+      - name: Prepare CI artifact directory
+        run: mkdir -p test-results/ci
 
-      - name: Run unit tests with mock database (main)
-        if: github.event_name == 'push'
+      - name: Run unit tests with mock database
+        id: unit
         env:
           USE_MOCK_DB: "true"
-        run: deno task test:unit
+        run: |
+          set -o pipefail
+          deno task test:unit --junit-path=test-results/ci/unit-junit.xml 2>&1 | tee test-results/ci/unit.log
 
-      - name: Run smoke tests with mock database (main)
-        if: github.event_name == 'push'
+      - name: Run smoke tests with mock database
+        id: smoke
         env:
           USE_MOCK_DB: "true"
-        run: deno task test:e2e:smoke
+        run: |
+          set -o pipefail
+          deno task test:e2e:smoke --junit-path=test-results/ci/smoke-junit.xml 2>&1 | tee test-results/ci/smoke.log
 
       - name: Run lint and format check
+        id: check
         run: deno task check
+
+      - name: Write CI summary
+        if: always()
+        run: |
+          cat > test-results/ci/summary.json <<EOF
+          {
+            "suite": "ci",
+            "event": "${{ steps.meta.outputs.kind }}",
+            "sha": "${{ github.sha }}",
+            "ref": "${{ github.ref }}",
+            "unit": "${{ steps.unit.outcome }}",
+            "smoke": "${{ steps.smoke.outcome }}",
+            "check": "${{ steps.check.outcome }}"
+          }
+          EOF
+
+      - name: Upload CI test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-${{ steps.meta.outputs.kind }}-${{ steps.meta.outputs.sha7 }}
+          path: test-results/ci/
+          if-no-files-found: warn
+          retention-days: ${{ github.event_name == 'release' && 90 || 14 }}

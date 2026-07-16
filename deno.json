@@ -7,9 +7,11 @@
     "dev": "deno run -A --watch=static/,routes/,lib/,islands/,components/ dev.ts",
     "build": "deno run -A dev.ts build",
     "test": "deno test -P",
-    "test:unit": "deno test -P --ignore=tests/e2e/ --ignore=scripts/seed_test.ts --ignore=scripts/seed_demo_submissions_test.ts --ignore=scripts/migrate_test.ts",
+    "test:unit": "deno test -P --ignore=tests/e2e/ --ignore=tests/e2e-browser/ --ignore=scripts/seed_test.ts --ignore=scripts/seed_demo_submissions_test.ts --ignore=scripts/migrate_test.ts",
     "test:e2e": "deno test -P tests/e2e/",
     "test:e2e:smoke": "deno test -P tests/e2e/ --filter=smoke",
+    "test:e2e:browser": "deno test --allow-all tests/e2e-browser/",
+    "test:e2e:baselines": "deno run -A scripts/update_visual_baselines.ts",
     "db:migrate": "deno run -A scripts/migrate.ts",
     "db:seed": "deno run -A scripts/seed.ts",
     "db:seed:demos": "deno run -A scripts/seed_demo_submissions.ts",
@@ -43,6 +45,8 @@
     "$fresh/dev": "jsr:@fresh/core@^2.3.3/dev",
     "fresh": "jsr:@fresh/core@^2.3.3",
     "fresh/dev": "jsr:@fresh/core@^2.3.3/dev",
+    "pixelmatch": "npm:pixelmatch@^7.2.0",
+    "playwright": "npm:playwright@^1.61.1",
     "preact": "npm:preact@^10.29.2",
     "preact/hooks": "npm:preact@^10.29.2/hooks",
     "preact/compat": "npm:preact@^10.29.2/compat",
@@ -79,7 +83,8 @@
       "net": true,
       "env": true,
       "run": true,
-      "ffi": true
+      "ffi": true,
+      "sys": true
     }
   },
   "exclude": ["**/_fresh/*", "static/roof-badge-preview.html"]

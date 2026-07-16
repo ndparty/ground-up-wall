@@ -36,6 +36,7 @@ export interface TrainPlaybackControllerDeps {
   now?: () => number;
   schedule?: (fn: () => void, delayMs: number) => void;
   cancelSchedule?: () => void;
+  stationRng?: () => number;
 }
 
 type QueuedEphemeral = { kind: "qr" } | { kind: "post"; submissionId: string };
@@ -56,6 +57,7 @@ export class TrainPlaybackController {
   private readonly now: () => number;
   private readonly scheduleFn: (fn: () => void, delayMs: number) => void;
   private readonly cancelScheduleFn: () => void;
+  private readonly stationRng: () => number;
   private timerId: ReturnType<typeof setTimeout> | null = null;
   private initialized = false;
   private pausedForOverride = false;
@@ -79,6 +81,7 @@ export class TrainPlaybackController {
   constructor(deps: TrainPlaybackControllerDeps) {
     this.publish = deps.publish;
     this.now = deps.now ?? (() => Date.now());
+    this.stationRng = deps.stationRng ?? Math.random;
     this.scheduleFn = deps.schedule ?? ((fn, delayMs) => {
       this.timerId = setTimeout(fn, delayMs);
     });
@@ -242,7 +245,7 @@ export class TrainPlaybackController {
       seq: this.nextSeq(),
       kind: "post",
       submissionId: this.cabinIds[this.wrap(index)],
-      destination: pickRandomStation(),
+      destination: pickRandomStation(this.stationRng),
     };
   }
 
@@ -318,7 +321,7 @@ export class TrainPlaybackController {
         seq: this.nextSeq(),
         kind: "post",
         submissionId: queued.submissionId,
-        destination: pickRandomStation(),
+        destination: pickRandomStation(this.stationRng),
         ephemeral: true,
       };
     }

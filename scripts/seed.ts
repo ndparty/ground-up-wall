@@ -12,8 +12,11 @@ import { runMigrations } from "./migrate.ts";
 export const ADMIN_USERNAME = "admin";
 export const MODERATOR_USERNAME = "moderator";
 export const DISPLAY_USERNAME = "display";
+/** Dedicated E2E account for password-change tests (must satisfy MIN_PASSWORD_LENGTH). */
+export const PWDCHANGE_USERNAME = "pwdchange";
 const LOCAL_DEV_FALLBACK_PASSWORD = "admin123";
 const LOCAL_DEMO_FALLBACK_PASSWORD = "demo123";
+const LOCAL_PWDCHANGE_FALLBACK_PASSWORD = "PwdChange1!ab";
 
 const SYSTEM_DEFAULTS = buildSystemDefaults();
 
@@ -21,6 +24,7 @@ export interface SeedResult {
   adminCreated: boolean;
   moderatorCreated: boolean;
   displayCreated: boolean;
+  pwdchangeCreated: boolean;
   configsSeeded: number;
   configsUpdated: number;
   passwordSource: "env" | "local_fallback";
@@ -67,6 +71,15 @@ export async function runSeed(databaseUrl?: string): Promise<SeedResult> {
   const { password, source } = resolveAdminPassword();
   const moderatorPassword = resolveDemoPassword("DEMO_MODERATOR_PASSWORD");
   const displayPassword = resolveDemoPassword("DEMO_DISPLAY_PASSWORD");
+  const pwdchangeFromEnv = Deno.env.get("DEMO_PWDCHANGE_PASSWORD");
+  if (isDeployedEnvironment() && (!pwdchangeFromEnv || pwdchangeFromEnv.length === 0)) {
+    throw new Error(
+      "DEMO_PWDCHANGE_PASSWORD must be set before running the seed script in deployed environments.",
+    );
+  }
+  const pwdchangePassword = pwdchangeFromEnv && pwdchangeFromEnv.length > 0
+    ? pwdchangeFromEnv
+    : LOCAL_PWDCHANGE_FALLBACK_PASSWORD;
 
   let repo;
   if (useMock) {
@@ -82,6 +95,7 @@ export async function runSeed(databaseUrl?: string): Promise<SeedResult> {
   let adminCreated = false;
   let moderatorCreated = false;
   let displayCreated = false;
+  let pwdchangeCreated = false;
   try {
     const existingAdmin = await repo.authenticateUser(ADMIN_USERNAME);
     if (!existingAdmin) {
@@ -117,6 +131,18 @@ export async function runSeed(databaseUrl?: string): Promise<SeedResult> {
         created_by: "seed",
       });
       displayCreated = true;
+    }
+
+    const existingPwdchange = await repo.authenticateUser(PWDCHANGE_USERNAME);
+    if (!existingPwdchange) {
+      const hash = await bcrypt.hash(pwdchangePassword);
+      await repo.createModerator({
+        username: PWDCHANGE_USERNAME,
+        password_hash: hash,
+        role: "moderator",
+        created_by: "seed",
+      });
+      pwdchangeCreated = true;
     }
 
     let configsSeeded = 0;
@@ -158,6 +184,7 @@ export async function runSeed(databaseUrl?: string): Promise<SeedResult> {
       adminCreated,
       moderatorCreated,
       displayCreated,
+      pwdchangeCreated,
       configsSeeded,
       configsUpdated,
       passwordSource: source,
@@ -193,6 +220,11 @@ if (import.meta.main) {
     console.log(`✓ Created display-wall user '${DISPLAY_USERNAME}'`);
   } else {
     console.log(`✓ Display-wall user '${DISPLAY_USERNAME}' already exists`);
+  }
+  if (result.pwdchangeCreated) {
+    console.log(`✓ Created password-change E2E user '${PWDCHANGE_USERNAME}'`);
+  } else {
+    console.log(`✓ Password-change E2E user '${PWDCHANGE_USERNAME}' already exists`);
   }
   if (result.configsSeeded > 0) {
     console.log(`✓ Seeded ${result.configsSeeded} system config entries`);

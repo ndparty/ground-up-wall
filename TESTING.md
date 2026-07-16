@@ -2,24 +2,70 @@
 
 ## Overview
 
-This project supports two testing modes:
+This project supports three testing modes:
 
 1. **Mock Database (CI)** - Fast, no PostgreSQL required
 2. **PostgreSQL (Local Development)** - Full integration testing
+3. **Browser E2E (Playwright)** - Real browser-based UI testing
 
 ## CI Pipeline (GitHub Actions)
 
-The CI pipeline uses the **mock database** by default:
+Two workflows share the same trigger matrix:
 
-- No PostgreSQL service required
-- Tests run faster (~2-3 minutes vs ~5-7 minutes)
-- Set via `USE_MOCK_DB=true` environment variable
+| Trigger             | Branches / events                  |
+| ------------------- | ---------------------------------- |
+| `push`              | `main`                             |
+| `pull_request`      | `main`, `integration/all-features` |
+| `release`           | `published`                        |
+| `workflow_dispatch` | manual                             |
 
-### What Runs in CI
+| Workflow          | Job                                        | What it runs        |
+| ----------------- | ------------------------------------------ | ------------------- |
+| `ci.yml`          | unit + smoke (mock DB) + `deno task check` | Fast; no Postgres   |
+| `e2e-browser.yml` | Playwright browser E2E                     | Postgres + Chromium |
 
-- **Pull Requests**: Smoke tests (`deno task test:e2e:smoke`)
-- **Main Branch**: Full test suite (`deno task test`)
-- **All builds**: Lint and format checks (`deno task check`)
+Mock CI uses `USE_MOCK_DB=true` (no PostgreSQL; ~2–3 minutes). Browser E2E is excluded from
+`test:unit` and never runs in the main CI workflow.
+
+### Artifacts
+
+Both workflows upload under `Actions → run → Artifacts` (always, including green runs).
+
+Naming: `{suite}-{event}-{sha7}` where `event` is `pr` | `push` | `release` | `manual`.
+
+Retention: **14 days** (PR / push / manual), **90 days** (release).
+
+#### Browser E2E (`e2e-*-…`)
+
+Root: `test-results/e2e-browser/` (env `E2E_ARTIFACTS_DIR`).
+
+| Path                                                               | When                                                       |
+| ------------------------------------------------------------------ | ---------------------------------------------------------- |
+| `failures/<test>/{screenshot.png,page.html,console.txt,error.txt}` | On failure                                                 |
+| `success/display-wall.png`                                         | Green — after cabins visible                               |
+| `success/moderation-queue.png`                                     | Green — after queue ready                                  |
+| `success/upload-form.png`                                          | Green — after upload form fields visible                   |
+| `visual-diff/<name>.{actual,expected,diff}.png`                    | Visual baseline mismatch                                   |
+| `summary.json`                                                     | Always (`passed`, `failed`, `screenshots`, `sha`, `event`) |
+
+CI always sets `E2E_CAPTURE_SUCCESS_SHOT=1`. Locally, set that env only when you want success
+screenshots (default off to avoid filling disks).
+
+The three green screenshots also have committed visual baselines under
+`tests/e2e-browser/baselines/`. CI uses `pixelmatch` to compare settled pages against them and fails
+when more than 0.1% of pixels differ. These are static layout/CSS gates, not proof of motion.
+Display animation is verified separately by asserting that a jump enters `sliding`, changes the
+track transform, returns to `idle`, and advances the cabin status.
+
+#### Unit / smoke CI (`ci-*-…`)
+
+Root: `test-results/ci/` — **text only** (no screenshots):
+
+| Path                                 | Contents                   |
+| ------------------------------------ | -------------------------- |
+| `unit-junit.xml` / `smoke-junit.xml` | JUnit reports              |
+| `unit.log` / `smoke.log`             | Tee’d console output       |
+| `summary.json`                       | Commit SHA + step outcomes |
 
 ## Local Development
 
@@ -102,15 +148,92 @@ deno task test
 # Run only unit tests (no e2e)
 deno task test:unit
 
-# Run only e2e tests
+# Run only e2e tests (API-level, handler-based)
 deno task test:e2e
 
 # Run smoke tests only
 deno task test:e2e:smoke
 
+# Run browser E2E tests (Playwright, requires Chromium installed)
+deno task test:e2e:browser
+
 # Run with mock database
 USE_MOCK_DB=true deno task test
 ```
+
+## Browser E2E Tests (Playwright)
+
+Browser tests use **Playwright** to validate UI behaviour in a real Chromium browser. They exercise
+selected user-story paths from `docs/ai-dlc/inception/user-stories/stories.md`.
+
+**Honest coverage:** inclusion in the table below means the check is **runnable and documented**,
+not that every related user story or NFR is fully accepted. Soft-pass / skipped paths are treated as
+unproven. NFR file is **smoke-only** (demoted) until real budgets exist.
+
+Browser E2E **must run serially** (omit `--parallel` — serial is Deno’s default;
+`deno task
+test:e2e:browser` does not pass `--parallel`). Parallel workers share one Postgres and
+will race on auth/config mutations.
+
+### Test Files
+
+| File                                             | Stories / notes                   | Feature                |
+| ------------------------------------------------ | --------------------------------- | ---------------------- |
+| `tests/e2e-browser/upload.feature_test.ts`       | US-01, US-02, US-02a              | Upload Page            |
+| `tests/e2e-browser/moderation.feature_test.ts`   | US-03, US-04, US-05, US-06, US-12 | Moderate Photos        |
+| `tests/e2e-browser/display.feature_test.ts`      | US-07, US-08, US-15               | Display Wall           |
+| `tests/e2e-browser/admin-users.feature_test.ts`  | US-09, US-10, US-16, US-18        | Admin — Manage Users   |
+| `tests/e2e-browser/admin-config.feature_test.ts` | US-14, US-17, US-19               | Admin — Config & Audit |
+| `tests/e2e-browser/password.feature_test.ts`     | US-11 (seeded `pwdchange` user)   | Change Password        |
+| `tests/e2e-browser/nfr.feature_test.ts`          | Smoke only — not NFR acceptance   | Structural smoke       |
+
+### Prerequisites
+
+Playwright and Chromium must be installed:
+
+```bash
+# Install Playwright (already in deno.json imports)
+deno add npm:playwright
+
+# Install Chromium browser binary
+npx playwright install chromium
+```
+
+### Running
+
+```bash
+# Run all browser tests (serial — required)
+deno task test:e2e:browser
+
+# Run a specific feature file
+deno test -P --allow-run --allow-ffi tests/e2e-browser/upload.feature_test.ts
+
+# Intentionally regenerate visual baselines (requires the same Postgres/seed setup)
+deno task test:e2e:baselines
+```
+
+CI sets `SECURITY_GATES_DISABLED=1` on the browser workflow step (PoW/rate limits off). Local runs
+should match that when debugging CI-equivalent behaviour.
+
+Baseline updates should be generated on Linux matching `ubuntu-latest`, reviewed as images, and
+committed only for intentional UI changes. `E2E_STATION_SEED=42` stabilizes train destination names;
+`E2E_TRAIN_DWELL_SECONDS=60` prevents automatic ticks racing static captures. The animation test
+still triggers a jump explicitly.
+
+### Test Structure
+
+Each test file follows this pattern:
+
+1. **`runBrowserTest`** (`helpers.ts`): starts the in-process Fresh server + Chromium, attaches
+   console capture, runs the body, writes failure/success artifacts, always tears down
+2. **Tests**: One or more `Deno.test` cases named with the US ID (or `smoke (NFR demoted): …`)
+3. **Restore**: mutated config/password restored inside the test body `finally` where needed
+
+Tests use `sanitizeResources: false` and `sanitizeOps: false` because Playwright manages its own
+async lifecycle outside Deno's scope tracking.
+
+Shared login lives in `tests/e2e-browser/helpers.ts` and **fails hard** via `waitForURL` if still on
+`/masuk` (no soft-pass).
 
 ## When to Use Each Mode
 
@@ -151,12 +274,18 @@ Located in `lib/repositories/postgres_repository.ts`:
 
 ## Environment Variables
 
-| Variable                  | Purpose                                   | Default                                         |
-| ------------------------- | ----------------------------------------- | ----------------------------------------------- |
-| `USE_MOCK_DB`             | Use mock repository instead of PostgreSQL | `false`                                         |
-| `DATABASE_URL`            | PostgreSQL connection URL                 | `postgres://localhost:5432/ground_up_wall_test` |
-| `DATABASE_URL_TEST`       | Test database URL                         | Same as `DATABASE_URL`                          |
-| `SECURITY_GATES_DISABLED` | Disable rate limits in tests              | `1` (set automatically)                         |
+| Variable                   | Purpose                                    | Default                        |
+| -------------------------- | ------------------------------------------ | ------------------------------ |
+| `USE_MOCK_DB`              | Use mock repository instead of PostgreSQL  | `false`                        |
+| `DATABASE_URL`             | PostgreSQL connection URL                  | `postgres://localhost:5432/…`  |
+| `DATABASE_URL_TEST`        | Test database URL                          | Same as `DATABASE_URL`         |
+| `SECURITY_GATES_DISABLED`  | Disable rate limits in tests               | `1` (set automatically)        |
+| `E2E_ARTIFACTS_DIR`        | Browser E2E artifact root                  | `test-results/e2e-browser`     |
+| `E2E_CAPTURE_SUCCESS_SHOT` | Write green success screenshots (`1` = on) | unset (off) locally; `1` in CI |
+| `E2E_STATION_SEED`         | Seed generated train station names         | unset; `42` in visual CI       |
+| `E2E_TRAIN_DWELL_SECONDS`  | Stabilize the automatic dwell during E2E   | unset; `60` in visual CI       |
+| `E2E_VISUAL`               | Compare pages with committed PNG baselines | unset; `1` in visual CI        |
+| `E2E_UPDATE_BASELINES`     | Rewrite PNG baselines instead of comparing | unset (off)                    |
 
 ## Troubleshooting
 

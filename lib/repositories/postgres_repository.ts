@@ -442,17 +442,18 @@ export class PostgresRepository implements Repository {
     updatedBy: string,
     defaultValue?: string,
   ): Promise<SystemConfig> {
-    const defaultVal = defaultValue ?? value;
+    // Match MockRepository: omit defaultValue → preserve existing default;
+    // provide defaultValue → update it (seed path when app defaults change).
     const rows = await this.query<ConfigRow>(
       `INSERT INTO system_config (key, value, default_value, updated_by)
-       VALUES ($1, $2, $3, $4)
+       VALUES ($1, $2, COALESCE($4, $2), $3)
        ON CONFLICT (key) DO UPDATE SET
          value = EXCLUDED.value,
-         default_value = EXCLUDED.default_value,
+         default_value = COALESCE($4, system_config.default_value),
          updated_at = NOW(),
          updated_by = EXCLUDED.updated_by
        RETURNING *`,
-      [key, value, defaultVal, updatedBy],
+      [key, value, updatedBy, defaultValue ?? null],
     );
     return mapConfig(rows[0]);
   }
