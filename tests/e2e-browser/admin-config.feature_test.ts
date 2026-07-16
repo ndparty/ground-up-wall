@@ -1,4 +1,4 @@
-import { type Page } from "playwright";
+import { type BrowserContext, type Page } from "playwright";
 import { assertEquals, assertGreater } from "@std/assert";
 import { formatWordListForEdit } from "../../lib/admin/parameter_validation.ts";
 import {
@@ -144,8 +144,9 @@ Deno.test({
   async fn() {
     await runBrowserTest(
       "Feature 4: Admin Config (US-14, US-17, US-19)",
-      async ({ page }) => {
+      async ({ page, browser }) => {
         let configSnapshot: Record<string, string> | null = null;
+        let displayContext: BrowserContext | null = null;
         let displayPage: Page | null = null;
         let testFailure: unknown = null;
         let cleanupFailure: unknown = null;
@@ -156,7 +157,9 @@ Deno.test({
 
           await loginAsAdmin(page);
           await restoreNormalDisplay(page);
-          displayPage = await page.context().newPage();
+          displayContext = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+          displayPage = await displayContext.newPage();
+          await loginAsAdmin(displayPage);
           await displayPage.goto(getBaseUrl() + "/concourse");
           await displayPage.waitForSelector(".train-cabin-wrap", { timeout: 15_000 });
           const dismissFullscreen = displayPage.locator(
@@ -356,6 +359,16 @@ Deno.test({
               cleanupFailure = cleanupFailure === null ? error : new AggregateError(
                 [cleanupFailure, error],
                 "Display override and display-page cleanup both failed",
+              );
+            }
+          }
+          if (displayContext) {
+            try {
+              await displayContext.close();
+            } catch (error) {
+              cleanupFailure = cleanupFailure === null ? error : new AggregateError(
+                [cleanupFailure, error],
+                "Display context and prior cleanup both failed",
               );
             }
           }
