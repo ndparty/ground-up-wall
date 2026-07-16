@@ -1,5 +1,4 @@
 import { chromium } from "playwright";
-import { assertEquals } from "@std/assert";
 import { loginAs, PWDCHANGE_PASSWORD, PWDCHANGE_USERNAME } from "./helpers.ts";
 import { getBaseUrl, startServer, stopServer } from "./setup.ts";
 
@@ -14,6 +13,7 @@ Deno.test({
     const browser = await chromium.launch({ headless: true });
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
     let currentPassword = PWDCHANGE_PASSWORD;
+    let restoreError: unknown;
     try {
       // Dedicated seeded user — never mutate admin/moderator shared by other suites.
       await loginAs(page, PWDCHANGE_USERNAME, PWDCHANGE_PASSWORD);
@@ -83,10 +83,11 @@ Deno.test({
         }
       } catch (err) {
         console.error("Failed to restore pwdchange password:", err);
-        throw err;
+        restoreError = err;
       }
       await browser.close();
       stopServer();
     }
+    if (restoreError) throw restoreError;
   },
 });

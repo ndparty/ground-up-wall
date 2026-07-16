@@ -127,9 +127,10 @@ selected user-story paths from `docs/ai-dlc/inception/user-stories/stories.md`.
 not that every related user story or NFR is fully accepted. Soft-pass / skipped paths are treated as
 unproven. NFR file is **smoke-only** (demoted) until real budgets exist.
 
-Browser E2E **must run serially** (omit `--parallel` — serial is Deno’s default; `deno task
-test:e2e:browser` does not pass `--parallel`). Parallel workers share one Postgres and will race
-on auth/config mutations.
+Browser E2E **must run serially** (omit `--parallel` — serial is Deno’s default;
+`deno task
+test:e2e:browser` does not pass `--parallel`). Parallel workers share one Postgres and
+will race on auth/config mutations.
 
 ### Test Files
 

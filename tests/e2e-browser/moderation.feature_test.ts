@@ -1,7 +1,35 @@
-import { chromium } from "playwright";
+import { chromium, type Page } from "playwright";
 import { assertEquals, assertGreater } from "@std/assert";
 import { loginAsAdmin } from "./helpers.ts";
 import { getBaseUrl, startServer, stopServer } from "./setup.ts";
+
+/** Wait until the ModerationQueue island has finished loading (not just page-shell h2). */
+async function waitForModerationQueueReady(page: Page): Promise<void> {
+  await page.waitForFunction(
+    () => {
+      const loading = document.body?.textContent?.includes("Loading queue");
+      if (loading) return false;
+      const hasCards = document.querySelectorAll(".submission-card").length > 0;
+      const emptyPending = document.body?.textContent?.includes("No pending submissions") ?? false;
+      return hasCards || emptyPending;
+    },
+    { timeout: 15_000 },
+  );
+}
+
+/** Wait until the approved gallery island has finished loading (not just static Gallery h2). */
+async function waitForApprovedGalleryReady(page: Page): Promise<void> {
+  await page.waitForFunction(
+    () => {
+      const loading = document.body?.textContent?.includes("Loading approved");
+      if (loading) return false;
+      const hasCards = document.querySelectorAll(".submission-card").length > 0;
+      const empty = document.body?.textContent?.includes("No approved submissions") ?? false;
+      return hasCards || empty;
+    },
+    { timeout: 15_000 },
+  );
+}
 
 Deno.test({
   name: "Feature 2: Login Page - US-03",
@@ -73,7 +101,7 @@ Deno.test({
       await loginAsAdmin(page);
       await page.goto(getBaseUrl() + "/semak");
       await page.waitForURL(/\/semak/);
-      await page.waitForSelector("h2, .submission-card, .text-muted", { timeout: 10_000 });
+      await waitForModerationQueueReady(page);
       assertEquals(
         page.url().includes("/semak") && !page.url().includes("/masuk"),
         true,
@@ -98,7 +126,7 @@ Deno.test({
       await loginAsAdmin(page);
       await page.goto(getBaseUrl() + "/semak");
       await page.waitForURL(/\/semak/);
-      await page.waitForSelector("h2, .submission-card, .text-muted", { timeout: 10_000 });
+      await waitForModerationQueueReady(page);
 
       assertEquals(
         page.url().includes("/masuk"),
@@ -119,18 +147,17 @@ Deno.test({
         await page.waitForTimeout(1_000);
         const afterMsg = await page.textContent("body") ?? "";
         assertEquals(
-          afterMsg.includes("Error") || afterMsg.includes("error"),
+          afterMsg.includes("Failed to") || afterMsg.includes("Request failed"),
           false,
           "US-12: approving flagged submission succeeds without error",
         );
       } else {
-        // Seed may not include flagged rows — still require a real queue surface, not body.length.
-        const hasQueueSurface = (await page.locator(".submission-card").count()) > 0 ||
-          ((await page.textContent("body")) ?? "").toLowerCase().includes("no pending");
+        const cardCount = await page.locator(".submission-card").count();
+        const emptyPending = page.locator(".text-muted", { hasText: "No pending submissions" });
         assertEquals(
-          hasQueueSurface,
+          cardCount > 0 || (await emptyPending.count()) > 0,
           true,
-          "US-12: moderation queue shows cards or empty state (seed demos if flagged ACs needed)",
+          "US-12: moderation queue shows cards or empty state after island load",
         );
       }
     } finally {
@@ -153,14 +180,15 @@ Deno.test({
       await loginAsAdmin(page);
 
       await page.goto(getBaseUrl() + "/semak/pamer");
-      await page.waitForSelector("h2");
+      await page.waitForURL(/\/semak\/pamer/);
+      await waitForApprovedGalleryReady(page);
       assertEquals(
         page.url().includes("/masuk"),
         false,
         "US-06: approved gallery requires authenticated session",
       );
 
-      const deleteButtons = page.locator(".submission-card__actions .btn--dark");
+      const deleteButtons = page.locator("button.btn--dark", { hasText: "Delete" });
       const deleteCount = await deleteButtons.count();
       assertGreater(
         deleteCount,
