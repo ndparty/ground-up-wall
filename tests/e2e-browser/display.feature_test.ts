@@ -66,17 +66,17 @@ Deno.test({
           "US-15: pause/play control should be present",
         );
 
-        if (initialLabel === "Pause") {
+        if (initialLabel === "Play") {
           await pausePlayBtn.click();
           await page.waitForFunction(
             () => {
               const btn = document.querySelector(".train-controls__btn");
-              return btn && btn.textContent?.trim() === "Play";
+              return btn && btn.textContent?.trim() === "Pause";
             },
             { timeout: 5_000 },
           );
           const afterLabel = (await pausePlayBtn.textContent())?.trim();
-          assertEquals(afterLabel, "Play", "US-15: clicking Pause should switch control to Play");
+          assertEquals(afterLabel, "Pause", "US-15: clicking Play should resume the train");
         }
 
         await waitForTrackIdle(page);
@@ -88,7 +88,8 @@ Deno.test({
         const currentCabin = Number(statusMatch?.[1]);
         const totalCabins = Number(statusMatch?.[2]);
         assertGreater(totalCabins, 1, "US-15: animation test needs more than one cabin");
-        const targetCabin = currentCabin === totalCabins ? 1 : currentCabin + 1;
+        const jumpDistance = Math.min(3, totalCabins - 1);
+        const targetCabin = (currentCabin - 1 + jumpDistance) % totalCabins + 1;
 
         const track = page.locator(".display-wall__track");
         const transformBefore = await track.evaluate((element) =>
@@ -115,6 +116,16 @@ Deno.test({
           `Cabin ${targetCabin} of ${totalCabins}`,
           "US-15: animated jump settles on the requested cabin",
         );
+
+        await pausePlayBtn.click();
+        await page.waitForFunction(
+          () => {
+            const btn = document.querySelector(".train-controls__btn");
+            return btn && btn.textContent?.trim() === "Play";
+          },
+          { timeout: 5_000 },
+        );
+        await waitForTrackIdle(page);
       },
       {
         viewport: { width: 1920, height: 1080 },
