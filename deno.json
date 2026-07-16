@@ -10,7 +10,7 @@
     "test:unit": "deno test -P --ignore=tests/e2e/ --ignore=tests/e2e-browser/ --ignore=scripts/seed_test.ts --ignore=scripts/seed_demo_submissions_test.ts --ignore=scripts/migrate_test.ts",
     "test:e2e": "deno test -P tests/e2e/",
     "test:e2e:smoke": "deno test -P tests/e2e/ --filter=smoke",
-    "test:e2e:browser": "deno test --allow-all --parallel=false tests/e2e-browser/",
+    "test:e2e:browser": "deno test --allow-all tests/e2e-browser/",
     "db:migrate": "deno run -A scripts/migrate.ts",
     "db:seed": "deno run -A scripts/seed.ts",
     "db:seed:demos": "deno run -A scripts/seed_demo_submissions.ts",

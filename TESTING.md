@@ -127,8 +127,9 @@ selected user-story paths from `docs/ai-dlc/inception/user-stories/stories.md`.
 not that every related user story or NFR is fully accepted. Soft-pass / skipped paths are treated as
 unproven. NFR file is **smoke-only** (demoted) until real budgets exist.
 
-Browser E2E **must run serially** (`deno task test:e2e:browser` sets `--parallel=false`). Parallel
-workers share one Postgres and will race on auth/config mutations.
+Browser E2E **must run serially** (omit `--parallel` — serial is Deno’s default; `deno task
+test:e2e:browser` does not pass `--parallel`). Parallel workers share one Postgres and will race
+on auth/config mutations.
 
 ### Test Files
 
@@ -161,7 +162,7 @@ npx playwright install chromium
 deno task test:e2e:browser
 
 # Run a specific feature file
-deno test -P --allow-run --allow-ffi --parallel=false tests/e2e-browser/upload.feature_test.ts
+deno test -P --allow-run --allow-ffi tests/e2e-browser/upload.feature_test.ts
 ```
 
 CI sets `SECURITY_GATES_DISABLED=1` on the browser workflow step (PoW/rate limits off). Local runs
