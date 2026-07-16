@@ -1,7 +1,6 @@
 import type { Page } from "playwright";
 import pixelmatch from "pixelmatch";
-import { PNG } from "pngjs";
-import { Buffer } from "node:buffer";
+import { Image } from "imagescript";
 import { artifactsRoot, safeName } from "./artifacts.ts";
 
 const BASELINES_DIR = "tests/e2e-browser/baselines";
@@ -73,8 +72,8 @@ export async function compareScreenshot(
     throw error;
   }
 
-  const actual = PNG.sync.read(Buffer.from(actualBytes));
-  const expected = PNG.sync.read(Buffer.from(expectedBytes));
+  const actual = await Image.decode(actualBytes);
+  const expected = await Image.decode(expectedBytes);
   const diffDir = `${artifactsRoot()}/visual-diff`;
   const stem = `${diffDir}/${safeName(name)}`;
 
@@ -87,11 +86,11 @@ export async function compareScreenshot(
     );
   }
 
-  const diff = new PNG({ width: actual.width, height: actual.height });
+  const diff = new Image(actual.width, actual.height);
   const diffPixels = pixelmatch(
-    expected.data,
-    actual.data,
-    diff.data,
+    expected.bitmap,
+    actual.bitmap,
+    diff.bitmap,
     actual.width,
     actual.height,
     { threshold: options.threshold ?? 0.2 },
@@ -103,7 +102,7 @@ export async function compareScreenshot(
     await Deno.mkdir(diffDir, { recursive: true });
     await writePng(`${stem}.actual.png`, actualBytes);
     await writePng(`${stem}.expected.png`, expectedBytes);
-    await writePng(`${stem}.diff.png`, PNG.sync.write(diff));
+    await writePng(`${stem}.diff.png`, await diff.encode());
     throw new Error(
       `Visual regression in ${name}: ${(diffRatio * 100).toFixed(3)}% pixels differ ` +
         `(allowed ${(maxDiffRatio * 100).toFixed(3)}%)`,

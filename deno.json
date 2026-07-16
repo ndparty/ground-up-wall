@@ -47,7 +47,6 @@
     "fresh/dev": "jsr:@fresh/core@^2.3.3/dev",
     "pixelmatch": "npm:pixelmatch@^7.2.0",
     "playwright": "npm:playwright@^1.61.1",
-    "pngjs": "npm:pngjs@^7.0.0",
     "preact": "npm:preact@^10.29.2",
     "preact/hooks": "npm:preact@^10.29.2/hooks",
     "preact/compat": "npm:preact@^10.29.2/compat",
