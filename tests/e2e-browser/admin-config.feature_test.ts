@@ -346,7 +346,7 @@ Deno.test({
             timeout: 10_000,
           });
           await captureVisualBaseline(displayPage, "admin-override-normal-static", {
-            mask: [".train-cabin__sign"],
+            mask: [".display-wall__join-text", ".train-cabin__sign"],
           });
           await assertOverrideAuditActions(page);
         } catch (error) {

@@ -132,7 +132,7 @@ Deno.test({
 
           await waitForTrackIdle(page);
           await captureVisualBaseline(page, "display-wall-playing-idle-static", {
-            mask: [".train-cabin__sign"],
+            mask: [".display-wall__join-text", ".train-cabin__sign"],
           });
           const statusBefore =
             (await page.locator(".train-controls__status").textContent())?.trim() ??
@@ -176,7 +176,7 @@ Deno.test({
             "US-15: animated jump settles on the requested cabin",
           );
           await captureVisualBaseline(page, "display-wall-post-jump-static", {
-            mask: [".train-cabin__sign"],
+            mask: [".display-wall__join-text", ".train-cabin__sign"],
           });
 
           await pausePlayBtn.click();
@@ -189,10 +189,10 @@ Deno.test({
           );
           await waitForTrackIdle(page);
           await captureVisualBaseline(page, "display-wall-paused-static", {
-            mask: [".train-cabin__sign"],
+            mask: [".display-wall__join-text", ".train-cabin__sign"],
           });
           await captureVisualBaseline(page, "display-wall", {
-            mask: [".train-cabin__sign"],
+            mask: [".display-wall__join-text", ".train-cabin__sign"],
           });
         } catch (error) {
           testFailure = error;

@@ -8,6 +8,8 @@ const BASELINES_DIR = "tests/e2e-browser/baselines";
 export type VisualCompareOptions = {
   maxDiffRatio?: number;
   threshold?: number;
+  /** CSS selector for an element capture; defaults to the full page. */
+  selector?: string;
   /** CSS selectors whose volatile content is painted a deterministic gray. */
   mask?: string[];
 };
@@ -23,14 +25,22 @@ async function captureStablePng(
 ): Promise<Uint8Array> {
   await page.evaluate(async () => {
     await document.fonts.ready;
+    await Promise.all(
+      Array.from(document.images, (image) => image.decode().catch(() => undefined)),
+    );
   });
-  return await page.screenshot({
+  const screenshotOptions = {
     animations: "disabled",
     caret: "hide",
-    fullPage: true,
     mask: options.mask?.map((selector) => page.locator(selector)),
     maskColor: "#808080",
-  });
+  } as const;
+  if (options.selector) {
+    const target = page.locator(options.selector);
+    await target.waitFor({ state: "visible" });
+    return await target.screenshot(screenshotOptions);
+  }
+  return await page.screenshot({ ...screenshotOptions, fullPage: true });
 }
 
 async function writePng(path: string, bytes: Uint8Array): Promise<void> {

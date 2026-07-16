@@ -64,6 +64,13 @@ Deno.test({
           if (request.url().endsWith("/api/muatnaik/submit")) uploadRequests.push(request.url());
         });
         try {
+          await page.addInitScript(() => {
+            let state = 0x5eed1234;
+            Math.random = () => {
+              state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+              return state / 0x1_0000_0000;
+            };
+          });
           await page.goto(getBaseUrl() + "/muatnaik");
           await page.waitForSelector("form");
           const serverRejection = await submitFixtureRequest(page, {

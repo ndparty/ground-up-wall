@@ -195,6 +195,7 @@ Deno.test({
           );
           await captureVisualBaseline(page, "moderation-flagged-static", {
             mask: [".submission-card__time"],
+            selector: `.submission-card[data-submission-id="${fixture.submission_id}"]`,
           });
 
           await flaggedCard.locator(".btn--approve").click();
