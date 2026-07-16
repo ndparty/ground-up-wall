@@ -25,9 +25,12 @@ async function captureStablePng(
 ): Promise<Uint8Array> {
   await page.evaluate(async () => {
     await document.fonts.ready;
-    await Promise.all(
-      Array.from(document.images, (image) => image.decode().catch(() => undefined)),
-    );
+    await Promise.race([
+      Promise.all(
+        Array.from(document.images, (image) => image.decode().catch(() => undefined)),
+      ),
+      new Promise<void>((resolve) => setTimeout(resolve, 5_000)),
+    ]);
   });
   const screenshotOptions = {
     animations: "disabled",
