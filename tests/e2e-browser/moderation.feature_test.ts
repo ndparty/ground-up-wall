@@ -188,26 +188,40 @@ Deno.test({
         "US-06: approved gallery requires authenticated session",
       );
 
-      const deleteButtons = page.locator("button.btn--dark", { hasText: "Delete" });
-      const deleteCount = await deleteButtons.count();
+      // Paginated gallery keeps a full page of cards after one delete; assert via
+      // the toolbar total (see ApprovedWallList) rather than visible card count.
+      await page.waitForSelector(".approved-toolbar__count", { timeout: 10_000 });
+      const countLabel = await page.locator(".approved-toolbar__count").textContent() ?? "";
+      const initialTotal = Number.parseInt(countLabel, 10);
       assertGreater(
-        deleteCount,
+        initialTotal,
         0,
-        "US-06: approved gallery must have delete actions (run db:seed:demos)",
+        "US-06: approved gallery must list submissions (run db:seed:demos)",
       );
 
-      const initialCardCount = await page.locator(".submission-card").count();
+      const deleteButtons = page.locator("button.btn--dark", { hasText: "Delete" });
+      assertGreater(
+        await deleteButtons.count(),
+        0,
+        "US-06: approved gallery must have delete actions",
+      );
+
       await deleteButtons.first().click();
       await page.waitForFunction(
-        (before) => document.querySelectorAll(".submission-card").length < before,
-        initialCardCount,
-        { timeout: 10_000 },
+        (before) => {
+          const text = document.querySelector(".approved-toolbar__count")?.textContent ?? "";
+          const n = Number.parseInt(text, 10);
+          return Number.isFinite(n) && n < before;
+        },
+        initialTotal,
+        { timeout: 15_000 },
       );
-      const afterDeleteCount = await page.locator(".submission-card").count();
+      const afterLabel = await page.locator(".approved-toolbar__count").textContent() ?? "";
+      const afterTotal = Number.parseInt(afterLabel, 10);
       assertEquals(
-        afterDeleteCount < initialCardCount,
+        afterTotal < initialTotal,
         true,
-        "US-06: deleting an approved submission removes it from the gallery",
+        "US-06: deleting an approved submission reduces the gallery total",
       );
     } finally {
       await browser.close();
