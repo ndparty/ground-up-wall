@@ -1,9 +1,8 @@
 import { chromium, type Page } from "playwright";
 import { assertEquals, assertGreater } from "@std/assert";
+import { formatWordListForEdit } from "../../lib/admin/parameter_validation.ts";
+import { assertRedirectsToLogin, loginAsAdmin } from "./helpers.ts";
 import { getBaseUrl, startServer, stopServer } from "./setup.ts";
-
-const ADMIN_USERNAME = "admin";
-const ADMIN_PASSWORD = "admin123";
 
 type SystemConfigRow = {
   key: string;
@@ -11,25 +10,13 @@ type SystemConfigRow = {
   default_value: string;
 };
 
-async function loginAsAdmin(page: Page): Promise<void> {
-  await page.goto(getBaseUrl() + "/masuk");
-  await page.waitForSelector('input[name="username"]');
-  await page.fill('input[name="username"]', ADMIN_USERNAME);
-  await page.fill('input[name="password"]', ADMIN_PASSWORD);
-  await page.click('button[type="submit"]');
-  await page.waitForTimeout(5_000);
-}
-
-async function assertRedirectsToLogin(page: Page, path: string, story: string): Promise<void> {
-  await page.goto(getBaseUrl() + path);
-  await page.waitForURL(/\/masuk/);
-  const body = await page.textContent("body") ?? "";
-  assertEquals(
-    body.includes("Masuk") || body.includes("Login") || body.includes("username"),
-    true,
-    `${story}: unauthenticated access redirects to login`,
-  );
-}
+const MUTATED_KEYS = [
+  "train_dwell_time",
+  "message_prompt_text",
+  "auto_moderator_word_list",
+  "message_length_limit",
+  "message_length_unit",
+] as const;
 
 async function fetchSystemConfig(page: Page, key: string): Promise<SystemConfigRow> {
   return await page.evaluate(async (configKey) => {
@@ -39,6 +26,34 @@ async function fetchSystemConfig(page: Page, key: string): Promise<SystemConfigR
     if (!config) throw new Error(`Missing system config: ${configKey}`);
     return config;
   }, key);
+}
+
+async function snapshotConfigs(
+  page: Page,
+  keys: readonly string[],
+): Promise<Record<string, string>> {
+  const snapshot: Record<string, string> = {};
+  for (const key of keys) {
+    snapshot[key] = (await fetchSystemConfig(page, key)).value;
+  }
+  return snapshot;
+}
+
+async function restoreConfigs(page: Page, snapshot: Record<string, string>): Promise<void> {
+  for (const [key, value] of Object.entries(snapshot)) {
+    const restoreValue = key === "auto_moderator_word_list" ? formatWordListForEdit(value) : value;
+    const res = await page.evaluate(async ([configKey, configValue]) => {
+      const response = await fetch("/api/towkay/parameters/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: configKey, value: configValue }),
+      });
+      return { ok: response.ok, status: response.status };
+    }, [key, restoreValue] as [string, string]);
+    if (!res.ok) {
+      throw new Error(`Failed to restore ${key}: HTTP ${res.status}`);
+    }
+  }
 }
 
 function configPanel(page: Page, label: string) {
@@ -75,6 +90,8 @@ Deno.test({
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
     page.on("dialog", (dialog) => dialog.accept());
 
+    let configSnapshot: Record<string, string> | null = null;
+
     try {
       await assertRedirectsToLogin(page, "/towkay/parameters", "US-14");
       await assertRedirectsToLogin(page, "/towkay/audit-log", "US-17");
@@ -82,17 +99,10 @@ Deno.test({
 
       await loginAsAdmin(page);
 
-      // Check if login completed - if still on login page, skip the rest
-      const currentUrl = page.url();
-      if (currentUrl.includes("/masuk")) {
-        // Login didn't complete - just verify the page structure exists
-        const body = await page.textContent("body") ?? "";
-        assertEquals(body.length > 0, true, "US-14: page loaded (login may not have completed)");
-        return;
-      }
-
       await page.goto(getBaseUrl() + "/towkay/parameters");
       await page.waitForSelector(".param-section, .text-muted", { timeout: 10_000 });
+
+      configSnapshot = await snapshotConfigs(page, MUTATED_KEYS);
 
       const dwellTimeInput = page.locator('input[aria-label="Train dwell time (seconds)"]');
       await dwellTimeInput.fill("10");
@@ -154,10 +164,8 @@ Deno.test({
       );
 
       const resetDwellTimeInput = page.locator('input[aria-label="Train dwell time (seconds)"]');
-      await resetDwellTimeInput.click();
-      await page.keyboard.press("Meta+A");
-      await page.keyboard.press("Backspace");
-      await page.keyboard.type("0");
+      // Linux CI: Meta+A is macOS-only — use fill() to clear reliably.
+      await resetDwellTimeInput.fill("0");
       assertEquals(
         await resetDwellTimeInput.inputValue(),
         "0",
@@ -232,6 +240,13 @@ Deno.test({
         timeout: 10_000,
       });
     } finally {
+      if (configSnapshot) {
+        try {
+          await restoreConfigs(page, configSnapshot);
+        } catch (err) {
+          console.error("Failed to restore system config after admin-config E2E:", err);
+        }
+      }
       await browser.close();
       stopServer();
     }

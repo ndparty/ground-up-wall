@@ -1,6 +1,12 @@
 import { assertEquals } from "@std/assert";
 import { Client } from "@db/postgres";
-import { ADMIN_USERNAME, DISPLAY_USERNAME, MODERATOR_USERNAME, runSeed } from "./seed.ts";
+import {
+  ADMIN_USERNAME,
+  DISPLAY_USERNAME,
+  MODERATOR_USERNAME,
+  PWDCHANGE_USERNAME,
+  runSeed,
+} from "./seed.ts";
 import { cleanupTestData, createTestRepository, getTestDatabaseUrl } from "../lib/test_helpers.ts";
 
 const useMock = Deno.env.get("USE_MOCK_DB") === "true";
@@ -63,6 +69,7 @@ Deno.test({
     const result = await runSeed(getTestDatabaseUrl());
     assertEquals(result.moderatorCreated, true);
     assertEquals(result.displayCreated, true);
+    assertEquals(result.pwdchangeCreated, true);
 
     const repo = await createTestRepository();
     try {
@@ -70,6 +77,8 @@ Deno.test({
       assertEquals(moderator?.role, "moderator");
       const display = await repo.authenticateUser(DISPLAY_USERNAME);
       assertEquals(display?.role, "display_wall");
+      const pwdchange = await repo.authenticateUser(PWDCHANGE_USERNAME);
+      assertEquals(pwdchange?.role, "moderator");
     } finally {
       await repo.close();
       await cleanupTestData();
@@ -86,6 +95,7 @@ Deno.test({
     const second = await runSeed(getTestDatabaseUrl());
     assertEquals(second.moderatorCreated, false);
     assertEquals(second.displayCreated, false);
+    assertEquals(second.pwdchangeCreated, false);
 
     const client = new Client(getTestDatabaseUrl());
     await client.connect();
@@ -100,6 +110,11 @@ Deno.test({
         [DISPLAY_USERNAME],
       );
       assertEquals(displays.rows[0].count, "1");
+      const pwdchanges = await client.queryObject<{ count: string }>(
+        `SELECT COUNT(*)::text AS count FROM users WHERE username = $1`,
+        [PWDCHANGE_USERNAME],
+      );
+      assertEquals(pwdchanges.rows[0].count, "1");
     } finally {
       await client.end();
       await cleanupTestData();

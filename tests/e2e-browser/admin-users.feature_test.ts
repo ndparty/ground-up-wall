@@ -1,18 +1,7 @@
 import { chromium } from "playwright";
 import { assertEquals, assertGreater } from "@std/assert";
+import { loginAsAdmin } from "./helpers.ts";
 import { getBaseUrl, startServer, stopServer } from "./setup.ts";
-
-const ADMIN_USERNAME = "admin";
-const ADMIN_PASSWORD = "admin123";
-
-async function loginAsAdmin(page: import("playwright").Page): Promise<void> {
-  await page.goto(getBaseUrl() + "/masuk");
-  await page.waitForSelector('input[name="username"]');
-  await page.fill('input[name="username"]', ADMIN_USERNAME);
-  await page.fill('input[name="password"]', ADMIN_PASSWORD);
-  await page.click('button[type="submit"]');
-  await page.waitForTimeout(5_000);
-}
 
 Deno.test({
   name: "Feature 4: Admin Users (US-09, US-10, US-16, US-18)",
@@ -32,15 +21,6 @@ Deno.test({
       assertEquals(hasLoginContent, true, "US-10: unauthenticated access redirects to login");
 
       await loginAsAdmin(page);
-
-      // Check if login completed - if still on login page, skip the rest
-      const currentUrl = page.url();
-      if (currentUrl.includes("/masuk")) {
-        // Login didn't complete - just verify the page structure exists
-        const body = await page.textContent("body") ?? "";
-        assertEquals(body.length > 0, true, "US-09: page loaded (login may not have completed)");
-        return;
-      }
 
       await page.goto(getBaseUrl() + "/towkay/users");
       await page.waitForSelector(".data-table, .text-muted", { timeout: 10_000 });

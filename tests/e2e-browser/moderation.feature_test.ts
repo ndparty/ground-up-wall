@@ -1,20 +1,7 @@
-import { chromium, type Page } from "playwright";
-import { assertEquals } from "@std/assert";
+import { chromium } from "playwright";
+import { assertEquals, assertGreater } from "@std/assert";
+import { loginAsAdmin } from "./helpers.ts";
 import { getBaseUrl, startServer, stopServer } from "./setup.ts";
-
-const ADMIN_USERNAME = "admin";
-const ADMIN_PASSWORD = "admin123";
-
-async function loginAsAdmin(page: Page): Promise<void> {
-  await page.goto(getBaseUrl() + "/masuk");
-  await page.waitForSelector('input[name="username"]');
-  await page.fill('input[name="username"]', ADMIN_USERNAME);
-  await page.fill('input[name="password"]', ADMIN_PASSWORD);
-  await page.click('button[type="submit"]');
-  await page.waitForTimeout(5_000);
-}
-
-// Removed unused function - was for US-06 delete test but not needed
 
 Deno.test({
   name: "Feature 2: Login Page - US-03",
@@ -25,11 +12,9 @@ Deno.test({
     const browser = await chromium.launch({ headless: true });
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
     try {
-      // US-03: Login page loads
       await page.goto(getBaseUrl() + "/masuk");
       await page.waitForSelector("form");
 
-      // US-03: Login form elements exist
       const usernameInput = await page.$('input[name="username"]');
       const passwordInput = await page.$('input[name="password"]');
       const submitButton = await page.$('button[type="submit"]');
@@ -38,7 +23,6 @@ Deno.test({
       assertEquals(passwordInput !== null, true, "US-03: Password input should exist");
       assertEquals(submitButton !== null, true, "US-03: Submit button should exist");
 
-      // US-03: Page has sign-in heading
       const heading = await page.textContent("h2");
       assertEquals(
         heading?.includes("Sign") || heading?.includes("sign"),
@@ -61,11 +45,9 @@ Deno.test({
     const browser = await chromium.launch({ headless: true });
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
     try {
-      // US-04: Moderation page requires auth (redirects to login)
       await page.goto(getBaseUrl() + "/semak");
       await page.waitForURL(/\/masuk/);
 
-      // US-04: Login page is shown
       const body = await page.textContent("body") ?? "";
       assertEquals(
         body.includes("Sign in") || body.includes("Login") || body.includes("username"),
@@ -88,13 +70,15 @@ Deno.test({
     const browser = await chromium.launch({ headless: true });
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
     try {
-      // US-05: Moderation page structure exists
-      await page.goto(getBaseUrl() + "/masuk");
-      await page.waitForSelector("form");
-
-      // Check that the page has the right structure
-      const hasForm = await page.$("form") !== null;
-      assertEquals(hasForm, true, "US-05: Login form should exist");
+      await loginAsAdmin(page);
+      await page.goto(getBaseUrl() + "/semak");
+      await page.waitForURL(/\/semak/);
+      await page.waitForSelector("h2, .submission-card, .text-muted", { timeout: 10_000 });
+      assertEquals(
+        page.url().includes("/semak") && !page.url().includes("/masuk"),
+        true,
+        "US-05: authenticated moderation queue page renders",
+      );
     } finally {
       await browser.close();
       stopServer();
@@ -111,49 +95,43 @@ Deno.test({
     const browser = await chromium.launch({ headless: true });
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
     try {
-      // US-12: Login as admin to view moderation queue
       await loginAsAdmin(page);
-
-      // Navigate to the moderation page
       await page.goto(getBaseUrl() + "/semak");
-      await page.waitForTimeout(2_000);
+      await page.waitForURL(/\/semak/);
+      await page.waitForSelector("h2, .submission-card, .text-muted", { timeout: 10_000 });
 
-      // US-12: The queue page loads - check for content. If not logged in, may redirect to login.
-      const body = await page.textContent("body") ?? "";
-      assertEquals(body.length > 0, true, "US-12: page loaded with content");
-
-      // US-12: Check for flag indicators if any submissions are flagged
-      // The page may show flagged submission cards with the CSS class
-      const flaggedCards = await page.locator(".submission-card--flagged").count();
-      // It's acceptable if no cards are flagged - the UI structure is what matters
       assertEquals(
-        typeof flaggedCards === "number",
-        true,
-        "US-12: flagged submission cards count is accessible",
+        page.url().includes("/masuk"),
+        false,
+        "US-12: moderation queue requires authenticated session",
       );
 
-      // This might be true or false depending on seeded data - just verify the page loaded
-      assertEquals(
-        body.length > 0,
-        true,
-        "US-12: moderation queue page loaded with content",
-      );
-
-      // US-12: Admin can approve a flagged submission (flagging is advisory)
-      // Check if there are any flagged cards and try to approve if present
-      if (flaggedCards > 0) {
-        const approveBtn = page.locator(".submission-card--flagged .btn--approve").first();
-        if (await approveBtn.count() > 0) {
-          await approveBtn.click();
-          await page.waitForTimeout(1_000);
-          // Verify the action didn't error
-          const afterMsg = await page.textContent("body") ?? "";
-          assertEquals(
-            afterMsg.includes("Error") || afterMsg.includes("error"),
-            false,
-            "US-12: approving flagged submission succeeds without error",
-          );
-        }
+      const flaggedCards = page.locator(".submission-card--flagged");
+      const flaggedCount = await flaggedCards.count();
+      if (flaggedCount > 0) {
+        const approveBtn = flaggedCards.first().locator(".btn--approve");
+        assertGreater(
+          await approveBtn.count(),
+          0,
+          "US-12: flagged submission exposes an approve action",
+        );
+        await approveBtn.first().click();
+        await page.waitForTimeout(1_000);
+        const afterMsg = await page.textContent("body") ?? "";
+        assertEquals(
+          afterMsg.includes("Error") || afterMsg.includes("error"),
+          false,
+          "US-12: approving flagged submission succeeds without error",
+        );
+      } else {
+        // Seed may not include flagged rows — still require a real queue surface, not body.length.
+        const hasQueueSurface = (await page.locator(".submission-card").count()) > 0 ||
+          ((await page.textContent("body")) ?? "").toLowerCase().includes("no pending");
+        assertEquals(
+          hasQueueSurface,
+          true,
+          "US-12: moderation queue shows cards or empty state (seed demos if flagged ACs needed)",
+        );
       }
     } finally {
       await browser.close();
@@ -172,44 +150,37 @@ Deno.test({
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
     page.on("dialog", (dialog) => dialog.accept());
     try {
-      // US-06: Navigate to the approved gallery page as admin
       await loginAsAdmin(page);
 
       await page.goto(getBaseUrl() + "/semak/pamer");
       await page.waitForSelector("h2");
+      assertEquals(
+        page.url().includes("/masuk"),
+        false,
+        "US-06: approved gallery requires authenticated session",
+      );
 
-      // US-06: Check if the page loaded with content
-      const body = await page.textContent("body") ?? "";
-      assertEquals(body.length > 0, true, "US-06: page loaded with content");
-
-      // US-06: Look for delete buttons in the approved gallery
       const deleteButtons = page.locator(".submission-card__actions .btn--dark");
       const deleteCount = await deleteButtons.count();
+      assertGreater(
+        deleteCount,
+        0,
+        "US-06: approved gallery must have delete actions (run db:seed:demos)",
+      );
 
-      if (deleteCount > 0) {
-        // Get the initial count of submission cards before deletion
-        const initialCardCount = await page.locator(".submission-card").count();
-
-        // Click delete on the first submission
-        await deleteButtons.first().click();
-        // Wait for the dialog to be accepted and the deletion to process
-        await page.waitForTimeout(2_000);
-
-        // Check that the submission was removed from the display
-        const afterDeleteCount = await page.locator(".submission-card").count();
-        assertEquals(
-          afterDeleteCount < initialCardCount,
-          true,
-          "US-06: deleting an approved submission removes it from the gallery",
-        );
-      } else {
-        // No delete buttons means no approved submissions - just verify the page loaded
-        assertEquals(
-          body.length > 0,
-          true,
-          "US-06: page loaded (no approved submissions to delete)",
-        );
-      }
+      const initialCardCount = await page.locator(".submission-card").count();
+      await deleteButtons.first().click();
+      await page.waitForFunction(
+        (before) => document.querySelectorAll(".submission-card").length < before,
+        initialCardCount,
+        { timeout: 10_000 },
+      );
+      const afterDeleteCount = await page.locator(".submission-card").count();
+      assertEquals(
+        afterDeleteCount < initialCardCount,
+        true,
+        "US-06: deleting an approved submission removes it from the gallery",
+      );
     } finally {
       await browser.close();
       stopServer();
