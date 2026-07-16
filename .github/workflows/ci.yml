@@ -43,7 +43,7 @@ jobs:
           USE_MOCK_DB: "true"
         run: |
           set -o pipefail
-          deno task test:unit -- --junit-path=test-results/ci/unit-junit.xml 2>&1 | tee test-results/ci/unit.log
+          deno task test:unit --junit-path=test-results/ci/unit-junit.xml 2>&1 | tee test-results/ci/unit.log
 
       - name: Run smoke tests with mock database
         id: smoke
@@ -51,7 +51,7 @@ jobs:
           USE_MOCK_DB: "true"
         run: |
           set -o pipefail
-          deno task test:e2e:smoke -- --junit-path=test-results/ci/smoke-junit.xml 2>&1 | tee test-results/ci/smoke.log
+          deno task test:e2e:smoke --junit-path=test-results/ci/smoke-junit.xml 2>&1 | tee test-results/ci/smoke.log
 
       - name: Run lint and format check
         id: check
