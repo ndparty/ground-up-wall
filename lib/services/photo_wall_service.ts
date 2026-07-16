@@ -66,6 +66,16 @@ function stationRngFromEnv(): (() => number) | undefined {
   return createSeededRandom(seed);
 }
 
+function e2eDwellSeconds(configured: number): number {
+  const rawDwell = Deno.env.get("E2E_TRAIN_DWELL_SECONDS");
+  if (rawDwell === undefined) return configured;
+  const dwell = Number(rawDwell);
+  if (!Number.isInteger(dwell) || dwell < 3 || dwell > 60) {
+    throw new Error("E2E_TRAIN_DWELL_SECONDS must be an integer from 3 to 60");
+  }
+  return dwell;
+}
+
 export class PhotoWallService {
   private readonly playback: TrainPlaybackController;
   private playbackInitialized = false;
@@ -355,7 +365,9 @@ export class PhotoWallService {
       this.repository.getSystemConfig("train_playback_state"),
     ]);
     const dwell = configs.find((c) => c.key === "train_dwell_time");
-    const dwellSeconds = parseDwellTime(dwell?.value ?? dwell?.default_value);
+    const dwellSeconds = e2eDwellSeconds(
+      parseDwellTime(dwell?.value ?? dwell?.default_value),
+    );
     const qrInterval = configs.find((c) => c.key === "qr_cabin_interval");
     const approvedIds = approved.map((s) => s.id);
 

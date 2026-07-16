@@ -3,6 +3,7 @@ const command = new Deno.Command(Deno.execPath(), {
   env: {
     ...Deno.env.toObject(),
     E2E_STATION_SEED: "42",
+    E2E_TRAIN_DWELL_SECONDS: "60",
     E2E_VISUAL: "1",
     E2E_UPDATE_BASELINES: "1",
   },

@@ -216,7 +216,9 @@ CI sets `SECURITY_GATES_DISABLED=1` on the browser workflow step (PoW/rate limit
 should match that when debugging CI-equivalent behaviour.
 
 Baseline updates should be generated on Linux matching `ubuntu-latest`, reviewed as images, and
-committed only for intentional UI changes. `E2E_STATION_SEED=42` stabilizes train destination names.
+committed only for intentional UI changes. `E2E_STATION_SEED=42` stabilizes train destination names;
+`E2E_TRAIN_DWELL_SECONDS=60` prevents automatic ticks racing static captures. The animation test
+still triggers a jump explicitly.
 
 ### Test Structure
 
@@ -281,6 +283,7 @@ Located in `lib/repositories/postgres_repository.ts`:
 | `E2E_ARTIFACTS_DIR`        | Browser E2E artifact root                  | `test-results/e2e-browser`     |
 | `E2E_CAPTURE_SUCCESS_SHOT` | Write green success screenshots (`1` = on) | unset (off) locally; `1` in CI |
 | `E2E_STATION_SEED`         | Seed generated train station names         | unset; `42` in visual CI       |
+| `E2E_TRAIN_DWELL_SECONDS`  | Stabilize the automatic dwell during E2E   | unset; `60` in visual CI       |
 | `E2E_VISUAL`               | Compare pages with committed PNG baselines | unset; `1` in visual CI        |
 | `E2E_UPDATE_BASELINES`     | Rewrite PNG baselines instead of comparing | unset (off)                    |
 
