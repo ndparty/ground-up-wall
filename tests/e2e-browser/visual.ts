@@ -86,6 +86,7 @@ export async function comparePng(
 
   const fileName = `${safeName(name)}.png`;
   const baselinePath = `${BASELINES_DIR}/${fileName}`;
+  const successEvidencePath = `${artifactsRoot()}/visual-success/${fileName}`;
 
   if (Deno.env.get("E2E_UPDATE_BASELINES") === "1") {
     await writePng(baselinePath, actualBytes);
@@ -93,6 +94,7 @@ export async function comparePng(
       `${artifactsRoot()}/generated-baselines/${fileName}`,
       actualBytes,
     );
+    await writePng(successEvidencePath, actualBytes);
     return;
   }
 
@@ -153,4 +155,5 @@ export async function comparePng(
         `(allowed ${(maxDiffRatio * 100).toFixed(3)}%)`,
     );
   }
+  await writePng(successEvidencePath, actualBytes);
 }

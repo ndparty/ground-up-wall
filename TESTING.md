@@ -48,9 +48,10 @@ Root: `test-results/e2e-browser/` (env `E2E_ARTIFACTS_DIR`).
 | ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
 | `failures/<test>/{screenshot.png,page.html,console.txt,error.txt}` | On failure                                                                                                           |
 | `success/*.png`                                                    | Green audit shots for major upload, moderation, display, and admin surfaces                                          |
+| `visual-success/*.png`                                             | Actual image for every passing visual comparison; animation and station matrix are featured in the report            |
 | `visual-diff/<name>.{actual,expected,diff}.png`                    | Visual baseline mismatch                                                                                             |
 | `summary.json`                                                     | Always (`passed`, `failed`, `screenshots`, `sha`, `event`)                                                           |
-| `report.html`                                                      | Direct artifact only; embedded success shots, visual triples, errors, page/capture diagnostics, and console excerpts |
+| `report.html`                                                      | Direct artifact only; embeds passing visuals, visual triples, errors, page/capture diagnostics, and console excerpts |
 
 CI always sets `E2E_CAPTURE_SUCCESS_SHOT=1`. Locally, set that env only when you want success
 screenshots (default off to avoid filling disks).
@@ -72,6 +73,11 @@ hardware jank. NFR-03 still requires profiling on representative display hardwar
 performance runner). Realtime coverage approves a unique fixture while the display remains open,
 verifies it appears within 30 seconds, then verifies refresh restores the server-authoritative list,
 position, and play/pause state.
+
+Every successful visual comparison is retained in the debug artifact and embedded in the
+self-contained report. The animation storyboard and station-sign matrix appear first as featured
+evidence; the remaining passing comparisons follow in a compact gallery. This makes a green run
+visually reviewable without waiting for a deliberate mismatch or downloading baseline files.
 
 #### Unit / smoke CI (`ci-*-…`)
 

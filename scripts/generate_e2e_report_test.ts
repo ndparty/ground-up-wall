@@ -13,10 +13,17 @@ Deno.test("E2E report embeds success, diff, and failure evidence", async () => {
   const root = await Deno.makeTempDir();
   try {
     await Deno.mkdir(join(root, "success"), { recursive: true });
+    await Deno.mkdir(join(root, "visual-success"), { recursive: true });
     await Deno.mkdir(join(root, "visual-diff"), { recursive: true });
     await Deno.mkdir(join(root, "failures", "broken_test"), { recursive: true });
     const png = new Uint8Array([137, 80, 78, 71]);
     await Deno.writeFile(join(root, "success", "green.png"), png);
+    await Deno.writeFile(
+      join(root, "visual-success", "display-wall-jump-animation-filmstrip.png"),
+      png,
+    );
+    await Deno.writeFile(join(root, "visual-success", "station-sign-matrix.png"), png);
+    await Deno.writeFile(join(root, "visual-success", "upload-form.png"), png);
     await Deno.writeFile(join(root, "visual-diff", "wall.expected.png"), png);
     await Deno.writeFile(join(root, "visual-diff", "wall.actual.png"), png);
     await Deno.writeFile(join(root, "visual-diff", "wall.diff.png"), png);
@@ -50,15 +57,36 @@ Deno.test("E2E report embeds success, diff, and failure evidence", async () => {
     );
 
     const html = await buildE2eReport(root);
+    assertEquals(await buildE2eReport(root), html, "report output is deterministic");
     assertStringIncludes(html, "Outcome: failure");
     assertStringIncludes(html, "broken &lt;test&gt;");
     assertStringIncludes(html, "&lt;script&gt;unsafe()&lt;/script&gt;");
     assertStringIncludes(html, "data:image/png;base64,iVBORw==");
     assertStringIncludes(html, "wall: expected");
+    assertStringIncludes(html, "Visual evidence: 3");
+    assertStringIncludes(html, "Featured: display-wall-jump-animation-filmstrip.png");
+    assertStringIncludes(html, "Featured: station-sign-matrix.png");
+    assertStringIncludes(html, "All other successful visual comparisons");
+    assertStringIncludes(html, "upload-form.png");
     assertStringIncludes(html, "Content-Security-Policy");
     assertStringIncludes(html, "&lt;img src=x onerror=&quot;unsafe()&quot;&gt;");
     assertStringIncludes(html, "capture &quot;failed&quot;");
     assertEquals(html.includes("<script>unsafe()</script>"), false);
+    assertEquals(
+      html.indexOf("Featured: display-wall-jump-animation-filmstrip.png") <
+        html.indexOf("Featured: station-sign-matrix.png"),
+      true,
+    );
+    assertEquals(
+      html.indexOf("Featured: station-sign-matrix.png") <
+        html.indexOf("All other successful visual comparisons"),
+      true,
+    );
+    assertEquals(
+      html.split("display-wall-jump-animation-filmstrip.png").length - 1,
+      2,
+      "featured evidence appears once (image alt plus caption), not again in the gallery",
+    );
 
     const output = join(root, "custom-report.html");
     await generateE2eReport(root, output);
@@ -88,6 +116,9 @@ Deno.test("E2E report tolerates malformed summary fields and lets failures win",
     assertStringIncludes(html, "Failed: 1");
     assertStringIncludes(html, "Passed: 0");
     assertStringIncludes(html, "Event: unknown");
+    assertStringIncludes(html, "Visual evidence: 0");
+    assertStringIncludes(html, "No featured visual evidence was captured.");
+    assertStringIncludes(html, "No additional successful comparisons were captured.");
   } finally {
     await Deno.remove(root, { recursive: true });
   }

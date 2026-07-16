@@ -154,7 +154,7 @@ jobs:
         if: always()
         run: |
           python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
-          import json, os
+          import glob, json, os
           path = "test-results/e2e-browser/summary.json"
           try:
               with open(path) as f:
@@ -163,10 +163,14 @@ jobs:
               summary = {"passed": [], "failed": [], "jobOutcome": "unknown"}
           passed = len(summary.get("passed", []))
           failed = len(summary.get("failed", []))
+          visual_evidence = len(glob.glob("test-results/e2e-browser/visual-success/*.png"))
           outcome = summary.get("jobOutcome") or "unknown"
           print("## Browser E2E report")
           print()
-          print(f"**Outcome:** {outcome} · **Passed:** {passed} · **Failed:** {failed}")
+          print(
+              f"**Outcome:** {outcome} · **Passed:** {passed} · **Failed:** {failed} "
+              f"· **Successful visual comparisons:** {visual_evidence}"
+          )
           print()
           print(f"[Open E2E visual report]({os.environ['REPORT_URL']})")
           print()

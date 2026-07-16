@@ -27,6 +27,11 @@ type FailurePack = {
   captureErrors: string;
 };
 
+const FEATURED_VISUAL_EVIDENCE = [
+  "display-wall-jump-animation-filmstrip.png",
+  "station-sign-matrix.png",
+] as const;
+
 export function escapeHtml(value: string): string {
   return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;").replaceAll("'", "&#39;");
@@ -167,6 +172,7 @@ export async function buildE2eReport(root: string): Promise<string> {
     !failedSafeNames.has(safeArtifactName(name))
   );
   const successPaths = await pngFiles(join(root, "success"));
+  const visualSuccessPaths = await pngFiles(join(root, "visual-success"));
   const visualDiffs = await collectVisualDiffs(root);
   const outcome = failed.length > 0
     ? "failure"
@@ -177,6 +183,22 @@ export async function buildE2eReport(root: string): Promise<string> {
   const sha = typeof summary.sha === "string" ? summary.sha : "";
   const successFigures = (
     await Promise.all(successPaths.map((path) => imageFigure(path, basename(path))))
+  ).join("");
+  const featuredVisualPaths = FEATURED_VISUAL_EVIDENCE.flatMap((name) => {
+    const path = visualSuccessPaths.find((candidate) => basename(candidate) === name);
+    return path ? [path] : [];
+  });
+  const featuredNames = new Set(featuredVisualPaths.map((path) => basename(path)));
+  const galleryVisualPaths = visualSuccessPaths.filter((path) =>
+    !featuredNames.has(basename(path))
+  );
+  const featuredVisualFigures = (
+    await Promise.all(
+      featuredVisualPaths.map((path) => imageFigure(path, `Featured: ${basename(path)}`)),
+    )
+  ).join("");
+  const galleryVisualFigures = (
+    await Promise.all(galleryVisualPaths.map((path) => imageFigure(path, basename(path))))
   ).join("");
   const diffSections = (
     await Promise.all(visualDiffs.map(async (visual) => {
@@ -228,6 +250,7 @@ header,.card,section{border:1px solid #8886;border-radius:12px;padding:16px;marg
 .meta{display:flex;gap:12px;flex-wrap:wrap}.pill{border-radius:999px;padding:4px 10px;background:#8882}
 .success{color:#16803c}.failure{color:#c52d2d}.muted{opacity:.7}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.featured{display:grid;grid-template-columns:1fr;gap:20px}.visual-gallery{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
 figure{margin:0}img{max-width:100%;height:auto;border:1px solid #8886;border-radius:8px}
 figcaption{font-size:.9rem;overflow-wrap:anywhere}pre{white-space:pre-wrap;overflow-wrap:anywhere;padding:12px;background:#8882;border-radius:8px}
 ul{padding-left:24px}
@@ -239,6 +262,7 @@ ul{padding-left:24px}
 <div class="meta">
 <span class="pill ${escapeHtml(outcome)}">Outcome: ${escapeHtml(outcome)}</span>
 <span class="pill">Passed: ${passed.length}</span><span class="pill">Failed: ${failed.length}</span>
+<span class="pill">Visual evidence: ${visualSuccessPaths.length}</span>
 <span class="pill">Event: ${escapeHtml(event)}</span>
 <span class="pill">SHA: ${escapeHtml(sha)}</span>
 </div>
@@ -249,6 +273,13 @@ ${testList("Failed tests", failed, "failure")}
 </div>
 <section><h2>Success screenshots</h2><div class="grid">${
     successFigures || '<p class="muted">No success screenshots were captured.</p>'
+  }</div></section>
+<section><h2>Featured visual evidence</h2><div class="featured">${
+    featuredVisualFigures || '<p class="muted">No featured visual evidence was captured.</p>'
+  }</div></section>
+<section><h2>All other successful visual comparisons</h2><div class="grid visual-gallery">${
+    galleryVisualFigures ||
+    '<p class="muted">No additional successful comparisons were captured.</p>'
   }</div></section>
 <section><h2>Visual differences</h2>${
     diffSections || '<p class="muted">No visual differences were captured.</p>'
