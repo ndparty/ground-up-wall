@@ -205,9 +205,22 @@ Deno.test({
       await cleanupTestData();
       const created = await repo.upsertSystemConfig("train_dwell_time", "15", "admin-1", "5");
       assertEquals(created.value, "15");
+      assertEquals(created.default_value, "5");
+
+      // Omit defaultValue → preserve existing default
       const updated = await repo.upsertSystemConfig("train_dwell_time", "20", "admin-1");
       assertEquals(updated.value, "20");
       assertEquals(updated.default_value, "5");
+
+      // Provide defaultValue → update default (seed/default-change path)
+      const withNewDefault = await repo.upsertSystemConfig(
+        "train_dwell_time",
+        "20",
+        "admin-1",
+        "8",
+      );
+      assertEquals(withNewDefault.value, "20");
+      assertEquals(withNewDefault.default_value, "8");
     } finally {
       await cleanupTestData();
       await repo.close();
