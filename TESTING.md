@@ -29,9 +29,14 @@ Mock CI uses `USE_MOCK_DB=true` (no PostgreSQL; ~2–3 minutes). Browser E2E is 
 
 ### Artifacts
 
-Both workflows upload under `Actions → run → Artifacts` (always, including green runs).
+Both workflows upload under `Actions → run → Artifacts` (always, including green runs). The browser
+job summary also links directly to an unarchived, self-contained `report.html`; it opens in the
+browser without downloading a ZIP. GitHub authentication is still required for private repository
+artifacts.
 
-Naming: `{suite}-{event}-{sha7}` where `event` is `pr` | `push` | `release` | `manual`.
+Archived debug packs use `{suite}-{event}-{sha7}` where `event` is `pr` | `push` | `release` |
+`manual`. The unarchived direct artifact is named `report.html` (`upload-artifact@v7` intentionally
+ignores `name` for direct single-file uploads).
 
 Retention: **14 days** (PR / push / manual), **90 days** (release).
 
@@ -39,23 +44,25 @@ Retention: **14 days** (PR / push / manual), **90 days** (release).
 
 Root: `test-results/e2e-browser/` (env `E2E_ARTIFACTS_DIR`).
 
-| Path                                                               | When                                                       |
-| ------------------------------------------------------------------ | ---------------------------------------------------------- |
-| `failures/<test>/{screenshot.png,page.html,console.txt,error.txt}` | On failure                                                 |
-| `success/display-wall.png`                                         | Green — after cabins visible                               |
-| `success/moderation-queue.png`                                     | Green — after queue ready                                  |
-| `success/upload-form.png`                                          | Green — after upload form fields visible                   |
-| `visual-diff/<name>.{actual,expected,diff}.png`                    | Visual baseline mismatch                                   |
-| `summary.json`                                                     | Always (`passed`, `failed`, `screenshots`, `sha`, `event`) |
+| Path                                                               | When                                                                                                                 |
+| ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
+| `failures/<test>/{screenshot.png,page.html,console.txt,error.txt}` | On failure                                                                                                           |
+| `success/*.png`                                                    | Green audit shots for major upload, moderation, display, and admin surfaces                                          |
+| `visual-diff/<name>.{actual,expected,diff}.png`                    | Visual baseline mismatch                                                                                             |
+| `summary.json`                                                     | Always (`passed`, `failed`, `screenshots`, `sha`, `event`)                                                           |
+| `report.html`                                                      | Direct artifact only; embedded success shots, visual triples, errors, page/capture diagnostics, and console excerpts |
 
 CI always sets `E2E_CAPTURE_SUCCESS_SHOT=1`. Locally, set that env only when you want success
 screenshots (default off to avoid filling disks).
 
-The three green screenshots also have committed visual baselines under
-`tests/e2e-browser/baselines/`. CI uses `pixelmatch` to compare settled pages against them and fails
-when more than 0.1% of pixels differ. These are static layout/CSS gates, not proof of motion.
-Display animation is verified separately by asserting that a jump enters `sliding`, changes the
-track transform, returns to `idle`, and advances the cabin status.
+Committed visual baselines under `tests/e2e-browser/baselines/` cover every browser feature file:
+upload idle/error/success, login and moderation states, display playing/paused/post-jump, admin
+users/config/audit/override states, password banners, and public/protected smoke shells. CI uses
+`pixelmatch` and fails when more than 0.1% of pixels differ. Volatile timestamps are masked gray at
+capture time. These are settled layout/CSS gates, not proof of motion or realtime delivery.
+Animation is verified separately by asserting `sliding` → transform delta → `idle`; realtime
+coverage approves a unique fixture while the display remains open, jumps to it within 30 seconds,
+then verifies refresh restores the server-authoritative list, position, and play/pause state.
 
 #### Unit / smoke CI (`ci-*-…`)
 
@@ -177,26 +184,23 @@ will race on auth/config mutations.
 
 ### Test Files
 
-| File                                             | Stories / notes                   | Feature                |
-| ------------------------------------------------ | --------------------------------- | ---------------------- |
-| `tests/e2e-browser/upload.feature_test.ts`       | US-01, US-02, US-02a              | Upload Page            |
-| `tests/e2e-browser/moderation.feature_test.ts`   | US-03, US-04, US-05, US-06, US-12 | Moderate Photos        |
-| `tests/e2e-browser/display.feature_test.ts`      | US-07, US-08, US-15               | Display Wall           |
-| `tests/e2e-browser/admin-users.feature_test.ts`  | US-09, US-10, US-16, US-18        | Admin — Manage Users   |
-| `tests/e2e-browser/admin-config.feature_test.ts` | US-14, US-17, US-19               | Admin — Config & Audit |
-| `tests/e2e-browser/password.feature_test.ts`     | US-11 (seeded `pwdchange` user)   | Change Password        |
-| `tests/e2e-browser/nfr.feature_test.ts`          | Smoke only — not NFR acceptance   | Structural smoke       |
+| File                                             | Executable browser coverage                                                        | Feature                |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------- | ---------------------- |
+| `tests/e2e-browser/upload.feature_test.ts`       | US-01/02/02a form, client + server acknowledgment rejection, upload → queue        | Upload Page            |
+| `tests/e2e-browser/moderation.feature_test.ts`   | US-03/04/05/06/12 login, queue, edit/approve/reject/delete, flagged fixture, audit | Moderate Photos        |
+| `tests/e2e-browser/display.feature_test.ts`      | US-07/08/15 auth, animation, realtime approval, authoritative refresh              | Display Wall           |
+| `tests/e2e-browser/admin-users.feature_test.ts`  | US-09/10/16/18 create/toggle/delete with verified cleanup                          | Admin — Manage Users   |
+| `tests/e2e-browser/admin-config.feature_test.ts` | US-14/17/19 validation, audit, live override effects, verified restoration         | Admin — Config & Audit |
+| `tests/e2e-browser/password.feature_test.ts`     | US-11 success/error states; probes known credentials and restores original         | Change Password        |
+| `tests/e2e-browser/nfr.feature_test.ts`          | Static public/protected/read-only smoke only — not NFR acceptance                  | Structural smoke       |
 
 ### Prerequisites
 
 Playwright and Chromium must be installed:
 
 ```bash
-# Install Playwright (already in deno.json imports)
-deno add npm:playwright
-
-# Install Chromium browser binary
-npx playwright install chromium
+# Install the Chromium build matching the exact Playwright import/lock version
+npx --yes playwright@1.61.1 install chromium
 ```
 
 ### Running
@@ -210,6 +214,9 @@ deno test -P --allow-run --allow-ffi tests/e2e-browser/upload.feature_test.ts
 
 # Intentionally regenerate visual baselines (requires the same Postgres/seed setup)
 deno task test:e2e:baselines
+
+# Regenerate the self-contained report from the current artifact directory
+deno task test:e2e:report
 ```
 
 CI sets `SECURITY_GATES_DISABLED=1` on the browser workflow step (PoW/rate limits off). Local runs
@@ -220,14 +227,30 @@ committed only for intentional UI changes. `E2E_STATION_SEED=42` stabilizes trai
 `E2E_TRAIN_DWELL_SECONDS=60` prevents automatic ticks racing static captures. The animation test
 still triggers a jump explicitly.
 
+For a Linux-compatible update, manually dispatch **E2E Browser Tests** with `update-baselines=true`,
+download `generated-baselines/` from the debug pack, replace the committed files under
+`tests/e2e-browser/baselines/`, review the image diff, then rerun in normal comparison mode. Never
+enable baseline update mode on ordinary pull-request or push runs.
+
+Fixed baseline viewports are **375×812** for participant upload/mobile smoke and **1920×1080** for
+the display wall. Other admin/moderation/password surfaces use the harness default **1280×800**.
+Baseline names ending in `-static` are captured only after the island is ready and any train track
+is idle. Dynamic list timestamps are masked rather than accepted as pixel noise.
+
 ### Test Structure
 
 Each test file follows this pattern:
 
-1. **`runBrowserTest`** (`helpers.ts`): starts the in-process Fresh server + Chromium, attaches
-   console capture, runs the body, writes failure/success artifacts, always tears down
+1. **`runBrowserTest`** (`helpers.ts`): starts the in-process Fresh server + Chromium under nullable
+   ownership, attaches console capture, runs the body, writes failure/success artifacts, and awaits
+   page/browser/server teardown even when startup or cleanup fails
 2. **Tests**: One or more `Deno.test` cases named with the US ID (or `smoke (NFR demoted): …`)
-3. **Restore**: mutated config/password restored inside the test body `finally` where needed
+3. **Restore**: temporary submissions/users, config, display override, playback mode/position, and
+   password credentials are restored and verified in `finally`; cleanup failures fail the test
+
+The artifact root is cleared once at process start, so rerunning the serial suite does not retain
+stale pass/fail entries. A repeatability check should run `deno task test:e2e:browser` twice against
+the same migrated/seeded PostgreSQL database; both runs must pass without reseeding.
 
 Tests use `sanitizeResources: false` and `sanitizeOps: false` because Playwright manages its own
 async lifecycle outside Deno's scope tracking.

@@ -8,6 +8,8 @@ const BASELINES_DIR = "tests/e2e-browser/baselines";
 export type VisualCompareOptions = {
   maxDiffRatio?: number;
   threshold?: number;
+  /** CSS selectors whose volatile content is painted a deterministic gray. */
+  mask?: string[];
 };
 
 export function visualComparisonsEnabled(): boolean {
@@ -15,7 +17,10 @@ export function visualComparisonsEnabled(): boolean {
     Deno.env.get("E2E_UPDATE_BASELINES") === "1";
 }
 
-async function captureStablePng(page: Page): Promise<Uint8Array> {
+async function captureStablePng(
+  page: Page,
+  options: VisualCompareOptions,
+): Promise<Uint8Array> {
   await page.evaluate(async () => {
     await document.fonts.ready;
   });
@@ -23,6 +28,8 @@ async function captureStablePng(page: Page): Promise<Uint8Array> {
     animations: "disabled",
     caret: "hide",
     fullPage: true,
+    mask: options.mask?.map((selector) => page.locator(selector)),
+    maskColor: "#808080",
   });
 }
 
@@ -49,7 +56,7 @@ export async function compareScreenshot(
 
   const fileName = `${safeName(name)}.png`;
   const baselinePath = `${BASELINES_DIR}/${fileName}`;
-  const actualBytes = await captureStablePng(page);
+  const actualBytes = await captureStablePng(page, options);
 
   if (Deno.env.get("E2E_UPDATE_BASELINES") === "1") {
     await writePng(baselinePath, actualBytes);
@@ -80,6 +87,15 @@ export async function compareScreenshot(
   if (actual.width !== expected.width || actual.height !== expected.height) {
     await writePng(`${stem}.actual.png`, actualBytes);
     await writePng(`${stem}.expected.png`, expectedBytes);
+    const diff = new Image(
+      Math.max(actual.width, expected.width),
+      Math.max(actual.height, expected.height),
+    );
+    for (let index = 0; index < diff.bitmap.length; index += 4) {
+      diff.bitmap[index] = 255;
+      diff.bitmap[index + 3] = 255;
+    }
+    await writePng(`${stem}.diff.png`, await diff.encode());
     throw new Error(
       `Visual baseline dimensions differ for ${name}: ` +
         `expected ${expected.width}x${expected.height}, got ${actual.width}x${actual.height}`,

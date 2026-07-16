@@ -244,6 +244,37 @@ Deno.test({
 });
 
 Deno.test({
+  name: "E2E dwell override survives playback initialize, update, and reset",
+  async fn() {
+    const dir = await Deno.makeTempDir();
+    const previousOverride = Deno.env.get("E2E_TRAIN_DWELL_SECONDS");
+    Deno.env.set("E2E_TRAIN_DWELL_SECONDS", "60");
+    try {
+      await cleanupTestData();
+      const { service, repo } = await createTestService(dir);
+
+      await service.ensurePlaybackInitialized();
+      assertEquals(service.getTrainPlaybackState().dwellSeconds, 60);
+
+      await service.updateSystemParameter("train_dwell_time", "20", "admin-1");
+      assertEquals(service.getTrainPlaybackState().dwellSeconds, 60);
+
+      await service.resetSystemParameterToDefault("train_dwell_time", "admin-1");
+      assertEquals(service.getTrainPlaybackState().dwellSeconds, 60);
+      await repo.close();
+    } finally {
+      if (previousOverride === undefined) {
+        Deno.env.delete("E2E_TRAIN_DWELL_SECONDS");
+      } else {
+        Deno.env.set("E2E_TRAIN_DWELL_SECONDS", previousOverride);
+      }
+      await cleanupTestData();
+      await Deno.remove(dir, { recursive: true });
+    }
+  },
+});
+
+Deno.test({
   name: "testDefaultPlaceholderUploadAndClearAuditAsSetDefaultPlaceholder",
   async fn() {
     const dir = await Deno.makeTempDir();

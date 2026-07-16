@@ -607,7 +607,7 @@ export class PhotoWallService {
 
     if (key === "train_dwell_time") {
       await this.ensurePlaybackInitialized();
-      this.playback.setDwellSeconds(parseDwellTime(value));
+      this.playback.setDwellSeconds(e2eDwellSeconds(parseDwellTime(value)));
     }
     if (key === "qr_cabin_interval") {
       await this.ensurePlaybackInitialized();
@@ -633,7 +633,7 @@ export class PhotoWallService {
 
     if (key === "train_dwell_time") {
       await this.ensurePlaybackInitialized();
-      this.playback.setDwellSeconds(parseDwellTime(config.value));
+      this.playback.setDwellSeconds(e2eDwellSeconds(parseDwellTime(config.value)));
     }
     if (key === "qr_cabin_interval") {
       await this.ensurePlaybackInitialized();

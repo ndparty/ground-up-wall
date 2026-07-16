@@ -1,7 +1,13 @@
 import { type Page } from "playwright";
 import { assertEquals, assertGreater } from "@std/assert";
 import { formatWordListForEdit } from "../../lib/admin/parameter_validation.ts";
-import { assertRedirectsToLogin, getBaseUrl, loginAsAdmin, runBrowserTest } from "./helpers.ts";
+import {
+  assertRedirectsToLogin,
+  captureVisualBaseline,
+  getBaseUrl,
+  loginAsAdmin,
+  runBrowserTest,
+} from "./helpers.ts";
 
 type SystemConfigRow = {
   key: string;
@@ -39,19 +45,37 @@ async function snapshotConfigs(
 }
 
 async function restoreConfigs(page: Page, snapshot: Record<string, string>): Promise<void> {
+  const errors: unknown[] = [];
   for (const [key, value] of Object.entries(snapshot)) {
-    const restoreValue = key === "auto_moderator_word_list" ? formatWordListForEdit(value) : value;
-    const res = await page.evaluate(async ([configKey, configValue]) => {
-      const response = await fetch("/api/towkay/parameters/update", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key: configKey, value: configValue }),
-      });
-      return { ok: response.ok, status: response.status };
-    }, [key, restoreValue] as [string, string]);
-    if (!res.ok) {
-      throw new Error(`Failed to restore ${key}: HTTP ${res.status}`);
+    try {
+      const restoreValue = key === "auto_moderator_word_list"
+        ? formatWordListForEdit(value)
+        : value;
+      const res = await page.evaluate(async ([configKey, configValue]) => {
+        const response = await fetch("/api/towkay/parameters/update", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key: configKey, value: configValue }),
+        });
+        return { ok: response.ok, status: response.status };
+      }, [key, restoreValue] as [string, string]);
+      if (!res.ok) {
+        throw new Error(`Failed to restore ${key}: HTTP ${res.status}`);
+      }
+      const restored = await fetchSystemConfig(page, key);
+      if (restored.value !== value) {
+        throw new Error(
+          `Failed to verify restored ${key}: expected ${JSON.stringify(value)}, got ${
+            JSON.stringify(restored.value)
+          }`,
+        );
+      }
+    } catch (error) {
+      errors.push(error);
     }
+  }
+  if (errors.length > 0) {
+    throw new AggregateError(errors, "One or more system configurations failed to restore");
   }
 }
 
@@ -79,6 +103,40 @@ async function waitForConfigValue(page: Page, key: string, value: string): Promi
   );
 }
 
+async function restoreNormalDisplay(page: Page): Promise<void> {
+  const result = await page.evaluate(async () => {
+    const form = new FormData();
+    form.append("type", "resume");
+    const response = await fetch("/api/towkay/display-override", { method: "POST", body: form });
+    if (!response.ok) return { ok: false, status: response.status, type: "" };
+    const stateResponse = await fetch("/api/towkay/display-override");
+    const state = await stateResponse.json() as { type?: string };
+    return {
+      ok: stateResponse.ok && state.type === "normal",
+      status: stateResponse.status,
+      type: state.type,
+    };
+  });
+  if (!result.ok) {
+    throw new Error(
+      `Failed to restore normal display override: HTTP ${result.status}, type=${result.type}`,
+    );
+  }
+}
+
+async function assertOverrideAuditActions(page: Page): Promise<void> {
+  const actions = await page.evaluate(async () => {
+    const response = await fetch(
+      "/api/towkay/audit-log?target_type=display_override&limit=200",
+    );
+    const body = await response.json() as { entries: Array<{ action_type: string }> };
+    return body.entries.map((entry) => entry.action_type);
+  });
+  for (const expected of ["blank_display", "show_placeholder", "resume_display"]) {
+    assertEquals(actions.includes(expected), true, `US-19: audit log records ${expected}`);
+  }
+}
+
 Deno.test({
   name: "Feature 4: Admin Config (US-14, US-17, US-19)",
   sanitizeResources: false,
@@ -88,17 +146,29 @@ Deno.test({
       "Feature 4: Admin Config (US-14, US-17, US-19)",
       async ({ page }) => {
         let configSnapshot: Record<string, string> | null = null;
+        let displayPage: Page | null = null;
+        let testFailure: unknown = null;
+        let cleanupFailure: unknown = null;
         try {
           await assertRedirectsToLogin(page, "/towkay/parameters", "US-14");
           await assertRedirectsToLogin(page, "/towkay/audit-log", "US-17");
           await assertRedirectsToLogin(page, "/towkay/display-override", "US-19");
 
           await loginAsAdmin(page);
+          await restoreNormalDisplay(page);
+          displayPage = await page.context().newPage();
+          await displayPage.goto(getBaseUrl() + "/concourse");
+          await displayPage.waitForSelector(".train-cabin-wrap", { timeout: 15_000 });
+          const dismissFullscreen = displayPage.locator(
+            ".display-wall__fullscreen-prompt-secondary",
+          );
+          if (await dismissFullscreen.count() > 0) await dismissFullscreen.click();
 
           await page.goto(getBaseUrl() + "/towkay/parameters");
           await page.waitForSelector(".param-section, .text-muted", { timeout: 10_000 });
 
           configSnapshot = await snapshotConfigs(page, MUTATED_KEYS);
+          await captureVisualBaseline(page, "admin-parameters-static");
 
           const dwellTimeInput = page.locator('input[aria-label="Train dwell time (seconds)"]');
           await dwellTimeInput.fill("10");
@@ -215,6 +285,14 @@ Deno.test({
             0,
             "US-17: audit log is read-only",
           );
+          await captureVisualBaseline(page, "admin-audit-filtered-static", {
+            mask: [
+              ".pagination-bar",
+              ".data-table__row td:first-child",
+              ".data-table__row td:nth-child(5)",
+              ".data-table__row td:nth-child(6)",
+            ],
+          });
 
           await page.goto(getBaseUrl() + "/towkay/display-override");
           await page.waitForSelector("section.panel", { timeout: 10_000 });
@@ -224,29 +302,84 @@ Deno.test({
             state: "visible",
             timeout: 10_000,
           });
+          await displayPage.locator(
+            ".display-wall__override-layer--visible .display-wall__override-blank",
+          ).waitFor({
+            state: "visible",
+            timeout: 10_000,
+          });
+          await captureVisualBaseline(displayPage, "admin-override-blank-static");
 
           await page.locator('button:has-text("Show placeholder")').click();
           await page.locator("section.panel strong", { hasText: "Placeholder" }).waitFor({
             state: "visible",
             timeout: 10_000,
           });
+          await displayPage.locator(
+            ".display-wall__override-layer--visible .display-wall__override-placeholder, " +
+              ".display-wall__override-layer--visible .display-wall__empty",
+          ).waitFor({
+            state: "visible",
+            timeout: 10_000,
+          });
+          await captureVisualBaseline(displayPage, "admin-override-placeholder-static");
 
           await page.locator('button:has-text("Resume display")').click();
           await page.locator("section.panel strong", { hasText: "Normal" }).waitFor({
             state: "visible",
             timeout: 10_000,
           });
+          await displayPage.locator(".display-wall__override-panel").waitFor({
+            state: "detached",
+            timeout: 10_000,
+          });
+          await displayPage.locator(".train-cabin-wrap--active").waitFor({
+            state: "visible",
+            timeout: 10_000,
+          });
+          await captureVisualBaseline(displayPage, "admin-override-normal-static", {
+            mask: [".station-sign"],
+          });
+          await assertOverrideAuditActions(page);
+        } catch (error) {
+          testFailure = error;
         } finally {
+          try {
+            await restoreNormalDisplay(page);
+          } catch (error) {
+            cleanupFailure = error;
+          }
+          if (displayPage && !displayPage.isClosed()) {
+            try {
+              await displayPage.close();
+            } catch (error) {
+              cleanupFailure = cleanupFailure === null ? error : new AggregateError(
+                [cleanupFailure, error],
+                "Display override and display-page cleanup both failed",
+              );
+            }
+          }
           if (configSnapshot) {
             try {
               await restoreConfigs(page, configSnapshot);
-            } catch (err) {
-              console.error("Failed to restore system config after admin-config E2E:", err);
+            } catch (error) {
+              cleanupFailure = cleanupFailure === null ? error : new AggregateError(
+                [cleanupFailure, error],
+                "Admin config resource and configuration cleanup both failed",
+              );
             }
           }
         }
+        if (testFailure !== null && cleanupFailure !== null) {
+          throw new AggregateError(
+            [testFailure, cleanupFailure],
+            "Admin config test and shared-state restoration both failed",
+          );
+        }
+        if (cleanupFailure !== null) throw cleanupFailure;
+        if (testFailure !== null) throw testFailure;
       },
-      { acceptDialogs: true },
+      { acceptDialogs: true, successScreenshot: "admin-config" },
     );
   },
 });

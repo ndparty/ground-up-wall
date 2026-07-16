@@ -21,6 +21,9 @@ export function getBaseUrl(): string {
  * Must be called once before any browser tests.
  */
 export async function startServer(): Promise<void> {
+  if (server !== null) {
+    throw new Error("E2E server is already running");
+  }
   // Build the Fresh handler
   const builder = new Builder(freshConfig);
   const applySnapshot = await builder.build({ snapshot: "memory" });
@@ -28,29 +31,35 @@ export async function startServer(): Promise<void> {
   const handler = app.handler();
 
   // Start a Deno HTTP server wrapping the handler
-  server = Deno.serve({ port: SERVER_PORT, onListen: () => {} }, (req, info) => {
+  const startedServer = Deno.serve({ port: SERVER_PORT, onListen: () => {} }, (req, info) => {
     return handler(req, info);
   });
+  server = startedServer;
 
-  // Poll for readiness (up to 15s)
-  for (let i = 0; i < 30; i++) {
-    try {
-      const resp = await fetch(`${BASE_URL}/api/health`);
-      if (resp.ok) return;
-    } catch {
-      // not ready yet
+  try {
+    // Poll for readiness (up to 15s)
+    for (let i = 0; i < 30; i++) {
+      try {
+        const resp = await fetch(`${BASE_URL}/api/health`);
+        if (resp.ok) return;
+      } catch {
+        // not ready yet
+      }
+      await new Promise((r) => setTimeout(r, 500));
     }
-    await new Promise((r) => setTimeout(r, 500));
+    throw new Error("Server did not start within 15 seconds");
+  } catch (error) {
+    server = null;
+    await startedServer.shutdown();
+    throw error;
   }
-  throw new Error("Server did not start within 15 seconds");
 }
 
 /**
  * Stop the server. Must be called after all browser tests complete.
  */
-export function stopServer(): void {
-  if (server) {
-    server.shutdown();
-    server = null;
-  }
+export async function stopServer(): Promise<void> {
+  const runningServer = server;
+  server = null;
+  if (runningServer) await runningServer.shutdown();
 }

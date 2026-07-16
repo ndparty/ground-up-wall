@@ -141,7 +141,9 @@
        I've read and understood the privacy notice and posting guidelines
      </label>
      ```
-   - Submit button is disabled (`disabled={!acknowledged}`)
+   - Historical design: submit was disabled until acknowledgment. Requirements Update 04 supersedes
+     this with validate-on-submit so the user receives a field error; no request is sent, and the
+     server independently rejects unacknowledged requests.
 
 4. **Add posting guidelines disclaimer** below the submit button and on the success confirmation
    page:
@@ -150,11 +152,11 @@
 
 #### Unit Tests
 
-| Test File                     | Test Method                  | Verifies                                                |
-| ----------------------------- | ---------------------------- | ------------------------------------------------------- |
-| `islands/UploadForm_test.tsx` | `testPrivacyNoticeDisplayed` | Privacy notice text is visible on the upload page       |
-| `islands/UploadForm_test.tsx` | `testCheckboxEnablesSubmit`  | Submit button becomes enabled after checkbox is checked |
-| `islands/UploadForm_test.tsx` | `testDisclaimerDisplayed`    | Posting guidelines disclaimer is visible on the form    |
+| Test File                     | Test Method                     | Verifies                                                                            |
+| ----------------------------- | ------------------------------- | ----------------------------------------------------------------------------------- |
+| `islands/UploadForm_test.tsx` | `testPrivacyNoticeDisplayed`    | Privacy notice text is visible on the upload page                                   |
+| `islands/UploadForm_test.tsx` | acknowledgment validation tests | Missing acknowledgment is explained and blocks client/server submission (Update 04) |
+| `islands/UploadForm_test.tsx` | `testDisclaimerDisplayed`       | Posting guidelines disclaimer is visible on the form                                |
 
 #### Verification
 
@@ -163,7 +165,8 @@
 - [ ] New tests pass
 - [ ] Code coverage meets ≥80% threshold for new/modified code
 - [ ] Privacy notice is displayed with indefinite retention and social media language
-- [ ] Acknowledgment checkbox must be checked before submit is enabled
+- [ ] Attempting submit without acknowledgment shows validation and sends no request; server also
+      rejects unacknowledged requests (superseded by Requirements Update 04)
 - [ ] Posting guidelines disclaimer visible on form and after submission
 
 ---

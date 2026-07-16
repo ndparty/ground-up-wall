@@ -127,6 +127,7 @@ function SubmissionCard({
 
   return (
     <article
+      data-submission-id={submission.id}
       class={`submission-card ${submission.is_flagged ? "submission-card--flagged" : ""}`}
     >
       {submission.is_flagged && (

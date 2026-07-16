@@ -117,6 +117,7 @@ const TrainCabin = forwardRef<HTMLElement, TrainCabinProps>(function TrainCabin(
   return (
     <div
       ref={ref}
+      data-submission-id={submission?.id}
       class={`train-cabin-wrap${isActive ? " train-cabin-wrap--active" : ""}${
         isAnimating ? " train-cabin-wrap--animating" : ""
       }${kind === "qr" ? " train-cabin-wrap--qr" : ""}`}

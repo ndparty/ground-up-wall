@@ -13,6 +13,11 @@
 > This document is the **single source of truth** for implementation sequencing of WI-07 (Seeding +
 > Integration Tests + Docs). ⚠️ This is the **capstone work item** — all WI-01 through WI-06c must
 > be merged before starting.
+>
+> **Historical status note (2026-07):** this plan records intended sequencing and acceptance scope;
+> its scenario counts and checklists are not evidence that every criterion is automated or currently
+> passing. Use the consolidated requirements and `TESTING.md` for current behavior and executable
+> coverage. Manual-only checks remain manual until linked to a concrete automated assertion.
 
 ---
 
