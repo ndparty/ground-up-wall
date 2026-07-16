@@ -138,10 +138,11 @@ function testList(title: string, names: string[], className: string): string {
   return `<section><h2>${escapeHtml(title)}</h2><ul class="${className}">${items}</ul></section>`;
 }
 
-async function imageFigure(path: string, caption: string): Promise<string> {
+async function imageFigure(path: string, caption: string, className = ""): Promise<string> {
   const src = await imageDataUrl(path);
   if (!src) return "";
-  return `<figure><img src="${src}" alt="${escapeHtml(caption)}"><figcaption>${
+  const classAttribute = className ? ` class="${escapeHtml(className)}"` : "";
+  return `<figure${classAttribute}><img src="${src}" alt="${escapeHtml(caption)}"><figcaption>${
     escapeHtml(caption)
   }</figcaption></figure>`;
 }
@@ -194,7 +195,13 @@ export async function buildE2eReport(root: string): Promise<string> {
   );
   const featuredVisualFigures = (
     await Promise.all(
-      featuredVisualPaths.map((path) => imageFigure(path, `Featured: ${basename(path)}`)),
+      featuredVisualPaths.map((path) =>
+        imageFigure(
+          path,
+          `Featured: ${basename(path)}`,
+          basename(path) === FEATURED_VISUAL_EVIDENCE[0] ? "featured-filmstrip" : "",
+        )
+      ),
     )
   ).join("");
   const galleryVisualFigures = (
@@ -251,6 +258,7 @@ header,.card,section{border:1px solid #8886;border-radius:12px;padding:16px;marg
 .success{color:#16803c}.failure{color:#c52d2d}.muted{opacity:.7}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
 .featured{display:grid;grid-template-columns:1fr;gap:20px}.visual-gallery{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.featured-filmstrip{max-width:100%;overflow-x:auto}.featured-filmstrip img{display:block;max-width:none}
 figure{margin:0}img{max-width:100%;height:auto;border:1px solid #8886;border-radius:8px}
 figcaption{font-size:.9rem;overflow-wrap:anywhere}pre{white-space:pre-wrap;overflow-wrap:anywhere;padding:12px;background:#8882;border-radius:8px}
 ul{padding-left:24px}
@@ -274,7 +282,9 @@ ${testList("Failed tests", failed, "failure")}
 <section><h2>Success screenshots</h2><div class="grid">${
     successFigures || '<p class="muted">No success screenshots were captured.</p>'
   }</div></section>
-<section><h2>Featured visual evidence</h2><div class="featured">${
+<section><h2>Featured visual evidence</h2>
+<p class="muted">The animation filmstrip is shown at native resolution; scroll horizontally to inspect train text and keyframes.</p>
+<div class="featured">${
     featuredVisualFigures || '<p class="muted">No featured visual evidence was captured.</p>'
   }</div></section>
 <section><h2>All other successful visual comparisons</h2><div class="grid visual-gallery">${

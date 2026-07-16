@@ -167,11 +167,13 @@ export async function seekTransformAnimation(
         if (!captureRoot) throw new Error(`Missing animation capture root: ${captureSelector}`);
         document.getElementById("e2e-animation-capture")?.remove();
         const captureRect = captureRoot.getBoundingClientRect();
+        const captureStyle = getComputedStyle(captureRoot);
         const fixture = document.createElement("div");
         fixture.id = "e2e-animation-capture";
         fixture.style.cssText =
           `position:relative;width:${captureRect.width}px;height:${captureRect.height}px;` +
-          "overflow:hidden;background:#080910";
+          `overflow:hidden;background:#080910;color:${captureStyle.color};` +
+          `font-family:${captureStyle.fontFamily}`;
         const clone = captureRoot.cloneNode(true) as HTMLElement;
         clone.style.width = `${captureRect.width}px`;
         clone.style.height = `${captureRect.height}px`;
@@ -196,6 +198,23 @@ export async function seekTransformAnimation(
           "border:1px solid #fff;background:#080910;color:#fff;font:700 18px/1.2 monospace";
         fixture.append(label);
         document.body.append(fixture);
+        for (const textSelector of [".train-cabin__message", ".train-cabin__name"]) {
+          const sourceText = captureRoot.querySelector<HTMLElement>(textSelector);
+          const clonedText = clone.querySelector<HTMLElement>(textSelector);
+          if (!sourceText || !clonedText) continue;
+          const sourceTextStyle = getComputedStyle(sourceText);
+          const clonedTextStyle = getComputedStyle(clonedText);
+          if (
+            clonedTextStyle.color !== sourceTextStyle.color ||
+            clonedTextStyle.fontFamily !== sourceTextStyle.fontFamily
+          ) {
+            throw new Error(
+              `Cloned animation text style differs for ${textSelector}: ` +
+                `${clonedTextStyle.color}/${clonedTextStyle.fontFamily} !== ` +
+                `${sourceTextStyle.color}/${sourceTextStyle.fontFamily}`,
+            );
+          }
+        }
       }
 
       animation.currentTime = Math.max(0, durationMs - 1);

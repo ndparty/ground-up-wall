@@ -66,6 +66,12 @@ Deno.test("E2E report embeds success, diff, and failure evidence", async () => {
     assertStringIncludes(html, "Visual evidence: 3");
     assertStringIncludes(html, "Featured: display-wall-jump-animation-filmstrip.png");
     assertStringIncludes(html, "Featured: station-sign-matrix.png");
+    assertStringIncludes(html, 'class="featured-filmstrip"');
+    assertStringIncludes(html, ".featured-filmstrip img{display:block;max-width:none}");
+    assertStringIncludes(
+      html,
+      "scroll horizontally to inspect train text and keyframes.",
+    );
     assertStringIncludes(html, "All other successful visual comparisons");
     assertStringIncludes(html, "upload-form.png");
     assertStringIncludes(html, "Content-Security-Policy");
@@ -86,6 +92,11 @@ Deno.test("E2E report embeds success, diff, and failure evidence", async () => {
       html.split("display-wall-jump-animation-filmstrip.png").length - 1,
       2,
       "featured evidence appears once (image alt plus caption), not again in the gallery",
+    );
+    assertEquals(
+      html.split('class="featured-filmstrip"').length - 1,
+      1,
+      "only the animation filmstrip receives native-resolution scrolling",
     );
 
     const output = join(root, "custom-report.html");
