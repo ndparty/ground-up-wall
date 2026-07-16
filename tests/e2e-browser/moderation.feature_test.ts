@@ -1,7 +1,6 @@
-import { chromium, type Page } from "playwright";
+import { type Page } from "playwright";
 import { assertEquals, assertGreater } from "@std/assert";
-import { loginAsAdmin } from "./helpers.ts";
-import { getBaseUrl, startServer, stopServer } from "./setup.ts";
+import { getBaseUrl, loginAsAdmin, runBrowserTest } from "./helpers.ts";
 
 /** Wait until the ModerationQueue island has finished loading (not just page-shell h2). */
 async function waitForModerationQueueReady(page: Page): Promise<void> {
@@ -36,10 +35,7 @@ Deno.test({
   sanitizeResources: false,
   sanitizeOps: false,
   async fn() {
-    await startServer();
-    const browser = await chromium.launch({ headless: true });
-    const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
-    try {
+    await runBrowserTest("Feature 2: Login Page - US-03", async ({ page }) => {
       await page.goto(getBaseUrl() + "/masuk");
       await page.waitForSelector("form");
 
@@ -57,10 +53,7 @@ Deno.test({
         true,
         "US-03: Login page should have sign-in heading",
       );
-    } finally {
-      await browser.close();
-      stopServer();
-    }
+    });
   },
 });
 
@@ -69,10 +62,7 @@ Deno.test({
   sanitizeResources: false,
   sanitizeOps: false,
   async fn() {
-    await startServer();
-    const browser = await chromium.launch({ headless: true });
-    const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
-    try {
+    await runBrowserTest("Feature 2: Moderation Queue - US-04", async ({ page }) => {
       await page.goto(getBaseUrl() + "/semak");
       await page.waitForURL(/\/masuk/);
 
@@ -82,10 +72,7 @@ Deno.test({
         true,
         "US-04: Unauthenticated access redirects to login",
       );
-    } finally {
-      await browser.close();
-      stopServer();
-    }
+    });
   },
 });
 
@@ -94,23 +81,21 @@ Deno.test({
   sanitizeResources: false,
   sanitizeOps: false,
   async fn() {
-    await startServer();
-    const browser = await chromium.launch({ headless: true });
-    const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
-    try {
-      await loginAsAdmin(page);
-      await page.goto(getBaseUrl() + "/semak");
-      await page.waitForURL(/\/semak/);
-      await waitForModerationQueueReady(page);
-      assertEquals(
-        page.url().includes("/semak") && !page.url().includes("/masuk"),
-        true,
-        "US-05: authenticated moderation queue page renders",
-      );
-    } finally {
-      await browser.close();
-      stopServer();
-    }
+    await runBrowserTest(
+      "Feature 2: Moderation Actions - US-05",
+      async ({ page }) => {
+        await loginAsAdmin(page);
+        await page.goto(getBaseUrl() + "/semak");
+        await page.waitForURL(/\/semak/);
+        await waitForModerationQueueReady(page);
+        assertEquals(
+          page.url().includes("/semak") && !page.url().includes("/masuk"),
+          true,
+          "US-05: authenticated moderation queue page renders",
+        );
+      },
+      { successScreenshot: "moderation-queue" },
+    );
   },
 });
 
@@ -119,10 +104,7 @@ Deno.test({
   sanitizeResources: false,
   sanitizeOps: false,
   async fn() {
-    await startServer();
-    const browser = await chromium.launch({ headless: true });
-    const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
-    try {
+    await runBrowserTest("Feature 2: Auto-Moderator Flagging - US-12", async ({ page }) => {
       await loginAsAdmin(page);
       await page.goto(getBaseUrl() + "/semak");
       await page.waitForURL(/\/semak/);
@@ -160,10 +142,7 @@ Deno.test({
           "US-12: moderation queue shows cards or empty state after island load",
         );
       }
-    } finally {
-      await browser.close();
-      stopServer();
-    }
+    });
   },
 });
 
@@ -172,60 +151,55 @@ Deno.test({
   sanitizeResources: false,
   sanitizeOps: false,
   async fn() {
-    await startServer();
-    const browser = await chromium.launch({ headless: true });
-    const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
-    page.on("dialog", (dialog) => dialog.accept());
-    try {
-      await loginAsAdmin(page);
+    await runBrowserTest(
+      "Feature 2: Delete Approved Submission - US-06",
+      async ({ page }) => {
+        await loginAsAdmin(page);
 
-      await page.goto(getBaseUrl() + "/semak/pamer");
-      await page.waitForURL(/\/semak\/pamer/);
-      await waitForApprovedGalleryReady(page);
-      assertEquals(
-        page.url().includes("/masuk"),
-        false,
-        "US-06: approved gallery requires authenticated session",
-      );
+        await page.goto(getBaseUrl() + "/semak/pamer");
+        await page.waitForURL(/\/semak\/pamer/);
+        await waitForApprovedGalleryReady(page);
+        assertEquals(
+          page.url().includes("/masuk"),
+          false,
+          "US-06: approved gallery requires authenticated session",
+        );
 
-      // Paginated gallery keeps a full page of cards after one delete; assert via
-      // the toolbar total (see ApprovedWallList) rather than visible card count.
-      await page.waitForSelector(".approved-toolbar__count", { timeout: 10_000 });
-      const countLabel = await page.locator(".approved-toolbar__count").textContent() ?? "";
-      const initialTotal = Number.parseInt(countLabel, 10);
-      assertGreater(
-        initialTotal,
-        0,
-        "US-06: approved gallery must list submissions (run db:seed:demos)",
-      );
+        await page.waitForSelector(".approved-toolbar__count", { timeout: 10_000 });
+        const countLabel = await page.locator(".approved-toolbar__count").textContent() ?? "";
+        const initialTotal = Number.parseInt(countLabel, 10);
+        assertGreater(
+          initialTotal,
+          0,
+          "US-06: approved gallery must list submissions (run db:seed:demos)",
+        );
 
-      const deleteButtons = page.locator("button.btn--dark", { hasText: "Delete" });
-      assertGreater(
-        await deleteButtons.count(),
-        0,
-        "US-06: approved gallery must have delete actions",
-      );
+        const deleteButtons = page.locator("button.btn--dark", { hasText: "Delete" });
+        assertGreater(
+          await deleteButtons.count(),
+          0,
+          "US-06: approved gallery must have delete actions",
+        );
 
-      await deleteButtons.first().click();
-      await page.waitForFunction(
-        (before) => {
-          const text = document.querySelector(".approved-toolbar__count")?.textContent ?? "";
-          const n = Number.parseInt(text, 10);
-          return Number.isFinite(n) && n < before;
-        },
-        initialTotal,
-        { timeout: 15_000 },
-      );
-      const afterLabel = await page.locator(".approved-toolbar__count").textContent() ?? "";
-      const afterTotal = Number.parseInt(afterLabel, 10);
-      assertEquals(
-        afterTotal < initialTotal,
-        true,
-        "US-06: deleting an approved submission reduces the gallery total",
-      );
-    } finally {
-      await browser.close();
-      stopServer();
-    }
+        await deleteButtons.first().click();
+        await page.waitForFunction(
+          (before) => {
+            const text = document.querySelector(".approved-toolbar__count")?.textContent ?? "";
+            const n = Number.parseInt(text, 10);
+            return Number.isFinite(n) && n < before;
+          },
+          initialTotal,
+          { timeout: 15_000 },
+        );
+        const afterLabel = await page.locator(".approved-toolbar__count").textContent() ?? "";
+        const afterTotal = Number.parseInt(afterLabel, 10);
+        assertEquals(
+          afterTotal < initialTotal,
+          true,
+          "US-06: deleting an approved submission reduces the gallery total",
+        );
+      },
+      { acceptDialogs: true },
+    );
   },
 });

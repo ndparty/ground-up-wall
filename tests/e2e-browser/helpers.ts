@@ -3,9 +3,12 @@
  * Login fails hard (waitForURL) — never soft-pass when still on /masuk.
  */
 
-import type { Page } from "playwright";
+import { type Browser, chromium, type Page } from "playwright";
 import { assertEquals } from "@std/assert";
-import { getBaseUrl } from "./setup.ts";
+import { attachConsole, captureFailure, captureSuccess, recordPass } from "./artifacts.ts";
+import { getBaseUrl, startServer, stopServer } from "./setup.ts";
+
+export { getBaseUrl };
 
 export const ADMIN_USERNAME = "admin";
 export const ADMIN_PASSWORD = Deno.env.get("ADMIN_INITIAL_PASSWORD") || "admin123";
@@ -22,6 +25,50 @@ export const PWDCHANGE_PASSWORD = Deno.env.get("DEMO_PWDCHANGE_PASSWORD") || "Pw
 
 /** Authed landing paths after /masuk (role-dependent). */
 const AUTHED_URL = /\/(concourse|semak|towkay)/;
+
+export type BrowserTestContext = {
+  page: Page;
+  browser: Browser;
+};
+
+export type RunBrowserTestOptions = {
+  viewport?: { width: number; height: number };
+  acceptDialogs?: boolean;
+  /** Writes success/<name>.png when E2E_CAPTURE_SUCCESS_SHOT=1 */
+  successScreenshot?: string;
+};
+
+/**
+ * Start Fresh + Chromium, run the body, capture failure/success artifacts, always teardown.
+ */
+export async function runBrowserTest(
+  name: string,
+  fn: (ctx: BrowserTestContext) => Promise<void>,
+  opts: RunBrowserTestOptions = {},
+): Promise<void> {
+  await startServer();
+  const browser = await chromium.launch({ headless: true });
+  const page = await browser.newPage({
+    viewport: opts.viewport ?? { width: 1280, height: 800 },
+  });
+  const consoleLines = attachConsole(page);
+  if (opts.acceptDialogs) {
+    page.on("dialog", (dialog) => dialog.accept());
+  }
+  try {
+    await fn({ page, browser });
+    if (opts.successScreenshot) {
+      await captureSuccess(page, opts.successScreenshot);
+    }
+    await recordPass(name);
+  } catch (err) {
+    await captureFailure(page, name, err, consoleLines);
+    throw err;
+  } finally {
+    await browser.close();
+    stopServer();
+  }
+}
 
 export async function loginAs(
   page: Page,

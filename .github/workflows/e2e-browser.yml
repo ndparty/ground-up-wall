@@ -4,7 +4,10 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+    branches: [main, integration/all-features]
+  release:
+    types: [published]
+  workflow_dispatch:
 
 jobs:
   e2e-browser:
@@ -23,7 +26,6 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 10
-        # Wait up to 100s for PostgreSQL to be ready
     steps:
       - uses: actions/checkout@v4
 
@@ -57,8 +59,66 @@ jobs:
         env:
           DATABASE_URL: "postgres://postgres:postgres@localhost:5432/ground_up_wall_test"
 
+      - name: Artifact metadata
+        id: meta
+        run: |
+          case "${{ github.event_name }}" in
+            pull_request) KIND=pr ;;
+            push) KIND=push ;;
+            release) KIND=release ;;
+            *) KIND=manual ;;
+          esac
+          echo "kind=$KIND" >> "$GITHUB_OUTPUT"
+          echo "sha7=${GITHUB_SHA:0:7}" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare E2E artifact directory
+        run: mkdir -p test-results/e2e-browser
+
       - name: Run browser E2E tests
+        id: e2e
         run: deno task test:e2e:browser
         env:
           DATABASE_URL: "postgres://postgres:postgres@localhost:5432/ground_up_wall_test"
           SECURITY_GATES_DISABLED: "1"
+          E2E_ARTIFACTS_DIR: test-results/e2e-browser
+          E2E_CAPTURE_SUCCESS_SHOT: "1"
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_EVENT_NAME: ${{ steps.meta.outputs.kind }}
+
+      - name: Finalize E2E summary
+        if: always()
+        run: |
+          DIR=test-results/e2e-browser
+          mkdir -p "$DIR"
+          python3 - <<'PY'
+          import json, os
+          path = "test-results/e2e-browser/summary.json"
+          try:
+              with open(path) as f:
+                  summary = json.load(f)
+          except Exception:
+              summary = {"passed": [], "failed": [], "screenshots": []}
+          summary["suite"] = "e2e-browser"
+          summary["event"] = os.environ.get("KIND", "unknown")
+          summary["sha"] = os.environ.get("GITHUB_SHA", "")
+          summary["jobOutcome"] = os.environ.get("JOB_OUTCOME", "")
+          summary.setdefault("passed", [])
+          summary.setdefault("failed", [])
+          summary.setdefault("screenshots", [])
+          with open(path, "w") as f:
+              json.dump(summary, f, indent=2)
+              f.write("\n")
+          PY
+        env:
+          KIND: ${{ steps.meta.outputs.kind }}
+          GITHUB_SHA: ${{ github.sha }}
+          JOB_OUTCOME: ${{ steps.e2e.outcome }}
+
+      - name: Upload E2E artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-${{ steps.meta.outputs.kind }}-${{ steps.meta.outputs.sha7 }}
+          path: test-results/e2e-browser/
+          if-no-files-found: warn
+          retention-days: ${{ github.event_name == 'release' && 90 || 14 }}

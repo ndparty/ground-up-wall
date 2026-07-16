@@ -10,19 +10,55 @@ This project supports three testing modes:
 
 ## CI Pipeline (GitHub Actions)
 
-The CI pipeline uses the **mock database** by default:
+Two workflows share the same trigger matrix:
 
-- No PostgreSQL service required
-- Tests run faster (~2-3 minutes vs ~5-7 minutes)
-- Set via `USE_MOCK_DB=true` environment variable
+| Trigger             | Branches / events                  |
+| ------------------- | ---------------------------------- |
+| `push`              | `main`                             |
+| `pull_request`      | `main`, `integration/all-features` |
+| `release`           | `published`                        |
+| `workflow_dispatch` | manual                             |
 
-### What Runs in CI
+| Workflow          | Job                                        | What it runs        |
+| ----------------- | ------------------------------------------ | ------------------- |
+| `ci.yml`          | unit + smoke (mock DB) + `deno task check` | Fast; no Postgres   |
+| `e2e-browser.yml` | Playwright browser E2E                     | Postgres + Chromium |
 
-- **Pull Requests**: Unit tests (`deno task test:unit`) + smoke tests (`deno task test:e2e:smoke`)
-- **Main Branch**: Unit tests (`deno task test:unit`) + smoke tests (`deno task test:e2e:smoke`)
-- **All builds**: Lint and format checks (`deno task check`)
-- **Browser tests**: Run separately in `e2e-browser.yml` via `deno task test:e2e:browser` (requires
-  PostgreSQL + Chromium); they are excluded from `test:unit` and never run in the main CI workflow
+Mock CI uses `USE_MOCK_DB=true` (no PostgreSQL; ~2–3 minutes). Browser E2E is excluded from
+`test:unit` and never runs in the main CI workflow.
+
+### Artifacts
+
+Both workflows upload under `Actions → run → Artifacts` (always, including green runs).
+
+Naming: `{suite}-{event}-{sha7}` where `event` is `pr` | `push` | `release` | `manual`.
+
+Retention: **14 days** (PR / push / manual), **90 days** (release).
+
+#### Browser E2E (`e2e-*-…`)
+
+Root: `test-results/e2e-browser/` (env `E2E_ARTIFACTS_DIR`).
+
+| Path                                                               | When                                                       |
+| ------------------------------------------------------------------ | ---------------------------------------------------------- |
+| `failures/<test>/{screenshot.png,page.html,console.txt,error.txt}` | On failure                                                 |
+| `success/display-wall.png`                                         | Green — after cabins visible                               |
+| `success/moderation-queue.png`                                     | Green — after queue ready                                  |
+| `success/upload-form.png`                                          | Green — after upload form fields visible                   |
+| `summary.json`                                                     | Always (`passed`, `failed`, `screenshots`, `sha`, `event`) |
+
+CI always sets `E2E_CAPTURE_SUCCESS_SHOT=1`. Locally, set that env only when you want success
+screenshots (default off to avoid filling disks).
+
+#### Unit / smoke CI (`ci-*-…`)
+
+Root: `test-results/ci/` — **text only** (no screenshots):
+
+| Path                                 | Contents                   |
+| ------------------------------------ | -------------------------- |
+| `unit-junit.xml` / `smoke-junit.xml` | JUnit reports              |
+| `unit.log` / `smoke.log`             | Tee’d console output       |
+| `summary.json`                       | Commit SHA + step outcomes |
 
 ## Local Development
 
@@ -173,10 +209,10 @@ should match that when debugging CI-equivalent behaviour.
 
 Each test file follows this pattern:
 
-1. **Setup**: Start an **in-process** Fresh HTTP server (`setup.ts` + `Deno.serve`) and launch
-   Playwright Chromium — not a separate subprocess
+1. **`runBrowserTest`** (`helpers.ts`): starts the in-process Fresh server + Chromium, attaches
+   console capture, runs the body, writes failure/success artifacts, always tears down
 2. **Tests**: One or more `Deno.test` cases named with the US ID (or `smoke (NFR demoted): …`)
-3. **Teardown**: Close browser, restore mutated config/password where applicable, stop server
+3. **Restore**: mutated config/password restored inside the test body `finally` where needed
 
 Tests use `sanitizeResources: false` and `sanitizeOps: false` because Playwright manages its own
 async lifecycle outside Deno's scope tracking.
@@ -223,12 +259,14 @@ Located in `lib/repositories/postgres_repository.ts`:
 
 ## Environment Variables
 
-| Variable                  | Purpose                                   | Default                                         |
-| ------------------------- | ----------------------------------------- | ----------------------------------------------- |
-| `USE_MOCK_DB`             | Use mock repository instead of PostgreSQL | `false`                                         |
-| `DATABASE_URL`            | PostgreSQL connection URL                 | `postgres://localhost:5432/ground_up_wall_test` |
-| `DATABASE_URL_TEST`       | Test database URL                         | Same as `DATABASE_URL`                          |
-| `SECURITY_GATES_DISABLED` | Disable rate limits in tests              | `1` (set automatically)                         |
+| Variable                   | Purpose                                    | Default                        |
+| -------------------------- | ------------------------------------------ | ------------------------------ |
+| `USE_MOCK_DB`              | Use mock repository instead of PostgreSQL  | `false`                        |
+| `DATABASE_URL`             | PostgreSQL connection URL                  | `postgres://localhost:5432/…`  |
+| `DATABASE_URL_TEST`        | Test database URL                          | Same as `DATABASE_URL`         |
+| `SECURITY_GATES_DISABLED`  | Disable rate limits in tests               | `1` (set automatically)        |
+| `E2E_ARTIFACTS_DIR`        | Browser E2E artifact root                  | `test-results/e2e-browser`     |
+| `E2E_CAPTURE_SUCCESS_SHOT` | Write green success screenshots (`1` = on) | unset (off) locally; `1` in CI |
 
 ## Troubleshooting
 
