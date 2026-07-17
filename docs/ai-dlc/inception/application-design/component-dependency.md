@@ -479,9 +479,11 @@ interface, different transport.
 **Fallback strategy**: If SSE is unavailable, the DisplayComponent polls
 `GET /api/submissions/approved` every 10 seconds, which still satisfies NFR-04 (30-second window).
 
-**Train control events** (Update 01): The pause/play/jump commands are published via RealtimeService
-so all connected display wall tabs receive them simultaneously. Since state is not persisted across
-refresh, only currently connected tabs are affected.
+**Train control events** (Updates 01, 05, and 07): Pause/play/jump commands are published via
+RealtimeService so all connected display wall tabs receive them simultaneously. The playback
+snapshot is also persisted in `system_config.train_playback_state`; a refreshed or newly connected
+display restores the server-authoritative generated window, cabin position, dwell, and play/pause
+state instead of restarting from cabin 0.
 
 **Display override events** (Update 02): The blank/placeholder/resume commands are published via
 RealtimeService so all connected display wall tabs receive them simultaneously. Override state is

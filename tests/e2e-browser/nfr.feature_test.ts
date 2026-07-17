@@ -7,6 +7,7 @@
 
 import { assertEquals } from "@std/assert";
 import {
+  captureVisualBaseline,
   DISPLAY_PASSWORD,
   DISPLAY_USERNAME,
   getBaseUrl,
@@ -35,6 +36,7 @@ Deno.test({
         assertEquals(messageInput !== null, true, "smoke: message input present on mobile");
         assertEquals(nameInput !== null, true, "smoke: name input present on mobile");
         assertEquals(submitButton !== null, true, "smoke: submit button present on mobile");
+        await captureVisualBaseline(page, "smoke-upload-mobile-static");
       },
       { viewport: { width: 375, height: 812 } },
     );
@@ -57,6 +59,9 @@ Deno.test({
           true,
           "smoke: at least one cabin mounts",
         );
+        await captureVisualBaseline(page, "smoke-display-wall-static", {
+          mask: [".display-wall__join-text"],
+        });
       },
       { viewport: { width: 1920, height: 1080 } },
     );
@@ -89,6 +94,10 @@ Deno.test({
             page.url().includes("/masuk"),
             true,
             `smoke: ${route} redirects to login when unauthenticated`,
+          );
+          await captureVisualBaseline(
+            page,
+            `protected-${route.replaceAll("/", "-").replace(/^-/, "")}-login-static`,
           );
         }
       },
@@ -132,9 +141,11 @@ Deno.test({
 
         await page.goto(getBaseUrl() + "/muatnaik");
         await page.waitForSelector("form");
+        await captureVisualBaseline(page, "public-upload-shell-static");
 
         await page.goto(getBaseUrl() + "/masuk");
         await page.waitForSelector("form");
+        await captureVisualBaseline(page, "public-login-shell-static");
       },
     );
   },
@@ -160,6 +171,9 @@ Deno.test({
           0,
           "smoke: audit log has no edit or delete buttons",
         );
+        await captureVisualBaseline(page, "audit-read-only-static", {
+          mask: [".pagination-bar", ".data-table tbody"],
+        });
       },
     );
   },

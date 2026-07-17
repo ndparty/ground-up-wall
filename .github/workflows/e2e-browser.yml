@@ -8,6 +8,12 @@ on:
   release:
     types: [published]
   workflow_dispatch:
+    inputs:
+      update-baselines:
+        description: Generate Linux baseline PNGs instead of comparing
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   e2e-browser:
@@ -34,7 +40,7 @@ jobs:
           deno-version: "2.8"
 
       - name: Install Playwright dependencies
-        run: npx playwright install --with-deps chromium
+        run: npx --yes playwright@1.61.1 install --with-deps chromium
 
       - name: Wait for PostgreSQL
         run: |
@@ -85,6 +91,7 @@ jobs:
           E2E_STATION_SEED: "42"
           E2E_TRAIN_DWELL_SECONDS: "60"
           E2E_VISUAL: "1"
+          E2E_UPDATE_BASELINES: ${{ inputs['update-baselines'] && '1' || '' }}
           GITHUB_SHA: ${{ github.sha }}
           GITHUB_EVENT_NAME: ${{ steps.meta.outputs.kind }}
 
@@ -105,9 +112,9 @@ jobs:
           summary["event"] = os.environ.get("KIND", "unknown")
           summary["sha"] = os.environ.get("GITHUB_SHA", "")
           summary["jobOutcome"] = os.environ.get("JOB_OUTCOME", "")
-          summary.setdefault("passed", [])
-          summary.setdefault("failed", [])
-          summary.setdefault("screenshots", [])
+          for key in ("passed", "failed", "screenshots"):
+              if not isinstance(summary.get(key), list):
+                  summary[key] = []
           with open(path, "w") as f:
               json.dump(summary, f, indent=2)
               f.write("\n")
@@ -117,11 +124,73 @@ jobs:
           GITHUB_SHA: ${{ github.sha }}
           JOB_OUTCOME: ${{ steps.e2e.outcome }}
 
-      - name: Upload E2E artifacts
+      - name: Generate direct E2E report
         if: always()
-        uses: actions/upload-artifact@v4
+        run: deno task test:e2e:report
+
+      - name: Upload direct E2E report
+        id: report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          path: test-results/e2e-browser/report.html
+          archive: false
+          if-no-files-found: error
+          retention-days: ${{ github.event_name == 'release' && 90 || 14 }}
+
+      - name: Upload E2E debug pack
+        id: debug-pack
+        if: always()
+        uses: actions/upload-artifact@v7
         with:
           name: e2e-${{ steps.meta.outputs.kind }}-${{ steps.meta.outputs.sha7 }}
-          path: test-results/e2e-browser/
+          path: |
+            test-results/e2e-browser/
+            !test-results/e2e-browser/report.html
           if-no-files-found: warn
           retention-days: ${{ github.event_name == 'release' && 90 || 14 }}
+
+      - name: Publish E2E run summary
+        if: always()
+        run: |
+          python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import glob, json, os
+          path = "test-results/e2e-browser/summary.json"
+          try:
+              with open(path) as f:
+                  summary = json.load(f)
+          except Exception:
+              summary = {"passed": [], "failed": [], "jobOutcome": "unknown"}
+          passed = len(summary.get("passed", []))
+          failed = len(summary.get("failed", []))
+          visual_evidence = len(glob.glob(
+              "test-results/e2e-browser/visual-success/**/*.png",
+              recursive=True,
+          ))
+          animation_frames = 0
+          for manifest_path in glob.glob(
+              "test-results/e2e-browser/animation/*.manifest.json"
+          ):
+              try:
+                  with open(manifest_path) as manifest_file:
+                      frame_count = json.load(manifest_file).get("frameCount", 0)
+                  if isinstance(frame_count, int):
+                      animation_frames += frame_count
+              except Exception:
+                  pass
+          outcome = summary.get("jobOutcome") or "unknown"
+          print("## Browser E2E report")
+          print()
+          print(
+              f"**Outcome:** {outcome} · **Passed:** {passed} · **Failed:** {failed} "
+              f"· **Successful visual comparisons:** {visual_evidence} "
+              f"· **Animation boundary frames:** {animation_frames}"
+          )
+          print()
+          print(f"[Open E2E visual report]({os.environ['REPORT_URL']})")
+          print()
+          print(f"[Download full debug pack]({os.environ['DEBUG_URL']})")
+          PY
+        env:
+          REPORT_URL: ${{ steps.report.outputs.artifact-url }}
+          DEBUG_URL: ${{ steps.debug-pack.outputs.artifact-url }}

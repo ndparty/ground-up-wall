@@ -7,7 +7,7 @@ import { type Browser, chromium, type Page } from "playwright";
 import { assertEquals } from "@std/assert";
 import { attachConsole, captureFailure, captureSuccess, recordPass } from "./artifacts.ts";
 import { getBaseUrl, startServer, stopServer } from "./setup.ts";
-import { compareScreenshot } from "./visual.ts";
+import { compareScreenshot, type VisualCompareOptions } from "./visual.ts";
 
 export { getBaseUrl };
 
@@ -49,16 +49,20 @@ export async function runBrowserTest(
   fn: (ctx: BrowserTestContext) => Promise<void>,
   opts: RunBrowserTestOptions = {},
 ): Promise<void> {
-  await startServer();
-  const browser = await chromium.launch({ headless: true });
-  const page = await browser.newPage({
-    viewport: opts.viewport ?? { width: 1280, height: 800 },
-  });
-  const consoleLines = attachConsole(page);
-  if (opts.acceptDialogs) {
-    page.on("dialog", (dialog) => dialog.accept());
-  }
+  let browser: Browser | null = null;
+  let page: Page | null = null;
+  let failure: unknown = null;
+  let consoleLines: string[] = [];
   try {
+    await startServer();
+    browser = await chromium.launch({ headless: true });
+    page = await browser.newPage({
+      viewport: opts.viewport ?? { width: 1280, height: 800 },
+    });
+    consoleLines = attachConsole(page);
+    if (opts.acceptDialogs) {
+      page.on("dialog", (dialog) => dialog.accept());
+    }
     await fn({ page, browser });
     if (opts.visualBaseline) {
       await compareScreenshot(page, opts.visualBaseline);
@@ -66,14 +70,54 @@ export async function runBrowserTest(
     if (opts.successScreenshot) {
       await captureSuccess(page, opts.successScreenshot);
     }
-    await recordPass(name);
   } catch (err) {
-    await captureFailure(page, name, err, consoleLines);
-    throw err;
+    failure = err;
+    try {
+      await captureFailure(page, name, err, consoleLines);
+    } catch (artifactError) {
+      failure = new AggregateError(
+        [err, artifactError],
+        `${name} failed and its failure artifact could not be captured`,
+      );
+    }
   } finally {
-    await browser.close();
-    stopServer();
+    const cleanupErrors: unknown[] = [];
+    if (page && !page.isClosed()) {
+      try {
+        await page.close();
+      } catch (error) {
+        cleanupErrors.push(error);
+      }
+    }
+    if (browser) {
+      try {
+        await browser.close();
+      } catch (error) {
+        cleanupErrors.push(error);
+      }
+    }
+    try {
+      await stopServer();
+    } catch (error) {
+      cleanupErrors.push(error);
+    }
+    if (cleanupErrors.length > 0) {
+      failure = new AggregateError(
+        failure === null ? cleanupErrors : [failure, ...cleanupErrors],
+        `${name} cleanup failed`,
+      );
+      try {
+        await captureFailure(null, name, failure, consoleLines);
+      } catch (artifactError) {
+        failure = new AggregateError(
+          [failure, artifactError],
+          `${name} cleanup failed and its failure artifact could not be updated`,
+        );
+      }
+    }
   }
+  if (failure !== null) throw failure;
+  await recordPass(name);
 }
 
 export async function loginAs(
@@ -105,6 +149,14 @@ export async function waitForTrackSliding(page: Page, timeout = 5_000): Promise<
     '.display-wall__track[data-e2e-track-state="sliding"]',
     { timeout },
   );
+}
+
+export async function captureVisualBaseline(
+  page: Page,
+  name: string,
+  options: VisualCompareOptions = {},
+): Promise<void> {
+  await compareScreenshot(page, name, options);
 }
 
 export async function assertRedirectsToLogin(

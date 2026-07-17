@@ -102,11 +102,11 @@ and provides a reference for implementation and testing.
 
 ### Reliability (NFR-10 to NFR-12)
 
-| Requirement | Description                                     | Technical Strategy                                                     | Components                        | Verification              |
-| ----------- | ----------------------------------------------- | ---------------------------------------------------------------------- | --------------------------------- | ------------------------- |
-| NFR-10      | System operational for full event duration      | Error handling, graceful degradation                                   | All services                      | Test: Uptime monitoring   |
-| NFR-11      | Display wall recovers from browser refresh      | Load all approved submissions from server; train restarts from cabin 0 | DisplayComponent, RealtimeService | Test: Refresh recovery    |
-| NFR-12      | Supabase project kept active to prevent pausing | Monitoring, pre-event activation (Phase 2)                             | -                                 | Test: Manual verification |
+| Requirement | Description                                     | Technical Strategy                                                                                                                  | Components                        | Verification                                               |
+| ----------- | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- | ---------------------------------------------------------- |
+| NFR-10      | System operational for full event duration      | Error handling, graceful degradation                                                                                                | All services                      | Test: Uptime monitoring                                    |
+| NFR-11      | Display wall recovers from browser refresh      | Reload approved submissions and the persisted server-authoritative window, cabin position, and play/pause state (Updates 05 and 07) | DisplayComponent, RealtimeService | Browser E2E: refresh recovery in `display.feature_test.ts` |
+| NFR-12      | Supabase project kept active to prevent pausing | Monitoring, pre-event activation (Phase 2)                                                                                          | -                                 | Test: Manual verification                                  |
 
 ### Security (NFR-13 to NFR-15)
 

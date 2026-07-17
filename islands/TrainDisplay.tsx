@@ -702,6 +702,8 @@ export default function TrainDisplay() {
   return (
     <div
       class="display-wall"
+      data-e2e-current-cabin={trainView.currentCabin}
+      data-e2e-is-playing={isPlaying ? "true" : "false"}
       style={{ "--join-bar-clearance": `${joinBarClearancePx}px` }}
     >
       <link rel="stylesheet" href="/train.css" />

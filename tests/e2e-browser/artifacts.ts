@@ -37,29 +37,51 @@ export function attachConsole(page: Page): ConsoleBuffer {
   return lines;
 }
 
+function formatError(error: unknown, prefix = ""): string {
+  if (error instanceof AggregateError) {
+    const nested = [...error.errors].map((item, index) =>
+      formatError(item, `${prefix}  [${index + 1}] `)
+    ).join("\n");
+    return `${prefix}${error.message}\n${nested}\n${error.stack ?? ""}`;
+  }
+  if (error instanceof Error) return `${prefix}${error.message}\n${error.stack ?? ""}`;
+  return `${prefix}${String(error)}`;
+}
+
 export async function captureFailure(
-  page: Page,
+  page: Page | null,
   testName: string,
   error: unknown,
   consoleLines: ConsoleBuffer,
 ): Promise<void> {
   const dir = `${artifactsRoot()}/failures/${safeName(testName)}`;
   await ensureDir(dir);
-  try {
-    await page.screenshot({ path: `${dir}/screenshot.png`, fullPage: true });
-  } catch (err) {
+  if (page) {
+    try {
+      await page.screenshot({ path: `${dir}/screenshot.png`, fullPage: true });
+    } catch (err) {
+      await Deno.writeTextFile(
+        `${dir}/screenshot-error.txt`,
+        String(err),
+      );
+    }
+    try {
+      await Deno.writeTextFile(`${dir}/page.html`, await page.content());
+    } catch (err) {
+      await Deno.writeTextFile(`${dir}/page-html-error.txt`, String(err));
+    }
+  } else {
     await Deno.writeTextFile(
       `${dir}/screenshot-error.txt`,
-      String(err),
+      "Page was not created before the failure.\n",
+    );
+    await Deno.writeTextFile(
+      `${dir}/page-html-error.txt`,
+      "Page was not created before the failure.\n",
     );
   }
-  try {
-    await Deno.writeTextFile(`${dir}/page.html`, await page.content());
-  } catch (err) {
-    await Deno.writeTextFile(`${dir}/page-html-error.txt`, String(err));
-  }
   await Deno.writeTextFile(`${dir}/console.txt`, consoleLines.join("\n") + "\n");
-  const message = error instanceof Error ? `${error.message}\n${error.stack ?? ""}` : String(error);
+  const message = formatError(error);
   await Deno.writeTextFile(`${dir}/error.txt`, message + "\n");
   await appendSummary({ failed: [testName] });
 }

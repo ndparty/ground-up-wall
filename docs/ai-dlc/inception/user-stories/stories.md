@@ -39,22 +39,26 @@ Scenario: Upload with optional social handle
 Scenario: Message exceeds configured maximum length (characters mode)
   Given the message length unit is set to "characters" with a limit of 50
   And I am on the upload page
-  When I enter a message longer than 50 characters
-  Then I see a live counter showing I have exceeded the limit
-  And the submit button remains disabled
+  When I type or paste a message longer than 50 characters
+  Then the input is clamped to 50 characters
+  And I see a live counter showing 0 characters remaining
+  And the server rejects any direct request whose message still exceeds the limit
 
 Scenario: Message exceeds configured maximum length (words mode)
   Given the message length unit is set to "words" with a limit of 10
   And I am on the upload page
-  When I enter a message with more than 10 words
-  Then I see a live counter showing I have exceeded the limit
-  And the submit button remains disabled
+  When I type or paste a message with more than 10 words
+  Then the input is clamped to 10 words
+  And I see a live counter showing 0 words remaining
+  And the server rejects any direct request whose message still exceeds the limit
 
-Scenario: Submit button disabled without acknowledgment checkbox
+Scenario: Submission attempted without acknowledgment checkbox
   Given I am on the upload page
   And I have not checked the mandatory acknowledgment checkbox
   When I fill in all other required fields
-  Then the submit button remains disabled
+  And I tap the submit button
+  Then I see a validation error asking me to acknowledge the privacy notice
+  And no submission request is sent
 
 Scenario: No file selected
   Given I am on the upload page
@@ -118,7 +122,10 @@ Scenario: Posting guidelines disclaimer displayed
 Scenario: Mandatory acknowledgment checkbox
   Given I am on the upload page
   Then I see a checkbox labeled to confirm I have read and understood the privacy notice and posting guidelines
-  And the submit button is disabled until I check the checkbox
+  And the submit button remains available so validation can explain any missing fields
+  When I submit otherwise-valid data without checking the checkbox
+  Then the client does not send the submission
+  And the server independently rejects any unacknowledged submission request
 
 Scenario: Success page shows posting guidelines disclaimer
   Given I have submitted a photo
