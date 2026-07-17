@@ -216,9 +216,36 @@ Deno.test({
           }
           await waitForTrackIdle(page, 5_000);
           if (seeked.boundaryFrames.length > 0) {
+            await page.evaluate(async () => {
+              document.getElementById("e2e-highlight-source")?.remove();
+              const active = document.querySelector<HTMLElement>(
+                ".train-cabin-wrap--active",
+              );
+              if (!active) throw new Error("Missing active cabin for highlight fixture");
+              const fixture = document.createElement("div");
+              fixture.id = "e2e-highlight-source";
+              fixture.className = "display-wall";
+              fixture.style.cssText =
+                "position:fixed;left:0;top:0;width:480px;height:900px;overflow:hidden";
+              const cabin = active.cloneNode(true) as HTMLElement;
+              cabin.classList.remove("train-cabin-wrap--active", "train-cabin-wrap--animating");
+              fixture.append(cabin);
+              document.body.append(fixture);
+              getComputedStyle(cabin).opacity;
+              await new Promise<void>((resolve) =>
+                requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+              );
+              cabin.classList.add("train-cabin-wrap--active");
+            });
+            await page.waitForFunction(() =>
+              document.querySelector("#e2e-highlight-source .train-cabin-wrap")
+                ?.getAnimations({ subtree: true }).some((animation) =>
+                  (animation as CSSTransition).transitionProperty === "opacity"
+                )
+            );
             const highlight = await captureAnimationBoundaries(page, {
-              animationSelector: ".train-cabin-wrap--active",
-              captureSelector: ".train-cabin-wrap--active",
+              animationSelector: "#e2e-highlight-source .train-cabin-wrap",
+              captureSelector: "#e2e-highlight-source .train-cabin-wrap",
               transitionProperty: "opacity",
             });
             await compareAnimationBoundarySequence(
@@ -226,6 +253,7 @@ Deno.test({
               ".train-cabin-wrap--active",
               highlight,
             );
+            await page.evaluate(() => document.getElementById("e2e-highlight-source")?.remove());
           }
           const settledCenterOffset = await page.evaluate(() => {
             const stage = document.querySelector<HTMLElement>(".display-wall__stage");
