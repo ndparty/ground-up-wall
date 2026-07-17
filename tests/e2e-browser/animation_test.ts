@@ -103,4 +103,11 @@ Deno.test("encodeGifPreview preserves frame order, dimensions, and positive dura
   assertGreater(gif.duration, 0);
   assertEquals([...gif[0].bitmap.subarray(0, 4)], [255, 0, 0, 255]);
   assertEquals([...gif[1].bitmap.subarray(0, 4)], [0, 255, 0, 255]);
+
+  const transparent = new Image(2, 2);
+  transparent.fill(0xff000080);
+  const flattened = await GIF.decode(
+    await encodeGifPreview([{ timeMs: 0, png: await transparent.encode() }]),
+  );
+  assertEquals(flattened[0].bitmap[3], 255, "GIF previews flatten alpha onto an opaque stage");
 });

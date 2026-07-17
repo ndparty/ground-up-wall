@@ -113,7 +113,10 @@ export async function encodeGifPreview(
   const gifFrames = await Promise.all(frames.map(async ({ png }) => {
     const decoded = await Image.decode(png);
     const preview = decoded.width > 960 ? decoded.resize(960, Image.RESIZE_AUTO) : decoded;
-    return Frame.from(preview, frameDuration, 0, 0, Frame.DISPOSAL_BACKGROUND);
+    const opaque = new Image(preview.width, preview.height);
+    opaque.fill(0x080910ff);
+    opaque.composite(preview);
+    return Frame.from(opaque, frameDuration, 0, 0, Frame.DISPOSAL_BACKGROUND);
   }));
   return await new GIF(gifFrames, -1).encode(90);
 }
