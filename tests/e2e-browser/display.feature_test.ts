@@ -1,6 +1,12 @@
 import { assertEquals, assertGreater } from "@std/assert";
 import { jumpSlideDurationMs } from "../../lib/train/slide_duration.ts";
-import { assertMonotonicTransform, composeFilmstrip, seekTransformAnimation } from "./animation.ts";
+import {
+  assertMonotonicTransform,
+  captureAnimationBoundaries,
+  compareAnimationBoundarySequence,
+  composeFilmstrip,
+  seekTransformAnimation,
+} from "./animation.ts";
 import { createSubmissionFixture, moderateFixture } from "./fixtures.ts";
 import {
   ADMIN_PASSWORD,
@@ -198,8 +204,29 @@ Deno.test({
               "display-wall-jump-animation-filmstrip",
               await composeFilmstrip(seeked.keyframePngs, 8, 1),
             );
+            await compareAnimationBoundarySequence(
+              "display-wall-track-transform",
+              ".display-wall__track",
+              {
+                durationMs: seeked.durationMs,
+                easing: seeked.easing,
+                frames: seeked.boundaryFrames,
+              },
+            );
           }
           await waitForTrackIdle(page, 5_000);
+          if (seeked.boundaryFrames.length > 0) {
+            const highlight = await captureAnimationBoundaries(page, {
+              animationSelector: ".train-cabin-wrap--active",
+              captureSelector: ".train-cabin-wrap--active",
+              transitionProperty: "opacity",
+            });
+            await compareAnimationBoundarySequence(
+              "display-wall-cabin-highlight",
+              ".train-cabin-wrap--active",
+              highlight,
+            );
+          }
           const settledCenterOffset = await page.evaluate(() => {
             const stage = document.querySelector<HTMLElement>(".display-wall__stage");
             const active = document.querySelector<HTMLElement>(".train-cabin-wrap--active");

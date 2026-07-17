@@ -1,6 +1,7 @@
 import { type BrowserContext, type Page } from "playwright";
 import { assertEquals, assertGreater } from "@std/assert";
 import { formatWordListForEdit } from "../../lib/admin/parameter_validation.ts";
+import { captureAnimationBoundaries, compareAnimationBoundarySequence } from "./animation.ts";
 import {
   assertRedirectsToLogin,
   captureVisualBaseline,
@@ -8,6 +9,7 @@ import {
   loginAsAdmin,
   runBrowserTest,
 } from "./helpers.ts";
+import { visualComparisonsEnabled } from "./visual.ts";
 
 type SystemConfigRow = {
   key: string;
@@ -306,6 +308,23 @@ Deno.test({
           await page.waitForSelector("section.panel", { timeout: 10_000 });
 
           await page.locator('button:has-text("Blank screen")').click();
+          if (visualComparisonsEnabled()) {
+            await displayPage.waitForFunction(() =>
+              document.querySelector(".display-wall__override-layer")?.getAnimations().some(
+                (animation) => (animation as CSSTransition).transitionProperty === "opacity",
+              )
+            );
+            const fadeIn = await captureAnimationBoundaries(displayPage, {
+              animationSelector: ".display-wall__override-layer",
+              captureSelector: ".display-wall",
+              transitionProperty: "opacity",
+            });
+            await compareAnimationBoundarySequence(
+              "display-override-fade-in",
+              ".display-wall__override-layer",
+              fadeIn,
+            );
+          }
           await page.locator("section.panel strong", { hasText: "Blank" }).waitFor({
             state: "visible",
             timeout: 10_000,
@@ -319,6 +338,24 @@ Deno.test({
           await captureVisualBaseline(displayPage, "admin-override-blank-static");
 
           await page.locator('button:has-text("Show placeholder")').click();
+          if (visualComparisonsEnabled()) {
+            await displayPage.waitForFunction(() =>
+              document.querySelector(".display-wall__override-panel--over")?.getAnimations().some(
+                (animation) =>
+                  (animation as CSSAnimation).animationName === "display-wall-override-in",
+              )
+            );
+            const crossfade = await captureAnimationBoundaries(displayPage, {
+              animationSelector: ".display-wall__override-panel--over",
+              captureSelector: ".display-wall",
+              animationName: "display-wall-override-in",
+            });
+            await compareAnimationBoundarySequence(
+              "display-override-crossfade",
+              ".display-wall__override-panel--over",
+              crossfade,
+            );
+          }
           await page.locator("section.panel strong", { hasText: "Placeholder" }).waitFor({
             state: "visible",
             timeout: 10_000,
@@ -333,6 +370,23 @@ Deno.test({
           await captureVisualBaseline(displayPage, "admin-override-placeholder-static");
 
           await page.locator('button:has-text("Resume display")').click();
+          if (visualComparisonsEnabled()) {
+            await displayPage.waitForFunction(() =>
+              document.querySelector(".display-wall__override-layer")?.getAnimations().some(
+                (animation) => (animation as CSSTransition).transitionProperty === "opacity",
+              )
+            );
+            const fadeOut = await captureAnimationBoundaries(displayPage, {
+              animationSelector: ".display-wall__override-layer",
+              captureSelector: ".display-wall",
+              transitionProperty: "opacity",
+            });
+            await compareAnimationBoundarySequence(
+              "display-override-fade-out",
+              ".display-wall__override-layer",
+              fadeOut,
+            );
+          }
           await page.locator("section.panel strong", { hasText: "Normal" }).waitFor({
             state: "visible",
             timeout: 10_000,
@@ -348,6 +402,31 @@ Deno.test({
           await captureVisualBaseline(displayPage, "admin-override-normal-static", {
             mask: [".display-wall__join-text"],
           });
+          if (visualComparisonsEnabled()) {
+            await displayPage.evaluate(() => {
+              document.getElementById("e2e-sparkle-source")?.remove();
+              const fixture = document.createElement("div");
+              fixture.id = "e2e-sparkle-source";
+              fixture.className = "display-wall";
+              fixture.innerHTML =
+                '<div class="display-wall__empty"><div class="display-wall__sparkles"></div>' +
+                '<p class="display-wall__empty-title">Submissions coming soon!</p></div>';
+              document.body.append(fixture);
+            });
+            const sparkle = await captureAnimationBoundaries(displayPage, {
+              animationSelector: "#e2e-sparkle-source .display-wall__sparkles",
+              captureSelector: "#e2e-sparkle-source",
+              animationName: "display-wall-twinkle",
+            });
+            await compareAnimationBoundarySequence(
+              "display-wall-sparkle",
+              ".display-wall__sparkles",
+              sparkle,
+            );
+            await displayPage.evaluate(() =>
+              document.getElementById("e2e-sparkle-source")?.remove()
+            );
+          }
           await assertOverrideAuditActions(page);
         } catch (error) {
           testFailure = error;

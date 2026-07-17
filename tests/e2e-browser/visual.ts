@@ -8,6 +8,8 @@ const BASELINES_DIR = "tests/e2e-browser/baselines";
 export type PngCompareOptions = {
   maxDiffRatio?: number;
   threshold?: number;
+  /** Stable subdirectory for grouped frame baselines and successful evidence. */
+  group?: string;
 };
 
 export type VisualCompareOptions = PngCompareOptions & {
@@ -85,13 +87,15 @@ export async function comparePng(
   if (!visualComparisonsEnabled()) return;
 
   const fileName = `${safeName(name)}.png`;
-  const baselinePath = `${BASELINES_DIR}/${fileName}`;
-  const successEvidencePath = `${artifactsRoot()}/visual-success/${fileName}`;
+  const group = options.group ? safeName(options.group) : "";
+  const relativePath = group ? `${group}/${fileName}` : fileName;
+  const baselinePath = `${BASELINES_DIR}/${relativePath}`;
+  const successEvidencePath = `${artifactsRoot()}/visual-success/${relativePath}`;
 
   if (Deno.env.get("E2E_UPDATE_BASELINES") === "1") {
     await writePng(baselinePath, actualBytes);
     await writePng(
-      `${artifactsRoot()}/generated-baselines/${fileName}`,
+      `${artifactsRoot()}/generated-baselines/${relativePath}`,
       actualBytes,
     );
     await writePng(successEvidencePath, actualBytes);
@@ -113,7 +117,7 @@ export async function comparePng(
   const actual = await Image.decode(actualBytes);
   const expected = await Image.decode(expectedBytes);
   const diffDir = `${artifactsRoot()}/visual-diff`;
-  const stem = `${diffDir}/${safeName(name)}`;
+  const stem = `${diffDir}/${safeName(group ? `${group}-${name}` : name)}`;
 
   if (actual.width !== expected.width || actual.height !== expected.height) {
     await writePng(`${stem}.actual.png`, actualBytes);

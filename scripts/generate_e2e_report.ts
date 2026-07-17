@@ -27,6 +27,19 @@ type FailurePack = {
   captureErrors: string;
 };
 
+type AnimationEvidence = {
+  name: string;
+  selector: string;
+  durationMs: number;
+  easing: string;
+  frameCount: number;
+  width: number;
+  height: number;
+  boundaryMs: number;
+  fps: number;
+  previews: string[];
+};
+
 const FEATURED_VISUAL_EVIDENCE = [
   "display-wall-jump-animation-filmstrip.png",
   "station-sign-matrix.png",
@@ -58,7 +71,8 @@ async function readText(path: string, fallback = ""): Promise<string> {
 
 async function imageDataUrl(path: string | undefined): Promise<string | null> {
   if (!path || !(await exists(path))) return null;
-  return `data:image/png;base64,${encodeBase64(await Deno.readFile(path))}`;
+  const mime = path.toLowerCase().endsWith(".gif") ? "image/gif" : "image/png";
+  return `data:${mime};base64,${encodeBase64(await Deno.readFile(path))}`;
 }
 
 async function pngFiles(dir: string): Promise<string[]> {
@@ -131,6 +145,42 @@ async function collectFailures(root: string): Promise<FailurePack[]> {
   }
 }
 
+async function collectAnimationEvidence(root: string): Promise<AnimationEvidence[]> {
+  const animationDir = join(root, "animation");
+  const manifests = await filesWithSuffix(animationDir, ".manifest.json");
+  const evidence: AnimationEvidence[] = [];
+  for (const stem of manifests) {
+    try {
+      const parsed = JSON.parse(
+        await Deno.readTextFile(join(animationDir, `${stem}.manifest.json`)),
+      ) as Record<string, unknown>;
+      const policy = typeof parsed.policy === "object" && parsed.policy !== null
+        ? parsed.policy as Record<string, unknown>
+        : {};
+      const previews = Array.isArray(parsed.previews)
+        ? parsed.previews.filter((value): value is string =>
+          typeof value === "string" && basename(value) === value && value.endsWith(".gif")
+        ).map((value) => join(animationDir, value))
+        : [];
+      evidence.push({
+        name: typeof parsed.name === "string" ? parsed.name : stem,
+        selector: typeof parsed.selector === "string" ? parsed.selector : "",
+        durationMs: typeof parsed.durationMs === "number" ? parsed.durationMs : 0,
+        easing: typeof parsed.easing === "string" ? parsed.easing : "",
+        frameCount: typeof parsed.frameCount === "number" ? parsed.frameCount : 0,
+        width: typeof parsed.width === "number" ? parsed.width : 0,
+        height: typeof parsed.height === "number" ? parsed.height : 0,
+        boundaryMs: typeof policy.boundaryMs === "number" ? policy.boundaryMs : 0,
+        fps: typeof policy.fps === "number" ? policy.fps : 0,
+        previews,
+      });
+    } catch (error) {
+      if (!(error instanceof SyntaxError)) throw error;
+    }
+  }
+  return evidence.sort((a, b) => a.name.localeCompare(b.name));
+}
+
 function testList(title: string, names: string[], className: string): string {
   const items = names.length === 0
     ? '<li class="muted">None</li>'
@@ -174,6 +224,7 @@ export async function buildE2eReport(root: string): Promise<string> {
   );
   const successPaths = await pngFiles(join(root, "success"));
   const visualSuccessPaths = await pngFiles(join(root, "visual-success"));
+  const animations = await collectAnimationEvidence(root);
   const visualDiffs = await collectVisualDiffs(root);
   const outcome = failed.length > 0
     ? "failure"
@@ -206,6 +257,32 @@ export async function buildE2eReport(root: string): Promise<string> {
   ).join("");
   const galleryVisualFigures = (
     await Promise.all(galleryVisualPaths.map((path) => imageFigure(path, basename(path))))
+  ).join("");
+  const animationFrameCount = animations.reduce(
+    (total, animation) => total + animation.frameCount,
+    0,
+  );
+  const animationSections = (
+    await Promise.all(animations.map(async (animation) => {
+      const previews = (
+        await Promise.all(
+          animation.previews.map((path) =>
+            imageFigure(path, `${animation.name}: ${basename(path)}`)
+          ),
+        )
+      ).join("");
+      return `<article class="card animation-sequence"><h3>${escapeHtml(animation.name)}</h3>` +
+        `<p class="meta"><span class="pill">Frames: ${animation.frameCount}</span>` +
+        `<span class="pill">Duration: ${animation.durationMs}ms</span>` +
+        `<span class="pill">Boundary: ${animation.boundaryMs}ms @ ${animation.fps}fps</span>` +
+        `<span class="pill">Capture: ${animation.width}×${animation.height}</span></p>` +
+        `<p><code>${escapeHtml(animation.selector)}</code> · easing: ${
+          escapeHtml(animation.easing || "unspecified")
+        }</p>` +
+        `<div class="grid animation-previews">${
+          previews || '<p class="muted">No GIF preview was captured.</p>'
+        }</div></article>`;
+    }))
   ).join("");
   const diffSections = (
     await Promise.all(visualDiffs.map(async (visual) => {
@@ -271,6 +348,7 @@ ul{padding-left:24px}
 <span class="pill ${escapeHtml(outcome)}">Outcome: ${escapeHtml(outcome)}</span>
 <span class="pill">Passed: ${passed.length}</span><span class="pill">Failed: ${failed.length}</span>
 <span class="pill">Visual evidence: ${visualSuccessPaths.length}</span>
+<span class="pill">Animation frames: ${animationFrameCount}</span>
 <span class="pill">Event: ${escapeHtml(event)}</span>
 <span class="pill">SHA: ${escapeHtml(sha)}</span>
 </div>
@@ -282,6 +360,11 @@ ${testList("Failed tests", failed, "failure")}
 <section><h2>Success screenshots</h2><div class="grid">${
     successFigures || '<p class="muted">No success screenshots were captured.</p>'
   }</div></section>
+<section><h2>Animation boundary playback</h2>
+<p class="muted">GIFs are review previews. The lossless PNG frames listed in each manifest are the CI regression authority.</p>
+${
+    animationSections || '<p class="muted">No animation boundary sequences were captured.</p>'
+  }</section>
 <section><h2>Featured visual evidence</h2>
 <p class="muted">The animation filmstrip is shown at native resolution; scroll horizontally to inspect train text and keyframes.</p>
 <div class="featured">${

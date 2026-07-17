@@ -49,6 +49,8 @@ Root: `test-results/e2e-browser/` (env `E2E_ARTIFACTS_DIR`).
 | `failures/<test>/{screenshot.png,page.html,console.txt,error.txt}` | On failure                                                                                                           |
 | `success/*.png`                                                    | Green audit shots for major upload, moderation, display, and admin surfaces                                          |
 | `visual-success/*.png`                                             | Actual image for every passing visual comparison; animation and station matrix are featured in the report            |
+| `visual-success/animation-boundaries-*/*.png`                      | Passing lossless boundary frames grouped by animation sequence                                                       |
+| `animation/*.{gif,manifest.json}`                                  | Non-gating playback previews and authoritative frame timing/metadata                                                 |
 | `visual-diff/<name>.{actual,expected,diff}.png`                    | Visual baseline mismatch                                                                                             |
 | `summary.json`                                                     | Always (`passed`, `failed`, `screenshots`, `sha`, `event`)                                                           |
 | `report.html`                                                      | Direct artifact only; embeds passing visuals, visual triples, errors, page/capture diagnostics, and console excerpts |
@@ -67,12 +69,16 @@ rendered and compared directly.
 Animation has two complementary gates. The runtime test asserts `sliding` → transform delta → `idle`
 and the requested final cabin. The frame-accurate gate pauses a clone of the live transform
 transition, seeks every nominal 60 Hz timeline point to verify monotonic movement, duration, easing,
-endpoints, and centering, then compares a labeled 0/25/50/75/100% storyboard baseline. Timeline
-seeking proves interpolation and visual correctness, not actual frame delivery or freedom from
-hardware jank. NFR-03 still requires profiling on representative display hardware (or a dedicated
-performance runner). Realtime coverage approves a unique fixture while the display remains open,
-verifies it appears within 30 seconds, then verifies refresh restores the server-authoritative list,
-position, and play/pause state.
+endpoints, and centering, then compares a labeled 0/25/50/75/100% storyboard baseline. It also
+pixel-compares every nominal 60 Hz frame in the first and last 500 ms of each authored deterministic
+animation: train movement, active-cabin highlighting, override fades/crossfades, and the waiting
+sparkle phase. Animations shorter than one second are sampled once across their complete timeline.
+Native smooth scrolling is deliberately excluded because Chromium owns its duration and easing.
+Timeline seeking proves interpolation and visual correctness, not actual frame delivery or freedom
+from hardware jank. NFR-03 still requires profiling on representative display hardware (or a
+dedicated performance runner). Realtime coverage approves a unique fixture while the display remains
+open, verifies it appears within 30 seconds, then verifies refresh restores the server-authoritative
+list, position, and play/pause state.
 
 Every successful visual comparison is retained in the debug artifact and embedded in the
 self-contained report. The animation storyboard and station-sign matrix appear first as featured
@@ -80,7 +86,8 @@ evidence; the filmstrip remains at native resolution in a horizontally scrollabl
 train text stays inspectable. The remaining passing comparisons follow in a compact gallery. This
 makes a green run visually reviewable without waiting for a deliberate mismatch or downloading
 baseline files. The large pixelated numbers in the train windows are intentional deterministic
-demo-photo identifiers, not message text.
+demo-photo identifiers, not message text. Boundary-sequence GIFs are convenient previews generated
+from the captured PNGs; GIF palette and timing quantization are never used for pass/fail.
 
 #### Unit / smoke CI (`ci-*-…`)
 

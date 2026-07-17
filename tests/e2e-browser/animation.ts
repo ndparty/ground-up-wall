@@ -1,6 +1,7 @@
 import type { Page } from "playwright";
-import { Image } from "imagescript";
-import { visualComparisonsEnabled } from "./visual.ts";
+import { Frame, GIF, Image } from "imagescript";
+import { artifactsRoot, safeName } from "./artifacts.ts";
+import { comparePng, visualComparisonsEnabled } from "./visual.ts";
 
 export type TransformSample = {
   timeMs: number;
@@ -16,6 +17,32 @@ export type SeekedTransformAnimation = {
   endCenterOffset: number;
   samples: TransformSample[];
   keyframePngs: Uint8Array[];
+  boundaryFrames: AnimationBoundaryFrame[];
+};
+
+export type AnimationBoundaryFrame = {
+  timeMs: number;
+  png: Uint8Array;
+};
+
+export type CapturedAnimationSequence = {
+  durationMs: number;
+  easing: string;
+  frames: AnimationBoundaryFrame[];
+};
+
+export type AnimationSequenceManifest = {
+  name: string;
+  selector: string;
+  samplingVersion: 1;
+  policy: { boundaryMs: number; fps: number };
+  durationMs: number;
+  easing: string;
+  width: number;
+  height: number;
+  frameCount: number;
+  frames: Array<{ index: number; timeMs: number; delayMs: number; baseline: string }>;
+  previews: string[];
 };
 
 export function nominalFrameTimes(durationMs: number, fps = 60): number[] {
@@ -30,6 +57,266 @@ export function nominalFrameTimes(durationMs: number, fps = 60): number[] {
   const times = Array.from({ length: frameCount }, (_, frame) => frame * frameMs);
   times.push(durationMs);
   return times;
+}
+
+export function boundaryFrameTimes(
+  durationMs: number,
+  boundaryMs = 500,
+  fps = 60,
+): number[] {
+  if (!Number.isFinite(boundaryMs) || boundaryMs <= 0) {
+    throw new Error(`Animation boundary must be positive, got ${boundaryMs}`);
+  }
+  const allTimes = nominalFrameTimes(durationMs, fps);
+  if (durationMs <= boundaryMs * 2) return allTimes;
+  const frameMs = 1_000 / fps;
+  const segment = (start: number, end: number) => {
+    const count = Math.ceil((end - start) / frameMs);
+    const times = Array.from({ length: count }, (_, frame) => start + frame * frameMs);
+    times.push(end);
+    return times;
+  };
+  return [...segment(0, boundaryMs), ...segment(durationMs - boundaryMs, durationMs)]
+    .filter((time, index, times) =>
+      index === 0 || Math.abs(time - times[index - 1]) > Number.EPSILON
+    );
+}
+
+export function frameDelays(times: number[], durationMs: number): number[] {
+  if (times.length === 0) throw new Error("Animation sequence needs at least one frame");
+  return times.map((time, index) => {
+    const next = times[index + 1];
+    return next === undefined ? Math.max(0, durationMs - time) : Math.max(0, next - time);
+  });
+}
+
+function boundarySegments(
+  frames: AnimationBoundaryFrame[],
+  durationMs: number,
+  boundaryMs = 500,
+): Array<{ label: "start" | "end" | "full"; frames: AnimationBoundaryFrame[] }> {
+  if (durationMs <= boundaryMs * 2) return [{ label: "full", frames }];
+  return [
+    { label: "start", frames: frames.filter((frame) => frame.timeMs <= boundaryMs + 0.001) },
+    {
+      label: "end",
+      frames: frames.filter((frame) => frame.timeMs >= durationMs - boundaryMs - 0.001),
+    },
+  ];
+}
+
+export async function encodeGifPreview(
+  frames: AnimationBoundaryFrame[],
+  fps = 60,
+): Promise<Uint8Array> {
+  const frameDuration = Math.max(10, Math.round(1_000 / fps));
+  const gifFrames = await Promise.all(frames.map(async ({ png }) => {
+    const decoded = await Image.decode(png);
+    const preview = decoded.width > 960 ? decoded.resize(960, Image.RESIZE_AUTO) : decoded;
+    return Frame.from(preview, frameDuration);
+  }));
+  return await new GIF(gifFrames, -1).encode(90);
+}
+
+async function writeArtifact(path: string, bytes: Uint8Array | string): Promise<void> {
+  const separator = path.lastIndexOf("/");
+  if (separator > 0) await Deno.mkdir(path.slice(0, separator), { recursive: true });
+  if (typeof bytes === "string") await Deno.writeTextFile(path, bytes);
+  else await Deno.writeFile(path, bytes);
+}
+
+export async function compareAnimationBoundarySequence(
+  name: string,
+  selector: string,
+  sequence: CapturedAnimationSequence,
+  boundaryMs = 500,
+  fps = 60,
+): Promise<AnimationSequenceManifest | null> {
+  if (!visualComparisonsEnabled()) return null;
+  if (sequence.frames.length === 0) throw new Error(`${name} captured no boundary frames`);
+
+  const safeSequence = safeName(name);
+  const group = `animation-boundaries-${safeSequence}`;
+  const first = await Image.decode(sequence.frames[0].png);
+  const times = sequence.frames.map((frame) => frame.timeMs);
+  const delays = frameDelays(times, sequence.durationMs);
+  const previews: string[] = [];
+  for (const segment of boundarySegments(sequence.frames, sequence.durationMs, boundaryMs)) {
+    const previewName = `${safeSequence}-${segment.label}.gif`;
+    await writeArtifact(
+      `${artifactsRoot()}/animation/${previewName}`,
+      await encodeGifPreview(segment.frames, fps),
+    );
+    previews.push(previewName);
+  }
+
+  const manifest: AnimationSequenceManifest = {
+    name,
+    selector,
+    samplingVersion: 1,
+    policy: { boundaryMs, fps },
+    durationMs: sequence.durationMs,
+    easing: sequence.easing,
+    width: first.width,
+    height: first.height,
+    frameCount: sequence.frames.length,
+    frames: sequence.frames.map((frame, index) => ({
+      index,
+      timeMs: frame.timeMs,
+      delayMs: delays[index],
+      baseline: `${group}/frame-${String(index).padStart(3, "0")}-${
+        String(Math.round(frame.timeMs * 1_000)).padStart(7, "0")
+      }us.png`,
+    })),
+    previews,
+  };
+  await writeArtifact(
+    `${artifactsRoot()}/animation/${safeSequence}.manifest.json`,
+    JSON.stringify(manifest, null, 2) + "\n",
+  );
+
+  const errors: unknown[] = [];
+  for (const [index, frame] of sequence.frames.entries()) {
+    const frameName = `frame-${String(index).padStart(3, "0")}-${
+      String(Math.round(frame.timeMs * 1_000)).padStart(7, "0")
+    }us`;
+    try {
+      await comparePng(frameName, frame.png, { group });
+    } catch (error) {
+      errors.push(
+        new Error(`${name} frame ${index} at ${frame.timeMs.toFixed(3)}ms failed`, {
+          cause: error,
+        }),
+      );
+    }
+  }
+  if (errors.length > 0) {
+    throw new AggregateError(errors, `${name} has ${errors.length} boundary-frame regressions`);
+  }
+  return manifest;
+}
+
+export type CaptureAnimationOptions = {
+  animationSelector: string;
+  captureSelector: string;
+  transitionProperty?: string;
+  animationName?: string;
+  boundaryMs?: number;
+  fps?: number;
+};
+
+export async function captureAnimationBoundaries(
+  page: Page,
+  options: CaptureAnimationOptions,
+): Promise<CapturedAnimationSequence> {
+  const boundaryMs = options.boundaryMs ?? 500;
+  const fps = options.fps ?? 60;
+  const timeline = await page.evaluate(
+    ({ animationSelector, captureSelector, transitionProperty, animationName }) => {
+      const animatedRoot = document.querySelector<HTMLElement>(animationSelector);
+      const captureRoot = document.querySelector<HTMLElement>(captureSelector);
+      if (!animatedRoot) throw new Error(`Missing animated element: ${animationSelector}`);
+      if (!captureRoot) throw new Error(`Missing capture element: ${captureSelector}`);
+      const sourceAnimations = animatedRoot.getAnimations({ subtree: true });
+      const primary = sourceAnimations.find((candidate) => {
+        const transition = candidate as CSSTransition;
+        const cssAnimation = candidate as CSSAnimation;
+        return transitionProperty
+          ? transition.transitionProperty === transitionProperty
+          : animationName
+          ? cssAnimation.animationName === animationName
+          : true;
+      });
+      if (!primary?.effect) {
+        throw new Error(`No matching animation found under ${animationSelector}`);
+      }
+      const computed = primary.effect.getComputedTiming();
+      const configured = primary.effect.getTiming();
+      const durationMs = Number(computed.duration);
+      if (!Number.isFinite(durationMs) || durationMs <= 0) {
+        throw new Error(`Invalid animation duration: ${computed.duration}`);
+      }
+
+      document.getElementById("e2e-boundary-capture")?.remove();
+      const captureRect = captureRoot.getBoundingClientRect();
+      const captureStyle = getComputedStyle(captureRoot);
+      const fixture = document.createElement("div");
+      fixture.id = "e2e-boundary-capture";
+      fixture.style.cssText =
+        `position:relative;width:${captureRect.width}px;height:${captureRect.height}px;` +
+        `overflow:hidden;background:${captureStyle.backgroundColor};color:${captureStyle.color};` +
+        `font-family:${captureStyle.fontFamily}`;
+
+      const capturedAnimations = sourceAnimations.filter((animation) => {
+        const target = (animation.effect as KeyframeEffect | null)?.target;
+        return target instanceof Element && captureRoot.contains(target);
+      });
+      capturedAnimations.forEach((animation, index) => {
+        const target = (animation.effect as KeyframeEffect).target as HTMLElement;
+        target.dataset.e2eAnimationNode = String(index);
+      });
+      const clone = captureRoot.cloneNode(true) as HTMLElement;
+      clone.style.position = "absolute";
+      clone.style.inset = "0";
+      clone.style.margin = "0";
+      fixture.append(clone);
+      document.body.append(fixture);
+
+      const clonedAnimations = capturedAnimations.map((animation, index) => {
+        const target = clone.querySelector<HTMLElement>(
+          `[data-e2e-animation-node="${index}"]`,
+        );
+        const effect = animation.effect as KeyframeEffect;
+        if (!target) throw new Error(`Could not map cloned animation target ${index}`);
+        const cloned = target.animate(effect.getKeyframes(), effect.getTiming());
+        cloned.pause();
+        return cloned;
+      });
+      capturedAnimations.forEach((animation) => {
+        const target = (animation.effect as KeyframeEffect | null)?.target;
+        if (target instanceof HTMLElement) delete target.dataset.e2eAnimationNode;
+        animation.play();
+      });
+      clone.querySelectorAll<HTMLElement>("[data-e2e-animation-node]").forEach((target) =>
+        delete target.dataset.e2eAnimationNode
+      );
+      return {
+        durationMs,
+        easing: configured.easing ?? "",
+        clonedAnimationCount: clonedAnimations.length,
+      };
+    },
+    {
+      animationSelector: options.animationSelector,
+      captureSelector: options.captureSelector,
+      transitionProperty: options.transitionProperty,
+      animationName: options.animationName,
+    },
+  );
+
+  const times = boundaryFrameTimes(timeline.durationMs, boundaryMs, fps);
+  const frames: AnimationBoundaryFrame[] = [];
+  for (const timeMs of times) {
+    await page.evaluate((timeMs) => {
+      const fixture = document.getElementById("e2e-boundary-capture");
+      if (!fixture) throw new Error("Animation boundary fixture disappeared");
+      const animations = fixture.getAnimations({ subtree: true });
+      if (animations.length === 0) throw new Error("Cloned boundary animations are unavailable");
+      animations.forEach((animation) => {
+        animation.pause();
+        animation.currentTime = timeMs;
+      });
+    }, timeMs);
+    frames.push({
+      timeMs,
+      png: await page.locator("#e2e-boundary-capture").screenshot({
+        animations: "allow",
+        caret: "hide",
+      }),
+    });
+  }
+  await page.evaluate(() => document.getElementById("e2e-boundary-capture")?.remove());
+  return { durationMs: timeline.durationMs, easing: timeline.easing, frames };
 }
 
 export function assertMonotonicTransform(samples: TransformSample[], tolerance = 0.25): void {
@@ -233,6 +520,7 @@ export async function seekTransformAnimation(
   );
 
   const keyframePngs: Uint8Array[] = [];
+  const boundaryFrames: AnimationBoundaryFrame[] = [];
   if (captureVisuals) {
     await page.evaluate(async () => {
       await document.fonts.ready;
@@ -268,8 +556,30 @@ export async function seekTransformAnimation(
         }),
       );
     }
+    await page.evaluate(() => {
+      const label = document.querySelector<HTMLElement>(".e2e-animation-frame-label");
+      if (label) label.style.display = "none";
+    });
+    for (const timeMs of boundaryFrameTimes(timeline.durationMs)) {
+      await page.evaluate((timeMs) => {
+        const track = document.querySelector<HTMLElement>(
+          "#e2e-animation-capture .display-wall__track",
+        );
+        const animation = track?.getAnimations()[0];
+        if (!animation) throw new Error("Cloned transform animation is unavailable");
+        animation.pause();
+        animation.currentTime = timeMs;
+      }, timeMs);
+      boundaryFrames.push({
+        timeMs,
+        png: await page.locator("#e2e-animation-capture").screenshot({
+          animations: "allow",
+          caret: "hide",
+        }),
+      });
+    }
     await page.evaluate(() => document.getElementById("e2e-animation-capture")?.remove());
   }
 
-  return { ...timeline, keyframePngs };
+  return { ...timeline, keyframePngs, boundaryFrames };
 }

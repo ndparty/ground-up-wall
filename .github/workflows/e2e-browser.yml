@@ -163,13 +163,28 @@ jobs:
               summary = {"passed": [], "failed": [], "jobOutcome": "unknown"}
           passed = len(summary.get("passed", []))
           failed = len(summary.get("failed", []))
-          visual_evidence = len(glob.glob("test-results/e2e-browser/visual-success/*.png"))
+          visual_evidence = len(glob.glob(
+              "test-results/e2e-browser/visual-success/**/*.png",
+              recursive=True,
+          ))
+          animation_frames = 0
+          for manifest_path in glob.glob(
+              "test-results/e2e-browser/animation/*.manifest.json"
+          ):
+              try:
+                  with open(manifest_path) as manifest_file:
+                      frame_count = json.load(manifest_file).get("frameCount", 0)
+                  if isinstance(frame_count, int):
+                      animation_frames += frame_count
+              except Exception:
+                  pass
           outcome = summary.get("jobOutcome") or "unknown"
           print("## Browser E2E report")
           print()
           print(
               f"**Outcome:** {outcome} · **Passed:** {passed} · **Failed:** {failed} "
-              f"· **Successful visual comparisons:** {visual_evidence}"
+              f"· **Successful visual comparisons:** {visual_evidence} "
+              f"· **Animation boundary frames:** {animation_frames}"
           )
           print()
           print(f"[Open E2E visual report]({os.environ['REPORT_URL']})")

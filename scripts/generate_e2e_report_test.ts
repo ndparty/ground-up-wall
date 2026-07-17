@@ -14,6 +14,7 @@ Deno.test("E2E report embeds success, diff, and failure evidence", async () => {
   try {
     await Deno.mkdir(join(root, "success"), { recursive: true });
     await Deno.mkdir(join(root, "visual-success"), { recursive: true });
+    await Deno.mkdir(join(root, "animation"), { recursive: true });
     await Deno.mkdir(join(root, "visual-diff"), { recursive: true });
     await Deno.mkdir(join(root, "failures", "broken_test"), { recursive: true });
     const png = new Uint8Array([137, 80, 78, 71]);
@@ -24,6 +25,37 @@ Deno.test("E2E report embeds success, diff, and failure evidence", async () => {
     );
     await Deno.writeFile(join(root, "visual-success", "station-sign-matrix.png"), png);
     await Deno.writeFile(join(root, "visual-success", "upload-form.png"), png);
+    const gif = new TextEncoder().encode("GIF89a");
+    await Deno.writeFile(join(root, "animation", "alpha-start.gif"), gif);
+    await Deno.writeFile(join(root, "animation", "zeta-full.gif"), gif);
+    await Deno.writeTextFile(
+      join(root, "animation", "alpha.manifest.json"),
+      JSON.stringify({
+        name: "Alpha highlight",
+        selector: ".train-cabin-wrap--active",
+        durationMs: 400,
+        easing: "ease",
+        frameCount: 3,
+        width: 480,
+        height: 700,
+        policy: { boundaryMs: 500, fps: 60 },
+        previews: ["alpha-start.gif"],
+      }),
+    );
+    await Deno.writeTextFile(
+      join(root, "animation", "zeta.manifest.json"),
+      JSON.stringify({
+        name: "Zeta <fade>",
+        selector: 'div[data-state="unsafe"]',
+        durationMs: 800,
+        easing: "ease-in-out",
+        frameCount: 2,
+        width: 1280,
+        height: 800,
+        policy: { boundaryMs: 500, fps: 60 },
+        previews: ["zeta-full.gif", "../ignored.gif", "not-an-image.png"],
+      }),
+    );
     await Deno.writeFile(join(root, "visual-diff", "wall.expected.png"), png);
     await Deno.writeFile(join(root, "visual-diff", "wall.actual.png"), png);
     await Deno.writeFile(join(root, "visual-diff", "wall.diff.png"), png);
@@ -64,6 +96,12 @@ Deno.test("E2E report embeds success, diff, and failure evidence", async () => {
     assertStringIncludes(html, "data:image/png;base64,iVBORw==");
     assertStringIncludes(html, "wall: expected");
     assertStringIncludes(html, "Visual evidence: 3");
+    assertStringIncludes(html, "Animation frames: 5");
+    assertStringIncludes(html, "Animation boundary playback");
+    assertStringIncludes(html, "data:image/gif;base64,R0lGODlh");
+    assertStringIncludes(html, "Zeta &lt;fade&gt;");
+    assertStringIncludes(html, "div[data-state=&quot;unsafe&quot;]");
+    assertStringIncludes(html, "The lossless PNG frames listed in each manifest");
     assertStringIncludes(html, "Featured: display-wall-jump-animation-filmstrip.png");
     assertStringIncludes(html, "Featured: station-sign-matrix.png");
     assertStringIncludes(html, 'class="featured-filmstrip"');
@@ -98,6 +136,16 @@ Deno.test("E2E report embeds success, diff, and failure evidence", async () => {
       1,
       "only the animation filmstrip receives native-resolution scrolling",
     );
+    assertEquals(
+      html.indexOf("Alpha highlight") < html.indexOf("Zeta &lt;fade&gt;"),
+      true,
+      "animation sequences are ordered deterministically by name",
+    );
+    assertEquals(
+      html.split("data:image/gif;base64,R0lGODlh").length - 1,
+      2,
+      "only safe GIF basenames from manifests are embedded",
+    );
 
     const output = join(root, "custom-report.html");
     await generateE2eReport(root, output);
@@ -130,6 +178,8 @@ Deno.test("E2E report tolerates malformed summary fields and lets failures win",
     assertStringIncludes(html, "Visual evidence: 0");
     assertStringIncludes(html, "No featured visual evidence was captured.");
     assertStringIncludes(html, "No additional successful comparisons were captured.");
+    assertStringIncludes(html, "Animation frames: 0");
+    assertStringIncludes(html, "No animation boundary sequences were captured.");
   } finally {
     await Deno.remove(root, { recursive: true });
   }
