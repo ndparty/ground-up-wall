@@ -113,7 +113,7 @@ export async function encodeGifPreview(
   const gifFrames = await Promise.all(frames.map(async ({ png }) => {
     const decoded = await Image.decode(png);
     const preview = decoded.width > 960 ? decoded.resize(960, Image.RESIZE_AUTO) : decoded;
-    return Frame.from(preview, frameDuration);
+    return Frame.from(preview, frameDuration, 0, 0, Frame.DISPOSAL_BACKGROUND);
   }));
   return await new GIF(gifFrames, -1).encode(90);
 }
@@ -232,6 +232,9 @@ export async function captureAnimationBoundaries(
       }
       const computed = primary.effect.getComputedTiming();
       const configured = primary.effect.getTiming();
+      const authoredEasing = (primary.effect as KeyframeEffect).getKeyframes()
+        .map((keyframe) => keyframe.easing)
+        .find((easing) => easing && easing !== "linear");
       const durationMs = Number(computed.duration);
       if (!Number.isFinite(durationMs) || durationMs <= 0) {
         throw new Error(`Invalid animation duration: ${computed.duration}`);
@@ -291,7 +294,9 @@ export async function captureAnimationBoundaries(
       );
       return {
         durationMs,
-        easing: configured.easing ?? "",
+        easing: configured.easing && configured.easing !== "linear"
+          ? configured.easing
+          : authoredEasing ?? configured.easing ?? "",
         clonedAnimationCount: clonedAnimations.length,
       };
     },
