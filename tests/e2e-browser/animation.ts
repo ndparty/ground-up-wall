@@ -251,9 +251,14 @@ export async function captureAnimationBoundaries(
         const target = (animation.effect as KeyframeEffect | null)?.target;
         return target instanceof Element && captureRoot.contains(target);
       });
-      capturedAnimations.forEach((animation, index) => {
+      const capturedTargets: HTMLElement[] = [];
+      capturedAnimations.forEach((animation) => {
         const target = (animation.effect as KeyframeEffect).target as HTMLElement;
-        target.dataset.e2eAnimationNode = String(index);
+        let targetIndex = capturedTargets.indexOf(target);
+        if (targetIndex < 0) {
+          targetIndex = capturedTargets.push(target) - 1;
+          target.dataset.e2eAnimationNode = String(targetIndex);
+        }
       });
       const clone = captureRoot.cloneNode(true) as HTMLElement;
       clone.style.position = "absolute";
@@ -262,13 +267,15 @@ export async function captureAnimationBoundaries(
       fixture.append(clone);
       document.body.append(fixture);
 
-      const clonedAnimations = capturedAnimations.map((animation, index) => {
-        const nodeSelector = `[data-e2e-animation-node="${index}"]`;
+      const clonedAnimations = capturedAnimations.map((animation) => {
+        const sourceTarget = (animation.effect as KeyframeEffect).target as HTMLElement;
+        const targetIndex = sourceTarget.dataset.e2eAnimationNode;
+        const nodeSelector = `[data-e2e-animation-node="${targetIndex}"]`;
         const target = clone.matches(nodeSelector)
           ? clone
           : clone.querySelector<HTMLElement>(nodeSelector);
         const effect = animation.effect as KeyframeEffect;
-        if (!target) throw new Error(`Could not map cloned animation target ${index}`);
+        if (!target) throw new Error(`Could not map cloned animation target ${targetIndex}`);
         const cloned = target.animate(effect.getKeyframes(), effect.getTiming());
         cloned.pause();
         return cloned;
