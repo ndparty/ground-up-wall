@@ -30,6 +30,8 @@ Deno.test({
           assertGreater(initialRows, 0, "US-10: at least one managed user should be listed");
           await captureVisualBaseline(page, "admin-users-static", {
             mask: [".data-table__row td:nth-child(4)"],
+            style: ".data-table th:nth-child(4),.data-table td:nth-child(4){" +
+              "width:210px;min-width:210px;max-width:210px}",
           });
 
           const modUsername = `e2e_mod_${Date.now()}`;

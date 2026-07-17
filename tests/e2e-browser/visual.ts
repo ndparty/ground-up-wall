@@ -19,6 +19,8 @@ export type VisualCompareOptions = PngCompareOptions & {
   selector?: string;
   /** CSS selectors whose volatile content is painted a deterministic gray. */
   mask?: string[];
+  /** Capture-only CSS used to stabilize layout without changing production styles. */
+  style?: string;
 };
 
 export function visualComparisonsEnabled(): boolean {
@@ -44,6 +46,7 @@ async function captureStablePng(
     caret: "hide",
     mask: options.mask?.map((selector) => page.locator(selector)),
     maskColor: "#808080",
+    style: options.style,
   } as const;
   if (options.selector) {
     const target = page.locator(options.selector);
