@@ -263,9 +263,10 @@ export async function captureAnimationBoundaries(
       document.body.append(fixture);
 
       const clonedAnimations = capturedAnimations.map((animation, index) => {
-        const target = clone.querySelector<HTMLElement>(
-          `[data-e2e-animation-node="${index}"]`,
-        );
+        const nodeSelector = `[data-e2e-animation-node="${index}"]`;
+        const target = clone.matches(nodeSelector)
+          ? clone
+          : clone.querySelector<HTMLElement>(nodeSelector);
         const effect = animation.effect as KeyframeEffect;
         if (!target) throw new Error(`Could not map cloned animation target ${index}`);
         const cloned = target.animate(effect.getKeyframes(), effect.getTiming());
@@ -277,6 +278,7 @@ export async function captureAnimationBoundaries(
         if (target instanceof HTMLElement) delete target.dataset.e2eAnimationNode;
         animation.play();
       });
+      delete clone.dataset.e2eAnimationNode;
       clone.querySelectorAll<HTMLElement>("[data-e2e-animation-node]").forEach((target) =>
         delete target.dataset.e2eAnimationNode
       );
